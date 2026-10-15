@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "group": "tin_ingot",
+  "ingredient": "astralspace:raw_tin",
+  "result": {
+    "id": "astralspace:tin_ingot"
+  },
+  "experience": 0.7,
+  "cookingtime": 100
+}

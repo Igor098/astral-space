@@ -1,0 +1,9 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "#c:is_overworld",
+  "features": [
+    "astralspace:aluminum_ore",
+    "astralspace:tin_ore"
+  ],
+  "step": "underground_ores"
+}

@@ -1,0 +1,13 @@
+{
+  "itemGroup.astralspace": "Astral Space",
+  "block.astralspace.aluminum_ore": "Aluminum Ore",
+  "block.astralspace.deepslate_aluminum_ore": "Deepslate Aluminum Ore",
+  "block.astralspace.tin_ore": "Tin Ore",
+  "block.astralspace.deepslate_tin_ore": "Deepslate Tin Ore",
+  "block.astralspace.aluminum_block": "Aluminum Block",
+  "block.astralspace.tin_block": "Tin Block",
+  "item.astralspace.raw_aluminum": "Raw Aluminum",
+  "item.astralspace.raw_tin": "Raw Tin",
+  "item.astralspace.aluminum_ingot": "Aluminum Ingot",
+  "item.astralspace.tin_ingot": "Tin Ingot"
+}

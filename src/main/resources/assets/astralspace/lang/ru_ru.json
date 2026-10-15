@@ -1,0 +1,13 @@
+{
+  "itemGroup.astralspace": "Astral Space",
+  "block.astralspace.aluminum_ore": "Алюминиевая руда",
+  "block.astralspace.deepslate_aluminum_ore": "Глубинносланцевая алюминиевая руда",
+  "block.astralspace.tin_ore": "Оловянная руда",
+  "block.astralspace.deepslate_tin_ore": "Глубинносланцевая оловянная руда",
+  "block.astralspace.aluminum_block": "Алюминиевый блок",
+  "block.astralspace.tin_block": "Оловянный блок",
+  "item.astralspace.raw_aluminum": "Необработанный алюминий",
+  "item.astralspace.raw_tin": "Необработанное олово",
+  "item.astralspace.aluminum_ingot": "Алюминиевый слиток",
+  "item.astralspace.tin_ingot": "Оловянный слиток"
+}
