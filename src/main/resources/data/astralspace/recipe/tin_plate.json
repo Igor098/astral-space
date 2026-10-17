@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "astralspace:metalworking_hammer",
+    "astralspace:tin_ingot"
+  ],
+  "result": {
+    "id": "astralspace:tin_plate",
+    "count": 1
+  }
+}

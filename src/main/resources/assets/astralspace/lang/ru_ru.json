@@ -9,5 +9,8 @@
   "item.astralspace.raw_aluminum": "Необработанный алюминий",
   "item.astralspace.raw_tin": "Необработанное олово",
   "item.astralspace.aluminum_ingot": "Алюминиевый слиток",
-  "item.astralspace.tin_ingot": "Оловянный слиток"
+  "item.astralspace.tin_ingot": "Оловянный слиток",
+  "item.astralspace.aluminum_plate": "Алюминиевая пластина",
+  "item.astralspace.tin_plate": "Оловянная пластина",
+  "item.astralspace.metalworking_hammer": "Кузнечный молот"
 }

@@ -9,5 +9,8 @@
   "item.astralspace.raw_aluminum": "Raw Aluminum",
   "item.astralspace.raw_tin": "Raw Tin",
   "item.astralspace.aluminum_ingot": "Aluminum Ingot",
-  "item.astralspace.tin_ingot": "Tin Ingot"
+  "item.astralspace.tin_ingot": "Tin Ingot",
+  "item.astralspace.aluminum_plate": "Aluminum Plate",
+  "item.astralspace.tin_plate": "Tin Plate",
+  "item.astralspace.metalworking_hammer": "Metalworking Hammer"
 }
