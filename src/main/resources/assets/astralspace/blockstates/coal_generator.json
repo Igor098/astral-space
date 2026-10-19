@@ -1,0 +1,519 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "facing": "north",
+        "front_state": "off"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_off"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "front_state": "running_normal"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_normal"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "front_state": "running_low_fuel"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_low_fuel"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_back": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/back"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_back": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_left": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/left"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_left": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_right": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/right"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_right": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_top": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/top"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_top": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_bottom": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/bottom"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "output_bottom": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "front_state": "off"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_off",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "front_state": "running_normal"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_normal",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "front_state": "running_low_fuel"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_low_fuel",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_back": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/back",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_back": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_left": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/left",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_left": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector"
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_right": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/right",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_right": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_top": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/top",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_top": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 90,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_bottom": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/bottom",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "output_bottom": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 270,
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "front_state": "off"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_off",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "front_state": "running_normal"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_normal",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "front_state": "running_low_fuel"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_low_fuel",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_back": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/back",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_back": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_left": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/left",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_left": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_right": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/right",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_right": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_top": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/top",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_top": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 90,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_bottom": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/bottom",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "output_bottom": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 270,
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "front_state": "off"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_off",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "front_state": "running_normal"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_normal",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "front_state": "running_low_fuel"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/front_on_low_fuel",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_back": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/back",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_back": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_left": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/left",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_left": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_right": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/right",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_right": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector"
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_top": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/top",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_top": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 90,
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_bottom": "false"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/bottom",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "output_bottom": "true"
+      },
+      "apply": {
+        "model": "astralspace:block/coal_generator/faces/connector",
+        "x": 270,
+        "y": 270
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "north": "astralspace:block/coal_generator/front_off",
+    "south": "astralspace:block/coal_generator/back",
+    "west": "astralspace:block/coal_generator/right",
+    "east": "astralspace:block/coal_generator/left",
+    "up": "astralspace:block/coal_generator/top",
+    "down": "astralspace:block/coal_generator/bottom",
+    "particle": "astralspace:block/coal_generator/right"
+  }
+}

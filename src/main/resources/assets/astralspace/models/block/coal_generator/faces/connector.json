@@ -1,0 +1,25 @@
+{
+  "textures": {
+    "connector": "astralspace:block/coal_generator/connector"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "south": {
+          "texture": "#connector",
+          "cullface": "south"
+        }
+      }
+    }
+  ]
+}

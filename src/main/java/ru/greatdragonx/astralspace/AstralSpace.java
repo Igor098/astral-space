@@ -5,10 +5,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
-import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
-import ru.greatdragonx.astralspace.modules.energy.EnergyBlockTypes;
-import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
-import ru.greatdragonx.astralspace.modules.energy.EnergyItems;
+import ru.greatdragonx.astralspace.modules.energy.*;
+import ru.greatdragonx.astralspace.modules.energy.menus.EnergyMenus;
 import ru.greatdragonx.astralspace.modules.materials.MaterialBlocks;
 import ru.greatdragonx.astralspace.modules.materials.MaterialItems;
 import ru.greatdragonx.astralspace.modules.metalworking.MetalworkingItems;
@@ -29,5 +27,8 @@ public class AstralSpace {
         MaterialItems.ITEMS.register(modEventBus);
         MetalworkingItems.ITEMS.register(modEventBus);
         EnergyItems.ITEMS.register(modEventBus);
+        EnergyMenus.MENUS.register(modEventBus);
+
+        modEventBus.addListener(EnergyCapabilitiesRegistration::register);
     }
 }

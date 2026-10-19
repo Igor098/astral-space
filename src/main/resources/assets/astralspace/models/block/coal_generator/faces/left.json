@@ -1,0 +1,25 @@
+{
+  "textures": {
+    "left": "astralspace:block/coal_generator/left"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "east": {
+          "texture": "#left",
+          "cullface": "east"
+        }
+      }
+    }
+  ]
+}

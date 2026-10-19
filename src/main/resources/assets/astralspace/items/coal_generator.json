@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "astralspace:block/coal_generator/base"
+  }
+}

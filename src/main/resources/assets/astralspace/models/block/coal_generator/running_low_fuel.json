@@ -1,0 +1,6 @@
+{
+  "parent": "astralspace:block/coal_generator/base",
+  "textures": {
+    "north": "astralspace:block/coal_generator/front_on_low_fuel"
+  }
+}

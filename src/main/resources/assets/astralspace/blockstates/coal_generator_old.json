@@ -1,0 +1,49 @@
+{
+  "variants": {
+    "facing=north,front_state=off": {
+      "model": "astralspace:block/coal_generator/base"
+    },
+    "facing=north,front_state=running_normal": {
+      "model": "astralspace:block/coal_generator/running_normal"
+    },
+    "facing=north,front_state=running_low_fuel": {
+      "model": "astralspace:block/coal_generator/running_low_fuel"
+    },
+    "facing=east,front_state=off": {
+      "model": "astralspace:block/coal_generator/base",
+      "y": 90
+    },
+    "facing=east,front_state=running_normal": {
+      "model": "astralspace:block/coal_generator/running_normal",
+      "y": 90
+    },
+    "facing=east,front_state=running_low_fuel": {
+      "model": "astralspace:block/coal_generator/running_low_fuel",
+      "y": 90
+    },
+    "facing=south,front_state=off": {
+      "model": "astralspace:block/coal_generator/base",
+      "y": 180
+    },
+    "facing=south,front_state=running_normal": {
+      "model": "astralspace:block/coal_generator/running_normal",
+      "y": 180
+    },
+    "facing=south,front_state=running_low_fuel": {
+      "model": "astralspace:block/coal_generator/running_low_fuel",
+      "y": 180
+    },
+    "facing=west,front_state=off": {
+      "model": "astralspace:block/coal_generator/base",
+      "y": 270
+    },
+    "facing=west,front_state=running_normal": {
+      "model": "astralspace:block/coal_generator/running_normal",
+      "y": 270
+    },
+    "facing=west,front_state=running_low_fuel": {
+      "model": "astralspace:block/coal_generator/running_low_fuel",
+      "y": 270
+    }
+  }
+}
