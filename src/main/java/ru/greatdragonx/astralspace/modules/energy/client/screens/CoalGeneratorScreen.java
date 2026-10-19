@@ -6,6 +6,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
@@ -24,11 +25,13 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private static final int STATUS_ICON_GAP = 3;
     private static final int ENERGY_PANEL_WIDTH = 100;
     private static final int ENERGY_PANEL_HEIGHT = 76;
-    private static final int ENERGY_PANEL_Y = 20;
 
-    private static final int ENERGY_TAB_WIDTH = 16;
+    private static final int ENERGY_TAB_WIDTH = 20;
     private static final int ENERGY_TAB_HEIGHT = 20;
-    private static final int ENERGY_TAB_Y = 26;
+    private static final int ENERGY_ICON_WIDTH = 16;
+    private static final int ENERGY_ICON_HEIGHT = 16;
+    private static final int ENERGY_TAB_Y = 20;
+    private static final float ENERGY_ANIMATION_STEP = 0.2f;
     private static final Identifier STATUS_ICONS = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/coal_generator/status_icons.png"
@@ -46,7 +49,13 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/coal_generator/flame_full.png"
     );
+    private static final Identifier ENERGY_ICON = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/coal_generator/energy_tab_icon.png"
+    );
     private boolean energyPanelOpen = false;
+    private float energyTabProgress = 0.0f;
+    private float previousEnergyTabProgress = 0.0f;
 
     public CoalGeneratorScreen(
         CoalGeneratorMenu menu,
@@ -61,6 +70,12 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        this.updateEnergyTabAnimation();
     }
 
     @Override
@@ -144,14 +159,11 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         this.drawGeneratorStatus(graphics);
         this.drawFuelLabel(graphics);
         this.drawEnergyLabel(graphics);
-        if (this.energyPanelOpen) {
-            this.drawEnergyPanel(graphics);
-        }
-
         this.drawEnergyTab(
             graphics,
             mouseX,
-            mouseY
+            mouseY,
+            partialTick
         );
     }
 
@@ -183,7 +195,9 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     }
 
     private int getEnergyTabX() {
-        return this.leftPos - ENERGY_TAB_WIDTH;
+        int width = this.energyPanelOpen ? ENERGY_PANEL_WIDTH : ENERGY_TAB_WIDTH;
+
+        return this.leftPos - width;
     }
 
     private int getEnergyTabY() {
@@ -197,7 +211,9 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         int x = this.getEnergyTabX();
         int y = this.getEnergyTabY();
 
-        return mouseX >= x && mouseX < x + ENERGY_TAB_WIDTH && mouseY >= y && mouseY < y + ENERGY_TAB_HEIGHT;
+        int width = this.energyPanelOpen ? ENERGY_PANEL_WIDTH : ENERGY_TAB_WIDTH;
+
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + ENERGY_TAB_HEIGHT;
     }
 
     private void drawScaledText(
@@ -444,104 +460,60 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     }
 
     private void drawEnergyTab(
-        @NonNull GuiGraphics graphics,
+        GuiGraphics graphics,
         int mouseX,
-        int mouseY
+        int mouseY,
+        float partialTick
     ) {
-        int x = this.getEnergyTabX();
+        float progress = this.getInterpolatedEnergyTabProgress(partialTick);
+        int width = this.getAnimatedEnergyTabWidth(progress);
+        int height = this.getAnimatedEnergyTabHeight(progress);
+        int deltaHeight = height - ENERGY_TAB_HEIGHT;
+
+        int x = this.leftPos - width;
         int y = this.getEnergyTabY();
 
-        boolean hovered = this.isEnergyTabHovered(
-            mouseX,
-            mouseY
-        );
-
         graphics.fill(
             x,
             y,
-            x + ENERGY_TAB_WIDTH,
-            y + ENERGY_TAB_HEIGHT,
+            x + width,
+            y + height,
             0xFF252A30
         );
 
         graphics.renderOutline(
             x,
             y,
-            ENERGY_TAB_WIDTH,
-            ENERGY_TAB_HEIGHT,
-            hovered || this.energyPanelOpen ? 0xFFE3AE57 : 0xFF626C75
-        );
-
-        int color = 0xFFFFC56A;
-
-        graphics.fill(
-            x + 9,
-            y + 4,
-            x + 12,
-            y + 6,
-            color
-        );
-        graphics.fill(
-            x + 8,
-            y + 6,
-            x + 11,
-            y + 8,
-            color
-        );
-        graphics.fill(
-            x + 7,
-            y + 8,
-            x + 10,
-            y + 10,
-            color
-        );
-        graphics.fill(
-            x + 7,
-            y + 10,
-            x + 12,
-            y + 11,
-            color
-        );
-        graphics.fill(
-            x + 9,
-            y + 11,
-            x + 11,
-            y + 13,
-            color
-        );
-        graphics.fill(
-            x + 8,
-            y + 13,
-            x + 10,
-            y + 16,
-            color
-        );
-    }
-
-    private void drawEnergyPanel(@NonNull GuiGraphics graphics) {
-        int x = this.getEnergyTabX() - ENERGY_PANEL_WIDTH;
-        int y = this.topPos + ENERGY_PANEL_Y;
-
-        graphics.fill(
-            x,
-            y,
-            x + ENERGY_PANEL_WIDTH,
-            y + ENERGY_PANEL_HEIGHT,
-            0xFF252A30
-        );
-
-        graphics.renderOutline(
-            x,
-            y,
-            ENERGY_PANEL_WIDTH,
-            ENERGY_PANEL_HEIGHT,
+            width,
+            height,
             0xFF626C75
         );
+        int iconXMargin = (ENERGY_TAB_WIDTH - ENERGY_ICON_WIDTH) / 2;
+        int iconYMargin = (ENERGY_TAB_HEIGHT - ENERGY_ICON_HEIGHT) / 2;
+        int iconX = this.energyPanelOpen ? x + 5 : x + iconXMargin;
+        int iconY = this.energyPanelOpen ? y + 1 : y + iconYMargin;
+
+        graphics.blit(
+            RenderPipelines.GUI_TEXTURED,
+            ENERGY_ICON,
+            iconX,
+            iconY,
+            0,
+            0,
+            ENERGY_ICON_WIDTH,
+            ENERGY_ICON_HEIGHT,
+            ENERGY_ICON_WIDTH,
+            ENERGY_ICON_HEIGHT
+        );
+
+        if (progress <= 0.9f) {
+            return;
+        }
 
         this.drawScaledText(
             graphics,
             Component.translatable("gui.astralspace.coal_generator.panel.title"),
-            x + 6,
+            x + 24,
             y + 6,
             0.75f,
             0xFFE4E8EC
@@ -550,7 +522,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         graphics.fill(
             x + 5,
             y + 19,
-            x + ENERGY_PANEL_WIDTH - 5,
+            x + width - 5,
             y + 20,
             0xFF626C75
         );
@@ -578,6 +550,56 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             x,
             y + 57
         );
+    }
+
+    private void updateEnergyTabAnimation() {
+        this.previousEnergyTabProgress = this.energyTabProgress;
+        float progress = this.energyTabProgress;
+
+        if (this.energyPanelOpen) {
+            progress += ENERGY_ANIMATION_STEP;
+        } else {
+            progress -= ENERGY_ANIMATION_STEP;
+        }
+
+        this.energyTabProgress = Math.clamp(
+            progress,
+            0.0f,
+            1.0f
+        );
+    }
+
+    private int getAnimatedEnergyTabWidth(float progress) {
+        int delta = ENERGY_PANEL_WIDTH - ENERGY_TAB_WIDTH;
+        float normalizedProgress = Math.clamp(
+            progress,
+            0.0f,
+            1.0f
+        );
+        return Math.round(ENERGY_TAB_WIDTH + delta * normalizedProgress);
+    }
+
+    private float getInterpolatedEnergyTabProgress(float partialTick) {
+        float progress = Mth.lerp(
+            partialTick,
+            this.previousEnergyTabProgress,
+            this.energyTabProgress
+        );
+        return Math.clamp(
+            progress,
+            0.0f,
+            1.0f
+        );
+    }
+
+    private int getAnimatedEnergyTabHeight(float progress) {
+        int delta = ENERGY_PANEL_HEIGHT - ENERGY_TAB_HEIGHT;
+        float normalizedProgress = Math.clamp(
+            progress,
+            0.0f,
+            1.0f
+        );
+        return Math.round(ENERGY_TAB_HEIGHT + delta * normalizedProgress);
     }
 
     private int getEnergyBarWidth(int maxWidth) {
