@@ -6,12 +6,18 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
+import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
+import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
+import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
+
+import java.util.List;
 
 public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMenu> {
     private static final int MENU_WIDTH = 176;
@@ -68,10 +74,10 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/coal_generator/energy_tab_background.png"
     );
-    private boolean energyPanelOpen = false;
-    private float energyTabProgress = 0.0f;
-    private float previousEnergyTabProgress = 0.0f;
     private int renderedEnergyTabWidth = ENERGY_TAB_WIDTH;
+
+    private final GuiTabAnimation energyAnimation;
+    private final GuiStatisticsTab statisticsTab;
 
     public CoalGeneratorScreen(
         CoalGeneratorMenu menu,
@@ -86,12 +92,17 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
+        this.energyAnimation = new GuiTabAnimation(ENERGY_ANIMATION_STEP);
+        this.statisticsTab = new GuiStatisticsTab(
+            this.font,
+            ENERGY_ICON
+        );
     }
 
     @Override
     protected void containerTick() {
         super.containerTick();
-        this.updateEnergyTabAnimation();
+        this.energyAnimation.tick();
     }
 
     @Override
@@ -114,7 +125,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             mouseY
         );
 
-        if (!this.energyPanelOpen && this.isEnergyTabHovered(
+        if (!this.energyAnimation.isOpen() && this.isEnergyTabHovered(
             mouseX,
             mouseY
         )) {
@@ -139,7 +150,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             event.x(),
             event.y()
         )) {
-            this.energyPanelOpen = !this.energyPanelOpen;
+            this.energyAnimation.toggle();
             return true;
         }
 
@@ -210,8 +221,30 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         );
     }
 
+    private @NonNull GuiStatisticsData createStatisticsData() {
+        Component title = Component.translatable("gui.astralspace.coal_generator.panel.title");
+        List<GuiStatisticEntry> entries = List.of(
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.coal_generator.panel.production"),
+                Component.literal(this.menu.getCurrentProductionRate() + " FE/t")
+            ),
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.coal_generator.panel.maximum"),
+                Component.literal(CoalGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK + " FE/t")
+            ),
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.coal_generator.panel.transfer"),
+                Component.literal(this.menu.getCurrentTransferRate() + " FE/t")
+            )
+        );
+        return new GuiStatisticsData(
+            title,
+            entries
+        );
+    }
+
     private int getEnergyTabX() {
-        int width = this.energyPanelOpen ? ENERGY_PANEL_WIDTH : ENERGY_TAB_WIDTH;
+        int width = this.energyAnimation.isOpen() ? ENERGY_PANEL_WIDTH : ENERGY_TAB_WIDTH;
 
         return this.leftPos - width;
     }
@@ -469,8 +502,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         int mouseY,
         float partialTick
     ) {
-        float linearProgress = this.getInterpolatedEnergyTabProgress(partialTick);
-        float progress = this.easeInOut(linearProgress);
+        float progress = this.energyAnimation.getProgress(partialTick);
 
         int width = this.getAnimatedEnergyTabWidth(progress);
         int height = this.getAnimatedEnergyTabHeight(progress);
@@ -479,12 +511,15 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         int x = this.leftPos - width;
         int y = this.getEnergyTabY();
 
-        this.drawEnergyTabBackground(
+        NineSliceRenderer.draw(
             graphics,
+            ENERGY_TAB_BACKGROUND,
             x,
             y,
             width,
-            height
+            height,
+            ENERGY_TEXTURE_SIZE,
+            ENERGY_BORDER_SIZE
         );
 
         int iconXMargin = (ENERGY_TAB_WIDTH - ENERGY_ICON_WIDTH) / 2;
@@ -556,202 +591,6 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         graphics.disableScissor();
     }
 
-    private void drawEnergyTabBackground(
-        GuiGraphics graphics,
-        int x,
-        int y,
-        int width,
-        int height
-    ) {
-        int innerWidth = width - 2 * ENERGY_BORDER_SIZE;
-        int innerHeight = height - 2 * ENERGY_BORDER_SIZE;
-
-        int tileWidth = ENERGY_TEXTURE_SIZE - 2 * ENERGY_BORDER_SIZE;
-        int tileHeight = ENERGY_TEXTURE_SIZE - 2 * ENERGY_BORDER_SIZE;
-
-        if (innerWidth <= 0 || innerHeight <= 0) {
-            return;
-        }
-
-        for (int offsetX = 0; offsetX < innerWidth; offsetX += tileWidth) {
-            for (int offsetY = 0; offsetY < innerHeight; offsetY += tileHeight) {
-                int fragmentWidth = Math.min(
-                    tileWidth,
-                    innerWidth - offsetX
-                );
-
-                int fragmentHeight = Math.min(
-                    tileHeight,
-                    innerHeight - offsetY
-                );
-
-                graphics.blit(
-                    RenderPipelines.GUI_TEXTURED,
-                    ENERGY_TAB_BACKGROUND,
-                    x + ENERGY_BORDER_SIZE + offsetX,
-                    y + ENERGY_BORDER_SIZE + offsetY,
-                    ENERGY_BORDER_SIZE,
-                    ENERGY_BORDER_SIZE,
-                    fragmentWidth,
-                    fragmentHeight,
-                    ENERGY_TEXTURE_SIZE,
-                    ENERGY_TEXTURE_SIZE
-                );
-            }
-        }
-
-        for (int offset = 0; offset < innerWidth; offset += tileWidth) {
-            int fragmentWidth = Math.min(
-                tileWidth,
-                innerWidth - offset
-            );
-
-            graphics.blit(
-                RenderPipelines.GUI_TEXTURED,
-                ENERGY_TAB_BACKGROUND,
-                x + ENERGY_BORDER_SIZE + offset,
-                y,
-                ENERGY_BORDER_SIZE,
-                0,
-                fragmentWidth,
-                ENERGY_BORDER_SIZE,
-                ENERGY_TEXTURE_SIZE,
-                ENERGY_TEXTURE_SIZE
-            );
-        }
-
-        for (int offset = 0; offset < innerWidth; offset += tileWidth) {
-            int fragmentWidth = Math.min(
-                tileWidth,
-                innerWidth - offset
-            );
-
-            graphics.blit(
-                RenderPipelines.GUI_TEXTURED,
-                ENERGY_TAB_BACKGROUND,
-                x + ENERGY_BORDER_SIZE + offset,
-                y + height - ENERGY_BORDER_SIZE,
-                ENERGY_BORDER_SIZE,
-                ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-                fragmentWidth,
-                ENERGY_BORDER_SIZE,
-                ENERGY_TEXTURE_SIZE,
-                ENERGY_TEXTURE_SIZE
-            );
-        }
-        for (int offset = 0; offset < innerHeight; offset += tileHeight) {
-            int fragmentHeight = Math.min(
-                tileHeight,
-                innerHeight - offset
-            );
-            graphics.blit(
-                RenderPipelines.GUI_TEXTURED,
-                ENERGY_TAB_BACKGROUND,
-                x,
-                y + ENERGY_BORDER_SIZE + offset,
-                0,
-                ENERGY_BORDER_SIZE,
-                ENERGY_BORDER_SIZE,
-                fragmentHeight,
-                ENERGY_TEXTURE_SIZE,
-                ENERGY_TEXTURE_SIZE
-            );
-        }
-        for (int offset = 0; offset < innerHeight; offset += tileHeight) {
-            int fragmentHeight = Math.min(
-                tileHeight,
-                innerHeight - offset
-            );
-            graphics.blit(
-                RenderPipelines.GUI_TEXTURED,
-                ENERGY_TAB_BACKGROUND,
-                x + width - ENERGY_BORDER_SIZE,
-                y + ENERGY_BORDER_SIZE + offset,
-                ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-                ENERGY_BORDER_SIZE,
-                ENERGY_BORDER_SIZE,
-                fragmentHeight,
-                ENERGY_TEXTURE_SIZE,
-                ENERGY_TEXTURE_SIZE
-            );
-        }
-
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            ENERGY_TAB_BACKGROUND,
-            x,
-            y,
-            0,
-            0,
-            ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE,
-            ENERGY_TEXTURE_SIZE
-        );
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            ENERGY_TAB_BACKGROUND,
-            x + width - ENERGY_BORDER_SIZE,
-            y,
-            ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-            0,
-            ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE,
-            ENERGY_TEXTURE_SIZE
-        );
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            ENERGY_TAB_BACKGROUND,
-            x,
-            y + height - ENERGY_BORDER_SIZE,
-            0,
-            ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE,
-            ENERGY_TEXTURE_SIZE
-        );
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            ENERGY_TAB_BACKGROUND,
-            x + width - ENERGY_BORDER_SIZE,
-            y + height - ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE - ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_BORDER_SIZE,
-            ENERGY_TEXTURE_SIZE,
-            ENERGY_TEXTURE_SIZE
-        );
-    }
-
-    private void updateEnergyTabAnimation() {
-        this.previousEnergyTabProgress = this.energyTabProgress;
-        float progress = this.energyTabProgress;
-
-        if (this.energyPanelOpen) {
-            progress += ENERGY_ANIMATION_STEP;
-        } else {
-            progress -= ENERGY_ANIMATION_STEP;
-        }
-
-        this.energyTabProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-    }
-
-    private float easeInOut(float progress) {
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return normalizedProgress * normalizedProgress * (3 - 2 * normalizedProgress);
-    }
-
     private CoalGeneratorGuiStatus getGeneratorStatus() {
         if (this.menu.getEnergyStored() >= this.menu.getEnergyCapacity()) {
             return CoalGeneratorGuiStatus.BUFFER_FULL;
@@ -773,19 +612,6 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             1.0f
         );
         return Math.round(ENERGY_TAB_WIDTH + delta * normalizedProgress);
-    }
-
-    private float getInterpolatedEnergyTabProgress(float partialTick) {
-        float progress = Mth.lerp(
-            partialTick,
-            this.previousEnergyTabProgress,
-            this.energyTabProgress
-        );
-        return Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
     }
 
     private int getAnimatedEnergyTabHeight(float progress) {
