@@ -37,6 +37,10 @@ public final class GuiTabAnimation {
         return this.open;
     }
 
+    public boolean isFullyClosed() {
+        return !isOpen() && this.progress <= 0.0f && this.previousProgress <= 0.0f;
+    }
+
     public float getProgress(float partialTick) {
         float progress = Mth.lerp(
             partialTick,

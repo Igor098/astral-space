@@ -39,7 +39,7 @@ public final class GuiStatisticsTab {
 
     private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/coal_generator/energy_tab_background.png"
+        "textures/gui/common/tabs/tab_background.png"
     );
 
     private final GuiTabAnimation animation;
@@ -106,6 +106,33 @@ public final class GuiStatisticsTab {
             width,
             height
         );
+    }
+
+    public void renderTooltip(
+        GuiGraphics graphics,
+        int mouseX,
+        int mouseY,
+        int screenLeft,
+        int screenTop,
+        Component tooltip
+    ) {
+        boolean isHovered = this.isHovered(
+            mouseX,
+            mouseY,
+            screenLeft,
+            screenTop
+        );
+
+        boolean isFullyClosed = this.animation.isFullyClosed();
+
+        if (isFullyClosed && isHovered) {
+            graphics.setTooltipForNextFrame(
+                this.font,
+                tooltip,
+                mouseX,
+                mouseY
+            );
+        }
     }
 
     public void tick() {
