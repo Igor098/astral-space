@@ -13,6 +13,8 @@ import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlo
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
 import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutputMapper;
 
+import java.util.function.Consumer;
+
 public class CoalGeneratorMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final ContainerData data;
@@ -109,6 +111,14 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         return CoalGeneratorEnergyOutputMapper.fromMask(mask);
     }
 
+    public void withGenerator(Consumer<CoalGeneratorBlockEntity> action) {
+        this.access.execute((level, pos) -> {
+            if (level.getBlockEntity(pos) instanceof CoalGeneratorBlockEntity entity) {
+                action.accept(entity);
+            }
+        });
+    }
+
     @Override
     public boolean stillValid(@NonNull Player player) {
         return AbstractContainerMenu.stillValid(
@@ -164,12 +174,5 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         );
 
         return originalStack;
-    }
-
-    private boolean isBitEnabled(
-        int mask,
-        int bitIndex
-    ) {
-        return (mask & (1 << bitIndex)) != 0;
     }
 }

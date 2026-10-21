@@ -49,8 +49,8 @@ public final class CoalGeneratorEnergyOutputMapper {
     }
 
     private record OutputDefinition(@NonNull MachineSide side,
-        @NonNull BooleanProperty property,
-        int bitIndex) {
+                                    @NonNull BooleanProperty property,
+                                    int bitIndex) {
     }
 
     public static @NonNull SideConfiguration fromMask(int mask) {
@@ -123,5 +123,34 @@ public final class CoalGeneratorEnergyOutputMapper {
         }
 
         return false;
+    }
+
+    public static BlockState toggleOutput(
+        @NonNull BlockState state,
+        @NonNull MachineSide side
+    ) {
+        Objects.requireNonNull(
+            state,
+            "Block state cannot be null"
+        );
+        Objects.requireNonNull(
+            side,
+            "Machine side cannot be null"
+        );
+
+        for (OutputDefinition definition : OUTPUTS) {
+            MachineSide machineSide = definition.side();
+            if (side == machineSide) {
+                BooleanProperty property = definition.property();
+                boolean currentValue = state.getValue(property);
+
+                return state.setValue(
+                    property,
+                    !currentValue
+                );
+            }
+        }
+
+        return state;
     }
 }

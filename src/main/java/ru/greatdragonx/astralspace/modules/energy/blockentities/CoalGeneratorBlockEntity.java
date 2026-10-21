@@ -226,7 +226,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         Level level,
         BlockPos pos,
         BlockState state,
-        CoalGeneratorBlockEntity blockEntity
+        @NonNull CoalGeneratorBlockEntity blockEntity
     ) {
         blockEntity.currentProductionRate = 0;
 
@@ -313,6 +313,36 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             ),
             this.data
         );
+    }
+
+    public void toggleEnergyOutput(MachineSide side) {
+        if (this.level == null) {
+            return;
+        }
+
+        if (this.level.isClientSide()) {
+            return;
+        }
+
+        BlockState currentState = this.getBlockState();
+        BlockState newState = CoalGeneratorEnergyOutputMapper.toggleOutput(
+            currentState,
+            side
+        );
+
+        if (currentState == newState) {
+            return;
+        }
+
+        boolean isSuccess = this.level.setBlock(
+            this.getBlockPos(),
+            newState,
+            Block.UPDATE_ALL
+        );
+
+        if (isSuccess) {
+            this.level.invalidateCapabilities(this.worldPosition);
+        }
     }
 
     @Override

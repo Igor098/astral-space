@@ -7,16 +7,21 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiSideConfigTab;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.PortMode;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
+import ru.greatdragonx.astralspace.modules.energy.network.ToggleCoalGeneratorOutputPayload;
 
 import java.util.List;
+import java.util.Map;
 
 public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMenu> {
     private static final int MENU_WIDTH = 176;
@@ -58,6 +63,19 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private static final Identifier SIDE_CONFIG_ICON = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/common/tabs/side_configuration.png"
+    );
+
+    private static final Map<PortMode, Identifier> ENERGY_PORT_TEXTURES = Map.of(
+        PortMode.DISABLED,
+        Identifier.fromNamespaceAndPath(
+            AstralSpace.MOD_ID,
+            "textures/gui/common/side_config/energy_port_disabled.png"
+        ),
+        PortMode.OUTPUT,
+        Identifier.fromNamespaceAndPath(
+            AstralSpace.MOD_ID,
+            "textures/gui/common/side_config/energy_port_output.png"
+        )
     );
 
     private final GuiStatisticsTab statisticsTab;
@@ -126,6 +144,15 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.topPos,
             tooltip
         );
+
+        this.sideConfigTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.getSideConfigTabX(),
+            this.getSideConfigTabY(),
+            this.menu.getEnergySideConfiguration()
+        );
     }
 
     @Override
@@ -149,6 +176,18 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         );
 
         if (isSideConfigClicked) {
+            return true;
+        }
+
+        MachineSide clickedPort = this.sideConfigTab.getClickedPort(
+            event,
+            this.getSideConfigTabX(),
+            this.getSideConfigTabY(),
+            this.menu.getEnergySideConfiguration()
+        );
+
+        if (clickedPort != null) {
+            ClientPacketDistributor.sendToServer(new ToggleCoalGeneratorOutputPayload(clickedPort));
             return true;
         }
 
@@ -197,7 +236,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             getSideConfigTabY(),
             partialTick,
             Component.translatable("gui.astralspace.side_config.title"),
-            this.menu.getEnergySideConfiguration()
+            this.menu.getEnergySideConfiguration(),
+            ENERGY_PORT_TEXTURES
         );
     }
 
