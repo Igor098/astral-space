@@ -7,9 +7,11 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
 import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
 import org.jspecify.annotations.NonNull;
+import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
+import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutputMapper;
 
 public class CoalGeneratorMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
@@ -97,6 +99,16 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         return this.data.get(CoalGeneratorBlockEntity.DATA_TRANSFER);
     }
 
+    public int getEnergyOutputMask() {
+        return this.data.get(CoalGeneratorBlockEntity.DATA_OUTPUT_MASK);
+    }
+
+    public SideConfiguration getEnergySideConfiguration() {
+        int mask = this.getEnergyOutputMask();
+
+        return CoalGeneratorEnergyOutputMapper.fromMask(mask);
+    }
+
     @Override
     public boolean stillValid(@NonNull Player player) {
         return AbstractContainerMenu.stillValid(
@@ -152,5 +164,12 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         );
 
         return originalStack;
+    }
+
+    private boolean isBitEnabled(
+        int mask,
+        int bitIndex
+    ) {
+        return (mask & (1 << bitIndex)) != 0;
     }
 }

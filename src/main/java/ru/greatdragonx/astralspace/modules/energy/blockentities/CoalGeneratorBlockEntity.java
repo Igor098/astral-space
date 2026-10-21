@@ -26,9 +26,12 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
+import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutputMapper;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
 
 import java.util.EnumMap;
@@ -46,7 +49,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_FRONT_STATE = 3;
     public static final int DATA_PRODUCTION = 4;
     public static final int DATA_TRANSFER = 5;
-    public static final int DATA_COUNT = 6;
+    public static final int DATA_OUTPUT_MASK = 6;
+    public static final int DATA_COUNT = 7;
     private final SimpleEnergyHandler energyHandler;
     private final ItemStacksResourceHandler fuelInventory;
     private final Map<Direction, OutputEnergyHandler> outputHandlers =
@@ -78,6 +82,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 }
                 case DATA_PRODUCTION -> CoalGeneratorBlockEntity.this.getCurrentProductionRate();
                 case DATA_TRANSFER -> CoalGeneratorBlockEntity.this.getCurrentTransferRate();
+                case DATA_OUTPUT_MASK -> CoalGeneratorBlockEntity.this.getEnergyOutputMask();
                 default -> 0;
             };
         }
@@ -443,36 +448,23 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     }
 
     private boolean isEnergyOutputEnabled(Direction side) {
+        if (side == null) {
+            return false;
+        }
+
         BlockState state = this.getBlockState();
 
         Direction facing = state.getValue(CoalGeneratorBlock.FACING);
-        Direction back = facing.getOpposite();
-        Direction left = facing.getClockWise();
-        Direction right = facing.getCounterClockWise();
-        Direction top = Direction.UP;
-        Direction bottom = Direction.DOWN;
 
-        if (side == back) {
-            return state.getValue(CoalGeneratorBlock.OUTPUT_BACK);
-        }
+        MachineSide machineSide = MachineSideDirections.fromWorld(
+            side,
+            facing
+        );
 
-        if (side == left) {
-            return state.getValue(CoalGeneratorBlock.OUTPUT_LEFT);
-        }
-
-        if (side == right) {
-            return state.getValue(CoalGeneratorBlock.OUTPUT_RIGHT);
-        }
-
-        if (side == top) {
-            return state.getValue(CoalGeneratorBlock.OUTPUT_TOP);
-        }
-
-        if (side == bottom) {
-            return state.getValue(CoalGeneratorBlock.OUTPUT_BOTTOM);
-        }
-
-        return false;
+        return CoalGeneratorEnergyOutputMapper.isOutputEnabled(
+            state,
+            machineSide
+        );
     }
 
     private long calculateTotalBurnTime() {
@@ -499,6 +491,12 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         long fuelCount = fuelInventory.getAmountAsLong(FUEL_SLOT);
 
         return totalBurnTime + fuelCount * burningTime;
+    }
+
+    private int getEnergyOutputMask() {
+        BlockState state = this.getBlockState();
+
+        return CoalGeneratorEnergyOutputMapper.toMask(state);
     }
 
     private CoalGeneratorFrontState determineFrontState(boolean isRunning) {

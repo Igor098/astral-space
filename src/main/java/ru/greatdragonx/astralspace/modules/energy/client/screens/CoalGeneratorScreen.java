@@ -11,6 +11,7 @@ import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiSideConfigTab;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
@@ -32,6 +33,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private static final int STATUS_ICON_SIZE = 8;
     private static final int STATUS_ICON_GAP = 3;
 
+    private static final int SIDE_CONFIG_TAB_Y = 20;
+
     private static final Identifier STATUS_ICONS = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/coal_generator/status_icons.png"
@@ -52,8 +55,13 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/common/tabs/energy_statistics.png"
     );
+    private static final Identifier SIDE_CONFIG_ICON = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/common/tabs/side_configuration.png"
+    );
 
     private final GuiStatisticsTab statisticsTab;
+    private final GuiSideConfigTab sideConfigTab;
 
     public CoalGeneratorScreen(
         CoalGeneratorMenu menu,
@@ -72,12 +80,17 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.font,
             ENERGY_ICON
         );
+        this.sideConfigTab = new GuiSideConfigTab(
+            this.font,
+            SIDE_CONFIG_ICON
+        );
     }
 
     @Override
     protected void containerTick() {
         super.containerTick();
         this.statisticsTab.tick();
+        this.sideConfigTab.tick();
     }
 
     @Override
@@ -120,12 +133,22 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         @NonNull MouseButtonEvent event,
         boolean doubled
     ) {
-        boolean isClicked = this.statisticsTab.mouseClicked(
+        boolean isStatisticsClicked = this.statisticsTab.mouseClicked(
             event,
             this.leftPos,
             this.topPos
         );
-        if (isClicked) {
+        if (isStatisticsClicked) {
+            return true;
+        }
+
+        boolean isSideConfigClicked = this.sideConfigTab.mouseClicked(
+            event,
+            this.getSideConfigTabX(),
+            this.getSideConfigTabY()
+        );
+
+        if (isSideConfigClicked) {
             return true;
         }
 
@@ -167,6 +190,14 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.topPos,
             partialTick,
             this.createStatisticsData()
+        );
+        this.sideConfigTab.render(
+            graphics,
+            getSideConfigTabX(),
+            getSideConfigTabY(),
+            partialTick,
+            Component.translatable("gui.astralspace.side_config.title"),
+            this.menu.getEnergySideConfiguration()
         );
     }
 
@@ -459,5 +490,13 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             0,
             maxHeight
         );
+    }
+
+    private int getSideConfigTabX() {
+        return this.leftPos + this.imageWidth;
+    }
+
+    private int getSideConfigTabY() {
+        return this.topPos + SIDE_CONFIG_TAB_Y;
     }
 }

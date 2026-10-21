@@ -11,6 +11,7 @@
   "gui.astralspace.coal_generator.panel.maximum": "Maximum",
   "gui.astralspace.coal_generator.panel.transfer": "Transfer",
   "gui.astralspace.coal_generator.panel.tooltip": "%s FE/t",
+  "gui.astralspace.side_config.title": "Configuration",
   "block.astralspace.aluminum_ore": "Aluminum Ore",
   "block.astralspace.deepslate_aluminum_ore": "Deepslate Aluminum Ore",
   "block.astralspace.tin_ore": "Tin Ore",
