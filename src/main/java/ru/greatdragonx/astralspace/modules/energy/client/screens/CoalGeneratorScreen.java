@@ -496,7 +496,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         return switch (this.menu.getFrontState()) {
             case RUNNING_NORMAL -> CoalGeneratorGuiStatus.RUNNING;
             case RUNNING_LOW_FUEL -> CoalGeneratorGuiStatus.LOW_FUEL;
-            case OFF -> CoalGeneratorGuiStatus.NO_FUEL;
+            case OFF -> this.menu.getBurnTime() > 0 ? CoalGeneratorGuiStatus.RUNNING :
+                CoalGeneratorGuiStatus.NO_FUEL;
         };
     }
 
