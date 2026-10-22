@@ -2,7 +2,6 @@ package ru.greatdragonx.astralspace.client.gui.tabs;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -16,7 +15,7 @@ import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
 
 import java.util.List;
 
-public final class GuiStatisticsTab {
+public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private static final float ANIMATION_STEP = 0.15f;
     private static final float STATISTIC_TEXT_SCALE = 0.65f;
 
@@ -45,7 +44,9 @@ public final class GuiStatisticsTab {
     private final GuiTabAnimation animation;
     private final Font font;
     private final Identifier iconTexture;
+
     private int renderedWidth = TAB_WIDTH;
+    private int renderedHeight = TAB_HEIGHT;
 
     public GuiStatisticsTab(
         Font font,
@@ -59,7 +60,7 @@ public final class GuiStatisticsTab {
     public void render(
         @NonNull GuiGraphics graphics,
         int screenLeft,
-        int screenTop,
+        int anchorY,
         float partialTick,
         @NonNull GuiStatisticsData data
     ) {
@@ -73,18 +74,18 @@ public final class GuiStatisticsTab {
         );
 
         this.renderedWidth = width;
+        this.renderedHeight = height;
 
         int x = this.getX(
             screenLeft,
             width
         );
-        int y = this.getY(screenTop);
 
         NineSliceRenderer.draw(
             graphics,
             BACKGROUND_TEXTURE,
             x,
-            y,
+            anchorY,
             width,
             height,
             TEXTURE_SIZE,
@@ -95,14 +96,14 @@ public final class GuiStatisticsTab {
             graphics,
             progress,
             x,
-            y
+            anchorY
         );
 
         this.drawContent(
             graphics,
             data,
             x,
-            y,
+            anchorY,
             width,
             height
         );
@@ -113,14 +114,14 @@ public final class GuiStatisticsTab {
         int mouseX,
         int mouseY,
         int screenLeft,
-        int screenTop,
+        int anchorY,
         Component tooltip
     ) {
-        boolean isHovered = this.isHovered(
+        boolean isHovered = this.isHeaderHovered(
             mouseX,
             mouseY,
             screenLeft,
-            screenTop
+            anchorY
         );
 
         boolean isFullyClosed = this.animation.isFullyClosed();
@@ -139,46 +140,38 @@ public final class GuiStatisticsTab {
         this.animation.tick();
     }
 
-    public void toggle() {
-        this.animation.toggle();
+    @Override
+    public void open() {
+        this.animation.open();
     }
 
+    @Override
+    public void close() {
+        this.animation.close();
+    }
+
+    @Override
     public boolean isOpen() {
         return this.animation.isOpen();
     }
 
-    public boolean isHovered(
+    @Override
+    public int getRenderedHeight() {
+        return this.renderedHeight;
+    }
+
+    @Override
+    public boolean isHeaderHovered(
         double mouseX,
         double mouseY,
         int screenLeft,
-        int screenTop
+        int anchorY
     ) {
         int x = this.getX(
             screenLeft,
             this.renderedWidth
         );
-        int y = this.getY(screenTop);
-        int width = this.renderedWidth;
-
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + TAB_HEIGHT;
-    }
-
-    public boolean mouseClicked(
-        @NonNull MouseButtonEvent event,
-        int screenLeft,
-        int screenTop
-    ) {
-        if (event.button() == 0 && this.isHovered(
-            event.x(),
-            event.y(),
-            screenLeft,
-            screenTop
-        )) {
-            this.toggle();
-            return true;
-        }
-
-        return false;
+        return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
     }
 
     private void drawIcon(
@@ -362,4 +355,3 @@ public final class GuiStatisticsTab {
         return BASE_PANEL_HEIGHT + (entryCount - 1) * ENTRY_SPACING;
     }
 }
-

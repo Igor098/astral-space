@@ -28,6 +28,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
@@ -50,7 +51,9 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_PRODUCTION = 4;
     public static final int DATA_TRANSFER = 5;
     public static final int DATA_OUTPUT_MASK = 6;
-    public static final int DATA_COUNT = 7;
+    public static final int DATA_REDSTONE_MODE = 7;
+    public static final int DATA_REDSTONE_BLOCKED = 8;
+    public static final int DATA_COUNT = 9;
     private final SimpleEnergyHandler energyHandler;
     private final ItemStacksResourceHandler fuelInventory;
     private final Map<Direction, OutputEnergyHandler> outputHandlers =
@@ -61,6 +64,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private int transferredThisTick = 0;
     private int transferredPreviousTick = 0;
     private int currentProductionRate = 0;
+    private RedstoneControlMode redstoneControlMode = RedstoneControlMode.WHEN_POWERED;
 
     private final ContainerData data = new ContainerData() {
 
@@ -83,6 +87,19 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 case DATA_PRODUCTION -> CoalGeneratorBlockEntity.this.getCurrentProductionRate();
                 case DATA_TRANSFER -> CoalGeneratorBlockEntity.this.getCurrentTransferRate();
                 case DATA_OUTPUT_MASK -> CoalGeneratorBlockEntity.this.getEnergyOutputMask();
+                case DATA_REDSTONE_MODE ->
+                    CoalGeneratorBlockEntity.this.redstoneControlMode.ordinal();
+                case DATA_REDSTONE_BLOCKED -> {
+                    Level level = CoalGeneratorBlockEntity.this.getLevel();
+                    if (level == null) {
+                        yield 0;
+                    }
+
+                    boolean hasSignal = level.hasNeighborSignal(worldPosition);
+                    boolean canOperate = redstoneControlMode.allowsOperation(hasSignal);
+
+                    yield canOperate ? 0 : 1;
+                }
                 default -> 0;
             };
         }
@@ -238,6 +255,17 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return;
         }
 
+        boolean hasSignal = level.hasNeighborSignal(pos);
+        boolean canOperate = blockEntity.redstoneControlMode.allowsOperation(hasSignal);
+
+        if (!canOperate) {
+            blockEntity.updateFrontState(
+                state,
+                false
+            );
+            return;
+        }
+
         if (blockEntity.burnTime <= 0) {
             boolean isBurningStarted = blockEntity.tryStartBurning();
 
@@ -367,6 +395,15 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             )
         );
         this.fuelInventory.deserialize(input.childOrEmpty("fuelInventory"));
+        String savedMode = input.getStringOr(
+            "redstoneControlMode",
+            RedstoneControlMode.IGNORE.name()
+        );
+        try {
+            this.redstoneControlMode = RedstoneControlMode.valueOf(savedMode);
+        } catch (IllegalArgumentException e) {
+            this.redstoneControlMode = RedstoneControlMode.IGNORE;
+        }
     }
 
     @Override
@@ -384,6 +421,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         output.putInt(
             "burnDuration",
             this.burnDuration
+        );
+        output.putString(
+            "redstoneControlMode",
+            this.redstoneControlMode.name()
         );
         this.fuelInventory.serialize(fuelOutput);
     }

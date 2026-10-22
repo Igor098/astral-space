@@ -22,6 +22,11 @@ public enum CoalGeneratorGuiStatus {
         "gui.astralspace.coal_generator.status.no_fuel",
         0xFFB84444,
         24
+    ),
+    REDSTONE_DISABLED(
+        "gui.astralspace.coal_generator.status.redstone_disabled",
+        0xFF8A98A6,
+        32
     );
 
     private final String translationKey;

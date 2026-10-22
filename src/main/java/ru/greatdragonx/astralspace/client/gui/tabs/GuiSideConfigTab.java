@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public final class GuiSideConfigTab {
+public final class GuiSideConfigTab implements GuiCollapsibleTab {
     private static final float ANIMATION_STEP = 0.15f;
 
     private static final int TAB_WIDTH = 20;
@@ -152,40 +152,38 @@ public final class GuiSideConfigTab {
         );
     }
 
-    public void tick() {
-        this.animation.tick();
+    @Override
+    public void open() {
+        this.animation.open();
     }
 
-    public void toggle() {
-        this.animation.toggle();
+    @Override
+    public void close() {
+        this.animation.close();
     }
 
-    public boolean isToggleHovered(
+    @Override
+    public boolean isHeaderHovered(
         double mouseX,
         double mouseY,
         int anchorX,
         int anchorY
     ) {
-        int width = this.renderedWidth;
-        return mouseX >= anchorX && mouseX < anchorX + width && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
+        return mouseX >= anchorX && mouseX < anchorX + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
     }
 
-    public boolean mouseClicked(
-        @NonNull MouseButtonEvent event,
-        int anchorX,
-        int anchorY
-    ) {
-        if (event.button() == 0 && this.isToggleHovered(
-            event.x(),
-            event.y(),
-            anchorX,
-            anchorY
-        )) {
-            this.toggle();
-            return true;
-        }
+    @Override
+    public boolean isOpen() {
+        return this.animation.isOpen();
+    }
 
-        return false;
+    @Override
+    public int getRenderedHeight() {
+        return this.renderedHeight;
+    }
+
+    public void tick() {
+        this.animation.tick();
     }
 
     public @Nullable MachineSide getClickedPort(

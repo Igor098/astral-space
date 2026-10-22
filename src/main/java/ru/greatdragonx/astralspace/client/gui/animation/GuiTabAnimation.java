@@ -33,6 +33,14 @@ public final class GuiTabAnimation {
         this.open = !this.open;
     }
 
+    public void open() {
+        this.open = true;
+    }
+
+    public void close() {
+        this.open = false;
+    }
+
     public boolean isOpen() {
         return this.open;
     }
@@ -51,4 +59,3 @@ public final class GuiTabAnimation {
         return GuiEasing.smoothstep(progress);
     }
 }
-

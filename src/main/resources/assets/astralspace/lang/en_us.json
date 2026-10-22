@@ -4,6 +4,7 @@
   "gui.astralspace.coal_generator.status.low_fuel": "Low Fuel",
   "gui.astralspace.coal_generator.status.buffer_full": "Energy Buffer Full",
   "gui.astralspace.coal_generator.status.no_fuel": "Out of Fuel",
+  "gui.astralspace.coal_generator.status.redstone_disabled": "Disabled",
   "gui.astralspace.coal_generator.fuel": "Fuel",
   "gui.astralspace.coal_generator.energy": "Energy",
   "gui.astralspace.coal_generator.panel.title": "Energy Statistics",

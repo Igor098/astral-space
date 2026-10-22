@@ -7,6 +7,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
 import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
 import org.jspecify.annotations.NonNull;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
@@ -103,6 +104,21 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
 
     public int getEnergyOutputMask() {
         return this.data.get(CoalGeneratorBlockEntity.DATA_OUTPUT_MASK);
+    }
+
+    public boolean isRedstoneBlocked() {
+        int blocked = this.data.get(CoalGeneratorBlockEntity.DATA_REDSTONE_BLOCKED);
+        return blocked == 1;
+    }
+
+    public RedstoneControlMode getRedstoneControlMode() {
+        int mode = this.data.get(CoalGeneratorBlockEntity.DATA_REDSTONE_MODE);
+        RedstoneControlMode[] modeValues = RedstoneControlMode.values();
+        if (mode >= 0 && mode < modeValues.length) {
+            return modeValues[mode];
+        }
+
+        return RedstoneControlMode.IGNORE;
     }
 
     public SideConfiguration getEnergySideConfiguration() {
