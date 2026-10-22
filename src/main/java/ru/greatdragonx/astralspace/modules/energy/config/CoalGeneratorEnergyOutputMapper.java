@@ -101,8 +101,8 @@ public final class CoalGeneratorEnergyOutputMapper {
     }
 
     public static boolean isOutputEnabled(
-        BlockState state,
-        MachineSide side
+        @NonNull BlockState state,
+        @NonNull MachineSide side
     ) {
         Objects.requireNonNull(
             state,
