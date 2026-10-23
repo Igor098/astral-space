@@ -18,8 +18,10 @@ import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiTabGroup;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.PortMode;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
+import ru.greatdragonx.astralspace.modules.energy.network.SetCoalGeneratorRedstoneModePayload;
 import ru.greatdragonx.astralspace.modules.energy.network.ToggleCoalGeneratorOutputPayload;
 
 import java.util.List;
@@ -209,6 +211,23 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             return true;
         }
 
+        int redstoneTabY = this.rightTabs.getTabY(
+            this.redstoneControlTab,
+            this.getSideConfigTabY()
+        );
+
+        RedstoneControlMode clickedMode = this.redstoneControlTab.getHoveredMode(
+            event.x(),
+            event.y(),
+            this.getSideConfigTabX(),
+            redstoneTabY
+        );
+
+        if (clickedMode != null) {
+            ClientPacketDistributor.sendToServer(new SetCoalGeneratorRedstoneModePayload(clickedMode));
+            return true;
+        }
+
         return super.mouseClicked(
             event,
             doubled
@@ -267,6 +286,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         this.redstoneControlTab.render(
             graphics,
+            this.menu.getRedstoneControlMode(),
+            this.menu.isRedstoneBlocked(),
             this.getSideConfigTabX(),
             redstoneTabY,
             partialTick

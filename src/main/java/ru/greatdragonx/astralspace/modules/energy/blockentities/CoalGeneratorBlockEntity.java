@@ -37,6 +37,7 @@ import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvider {
     private static final long LOW_FUEL_THRESHOLD = 8_000L;
@@ -64,7 +65,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private int transferredThisTick = 0;
     private int transferredPreviousTick = 0;
     private int currentProductionRate = 0;
-    private RedstoneControlMode redstoneControlMode = RedstoneControlMode.WHEN_POWERED;
+    private RedstoneControlMode redstoneControlMode = RedstoneControlMode.IGNORE;
 
     private final ContainerData data = new ContainerData() {
 
@@ -371,6 +372,28 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         if (isSuccess) {
             this.level.invalidateCapabilities(this.worldPosition);
         }
+    }
+
+    public void setRedstoneControlMode(RedstoneControlMode mode) {
+        if (this.level == null) {
+            return;
+        }
+
+        if (this.level.isClientSide()) {
+            return;
+        }
+
+        Objects.requireNonNull(
+            mode,
+            "Redstone control mode cannot be null"
+        );
+
+        if (this.redstoneControlMode == mode) {
+            return;
+        }
+
+        this.redstoneControlMode = mode;
+        this.setChanged();
     }
 
     @Override
