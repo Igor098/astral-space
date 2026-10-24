@@ -33,7 +33,7 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
     private static final int MODE_BUTTON_SIZE = 20;
     private static final int MODE_ICON_SIZE = 16;
     private static final int MODE_BUTTON_GAP = 4;
-    private static final int MODE_BUTTONS_Y = 24;
+    private static final int MODE_BUTTONS_Y = 28;
 
     private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
@@ -183,6 +183,58 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         return null;
     }
 
+    public void renderTooltip(
+        GuiGraphics graphics,
+        int mouseX,
+        int mouseY,
+        int anchorX,
+        int anchorY,
+        RedstoneControlMode selectedMode
+    ) {
+        RedstoneControlMode hoveredMode = this.getHoveredMode(
+            mouseX,
+            mouseY,
+            anchorX,
+            anchorY
+        );
+
+        boolean headerHovered = this.animation.isFullyClosed() && this.isHeaderHovered(
+            mouseX,
+            mouseY,
+            anchorX,
+            anchorY
+        );
+
+        if (hoveredMode == null && !headerHovered) {
+            return;
+        }
+
+        RedstoneControlMode mode = hoveredMode != null ? hoveredMode : selectedMode;
+
+        Component tooltip = switch (mode) {
+            case IGNORE ->
+                Component.translatable("gui.astralspace.redstone_control.tooltip.ignore");
+            case WHEN_UNPOWERED ->
+                Component.translatable("gui.astralspace.redstone_control.tooltip.when_unpowered");
+            case WHEN_POWERED ->
+                Component.translatable("gui.astralspace.redstone_control.tooltip.when_powered");
+        };
+
+        if (headerHovered) {
+            tooltip = Component.translatable(
+                "gui.astralspace.redstone_control.tooltip.current_mode",
+                tooltip
+            );
+        }
+
+        graphics.setTooltipForNextFrame(
+            this.font,
+            tooltip,
+            mouseX,
+            mouseY
+        );
+    }
+
     private void drawIcon(
         @NonNull GuiGraphics graphics,
         int anchorX,
@@ -226,6 +278,21 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
             y + 3,
             0.75f,
             0xFFE0E5EA
+        );
+    }
+
+    private void drawDivider(
+        @NonNull GuiGraphics graphics,
+        int x,
+        int y,
+        int width
+    ) {
+        graphics.fill(
+            x + 5,
+            y + 19,
+            x + width - 5,
+            y + 20,
+            0xFF626C75
         );
     }
 
@@ -286,8 +353,8 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         boolean redstoneBlocked
     ) {
         int textX = anchorX + 6;
-        int titleY = anchorY + 52;
-        int statusValueY = anchorY + 60;
+        int titleY = anchorY + 54;
+        int statusValueY = anchorY + 62;
 
         Component title = Component.translatable("gui.astralspace.redstone_control.status");
         Component statusValue =
@@ -321,8 +388,8 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         int anchorY
     ) {
         int textX = anchorX + 6;
-        int titleY = anchorY + 72;
-        int signalValueY = anchorY + 80;
+        int titleY = anchorY + 74;
+        int signalValueY = anchorY + 82;
         String translationKey = switch (selectedMode) {
             case IGNORE -> "gui.astralspace.redstone_control.signal_ignored";
             case WHEN_POWERED -> "gui.astralspace.redstone_control.signal_present";
@@ -362,16 +429,23 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         int height
     ) {
         graphics.enableScissor(
-            anchorX,
-            anchorY,
-            anchorX + width,
-            anchorY + height
+            anchorX + BORDER_SIZE,
+            anchorY + BORDER_SIZE,
+            anchorX + width - BORDER_SIZE,
+            anchorY + height - BORDER_SIZE
         );
 
         this.drawTitle(
             graphics,
             anchorX,
             anchorY
+        );
+
+        this.drawDivider(
+            graphics,
+            anchorX,
+            anchorY,
+            width
         );
 
         this.drawModeButtons(

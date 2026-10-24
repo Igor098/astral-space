@@ -25,8 +25,6 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private static final int PANEL_WIDTH = 100;
     private static final int BASE_PANEL_HEIGHT = 46;
 
-    private static final int TAB_Y = 20;
-
     private static final int TEXTURE_SIZE = 20;
     private static final int BORDER_SIZE = 5;
 
@@ -59,7 +57,7 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
 
     public void render(
         @NonNull GuiGraphics graphics,
-        int screenLeft,
+        int anchorX,
         int anchorY,
         float partialTick,
         @NonNull GuiStatisticsData data
@@ -77,7 +75,7 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
         this.renderedHeight = height;
 
         int x = this.getX(
-            screenLeft,
+            anchorX,
             width
         );
 
@@ -113,14 +111,14 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
         GuiGraphics graphics,
         int mouseX,
         int mouseY,
-        int screenLeft,
+        int anchorX,
         int anchorY,
         Component tooltip
     ) {
         boolean isHovered = this.isHeaderHovered(
             mouseX,
             mouseY,
-            screenLeft,
+            anchorX,
             anchorY
         );
 
@@ -164,11 +162,11 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     public boolean isHeaderHovered(
         double mouseX,
         double mouseY,
-        int screenLeft,
+        int anchorX,
         int anchorY
     ) {
         int x = this.getX(
-            screenLeft,
+            anchorX,
             this.renderedWidth
         );
         return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
@@ -177,20 +175,20 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private void drawIcon(
         @NonNull GuiGraphics graphics,
         float progress,
-        int x,
-        int y
+        int anchorX,
+        int anchorY
     ) {
         int iconXMargin = (TAB_WIDTH - ICON_WIDTH) / 2;
         int iconYMargin = (TAB_HEIGHT - ICON_HEIGHT) / 2;
         int animatedIconXMargin = Math.round(iconXMargin + (5 - iconXMargin) * progress);
-        int iconX = x + animatedIconXMargin;
-        int iconY = y + iconYMargin;
+        int x = anchorX + animatedIconXMargin;
+        int y = anchorY + iconYMargin;
 
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
             this.iconTexture,
-            iconX,
-            iconY,
+            x,
+            y,
             0,
             0,
             ICON_WIDTH,
@@ -203,8 +201,8 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private void drawStatisticEntry(
         @NonNull GuiGraphics graphics,
         @NonNull GuiStatisticEntry entry,
-        int x,
-        int y
+        int anchorX,
+        int anchorY
     ) {
         Component label = entry.label();
         Component value = entry.value();
@@ -213,8 +211,8 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
             graphics,
             this.font,
             label,
-            x + 6,
-            y,
+            anchorX + 6,
+            anchorY,
             STATISTIC_TEXT_SCALE,
             0xFFD6DCE1
         );
@@ -225,8 +223,8 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
             graphics,
             this.font,
             value,
-            x + PANEL_WIDTH - 6 - valueWidth,
-            y,
+            anchorX + PANEL_WIDTH - 6 - valueWidth,
+            anchorY,
             STATISTIC_TEXT_SCALE,
             0xFF78D29F
         );
@@ -235,19 +233,19 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private void drawStatisticsEntries(
         @NonNull GuiGraphics graphics,
         @NonNull GuiStatisticsData data,
-        int x,
-        int y
+        int anchorX,
+        int anchorY
     ) {
         List<GuiStatisticEntry> entries = data.entries();
 
         for (int i = 0; i < entries.size(); i++) {
             GuiStatisticEntry entry = entries.get(i);
 
-            int entryY = y + FIRST_ENTRY_Y + i * ENTRY_SPACING;
+            int entryY = anchorY + FIRST_ENTRY_Y + i * ENTRY_SPACING;
             this.drawStatisticEntry(
                 graphics,
                 entry,
-                x,
+                anchorX,
                 entryY
             );
         }
@@ -256,56 +254,70 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     private void drawTitle(
         @NonNull GuiGraphics graphics,
         @NonNull GuiStatisticsData data,
-        int x,
-        int y
+        int anchorX,
+        int anchorY
     ) {
         Component title = data.title();
         GuiTextRenderer.drawScaledText(
             graphics,
             this.font,
             title,
-            x + 24,
-            y + 7.5f,
+            anchorX + 24,
+            anchorY + 7.5f,
             0.75f,
             0xFFE4E8EC
+        );
+    }
+
+    private void drawDivider(
+        @NonNull GuiGraphics graphics,
+        int anchorX,
+        int anchorY,
+        int width
+    ) {
+        graphics.fill(
+            anchorX + 5,
+            anchorY + 19,
+            anchorX + width - 5,
+            anchorY + 20,
+            0xFF626C75
         );
     }
 
     private void drawContent(
         @NonNull GuiGraphics graphics,
         @NonNull GuiStatisticsData data,
-        int x,
-        int y,
+        int anchorX,
+        int anchorY,
         int width,
         int height
     ) {
         graphics.enableScissor(
-            x + BORDER_SIZE,
-            y + BORDER_SIZE,
-            x + width - BORDER_SIZE,
-            y + height - BORDER_SIZE
+            anchorX + BORDER_SIZE,
+            anchorY + BORDER_SIZE,
+            anchorX + width - BORDER_SIZE,
+            anchorY + height - BORDER_SIZE
         );
 
         this.drawTitle(
             graphics,
             data,
-            x,
-            y
+            anchorX,
+            anchorY
         );
 
-        graphics.fill(
-            x + 5,
-            y + 19,
-            x + width - 5,
-            y + 20,
-            0xFF626C75
+        this.drawDivider(
+            graphics,
+            anchorX,
+            anchorY,
+            width
         );
 
         this.drawStatisticsEntries(
             graphics,
             data,
-            x,
-            y
+            anchorX,
+            anchorY
         );
 
         graphics.disableScissor();
@@ -335,14 +347,10 @@ public final class GuiStatisticsTab implements GuiCollapsibleTab {
     }
 
     private int getX(
-        int screenLeft,
+        int anchorX,
         int animatedWidth
     ) {
-        return screenLeft - animatedWidth;
-    }
-
-    private int getY(int screenTop) {
-        return screenTop + TAB_Y;
+        return anchorX - animatedWidth;
     }
 
     private int getExpandedHeight(@NonNull GuiStatisticsData data) {

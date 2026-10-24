@@ -133,18 +133,11 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
             anchorY
         );
 
-        this.drawClippedTitle(
-            graphics,
-            title,
-            anchorX,
-            anchorY,
-            width
-        );
-
-        this.drawClippedContent(
+        this.drawContent(
             graphics,
             configuration,
             portTextures,
+            title,
             anchorX,
             anchorY,
             width,
@@ -221,28 +214,43 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
             configuration
         );
 
-        if (hoveredPort == null) {
+        boolean headerHovered = this.animation.isFullyClosed() && this.isHeaderHovered(
+            mouseX,
+            mouseY,
+            anchorX,
+            anchorY
+        );
+
+        if (hoveredPort == null && !headerHovered) {
             return;
         }
 
-        SidePortConfig portConfig = configuration.ports()
-            .get(hoveredPort);
-        PortMode mode = portConfig.mode();
+        List<Component> tooltip;
 
-        Component sideName =
-            Component.translatable("gui.astralspace.side_config.side." + hoveredPort.name()
-                .toLowerCase(Locale.ROOT));
+        if (hoveredPort != null) {
+            SidePortConfig portConfig = configuration.ports()
+                .get(hoveredPort);
+            PortMode mode = portConfig.mode();
 
-        Component modeName =
-            Component.translatable("gui.astralspace.side_config.mode." + mode.name()
-                .toLowerCase(Locale.ROOT));
+            Component sideName =
+                Component.translatable("gui.astralspace.side_config.side." + hoveredPort.name()
+                    .toLowerCase(Locale.ROOT));
+
+            Component modeName =
+                Component.translatable("gui.astralspace.side_config.mode." + mode.name()
+                    .toLowerCase(Locale.ROOT));
+
+            tooltip = List.of(
+                sideName,
+                modeName
+            );
+        } else {
+            tooltip = List.of(Component.translatable("gui.astralspace.side_config.tooltip"));
+        }
 
         graphics.setComponentTooltipForNextFrame(
             this.font,
-            List.of(
-                sideName,
-                modeName
-            ),
+            tooltip,
             mouseX,
             mouseY
         );
@@ -279,46 +287,34 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY
     ) {
+
+        int x = anchorX + TAB_WIDTH + 2;
+        int y = anchorY + (TAB_HEIGHT - this.font.lineHeight) / 2;
+
         GuiTextRenderer.drawScaledText(
             graphics,
             this.font,
             title,
-            anchorX + 21,
-            anchorY + 7.5f,
+            x,
+            y + 3,
             0.75f,
             0xFFE4E8EC
         );
     }
 
-    private void drawClippedTitle(
-        GuiGraphics graphics,
-        Component title,
-        int anchorX,
-        int anchorY,
+    private void drawDivider(
+        @NonNull GuiGraphics graphics,
+        int x,
+        int y,
         int width
     ) {
-        int minX = anchorX + TAB_WIDTH;
-        int maxX = anchorX + width - BORDER_SIZE;
-
-        if (maxX <= minX) {
-            return;
-        }
-
-        graphics.enableScissor(
-            minX,
-            anchorY + BORDER_SIZE,
-            maxX,
-            anchorY + TAB_HEIGHT - BORDER_SIZE
+        graphics.fill(
+            x + 5,
+            y + 19,
+            x + width - 5,
+            y + 20,
+            0xFF626C75
         );
-
-        this.drawTitle(
-            graphics,
-            title,
-            anchorX,
-            anchorY
-        );
-
-        graphics.disableScissor();
     }
 
     private void drawMachineCenter(
@@ -340,48 +336,45 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         );
     }
 
-    private void drawClippedContent(
+    private void drawContent(
         @NonNull GuiGraphics graphics,
         @NonNull SideConfiguration configuration,
         @NonNull Map<PortMode, Identifier> portTextures,
+        @NonNull Component title,
         int anchorX,
         int anchorY,
         int width,
         int height
     ) {
-        int minX = anchorX + BORDER_SIZE;
-        int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
-
-        int maxX = anchorX + width - BORDER_SIZE;
-        int maxY = anchorY + height - BORDER_SIZE;
-
-        if (maxX <= minX || maxY <= minY) {
-            return;
-        }
-
-        boolean isFrontAllowed = configuration.ports()
-            .containsKey(MachineSide.FRONT);
-
         graphics.enableScissor(
-            minX,
-            minY,
-            maxX,
-            maxY
+            anchorX + BORDER_SIZE,
+            anchorY + BORDER_SIZE,
+            anchorX + width - BORDER_SIZE,
+            anchorY + height - BORDER_SIZE
         );
-        if (!isFrontAllowed) {
-            this.drawMachineCenter(
-                graphics,
-                anchorX,
-                anchorY
-            );
-        }
 
-        this.drawPorts(
+        this.drawTitle(
+            graphics,
+            title,
+            anchorX,
+            anchorY
+        );
+
+        this.drawDivider(
+            graphics,
+            anchorX,
+            anchorY,
+            width
+        );
+
+        this.drawSidePorts(
             graphics,
             configuration,
             portTextures,
             anchorX,
-            anchorY
+            anchorY,
+            width,
+            height
         );
 
         graphics.disableScissor();
@@ -443,6 +436,45 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
                 anchorY
             );
         }
+    }
+
+    private void drawSidePorts(
+        @NonNull GuiGraphics graphics,
+        @NonNull SideConfiguration configuration,
+        @NonNull Map<PortMode, Identifier> portTextures,
+        int anchorX,
+        int anchorY,
+        int width,
+        int height
+    ) {
+        int minX = anchorX + BORDER_SIZE;
+        int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
+
+        int maxX = anchorX + width - BORDER_SIZE;
+        int maxY = anchorY + height - BORDER_SIZE;
+
+        if (maxX <= minX || maxY <= minY) {
+            return;
+        }
+
+        boolean isFrontAllowed = configuration.ports()
+            .containsKey(MachineSide.FRONT);
+
+        if (!isFrontAllowed) {
+            this.drawMachineCenter(
+                graphics,
+                anchorX,
+                anchorY
+            );
+        }
+
+        this.drawPorts(
+            graphics,
+            configuration,
+            portTextures,
+            anchorX,
+            anchorY
+        );
     }
 
     private int getAnimatedWidth(float progress) {

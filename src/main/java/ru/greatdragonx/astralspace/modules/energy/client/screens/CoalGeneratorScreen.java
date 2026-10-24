@@ -8,14 +8,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
+import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiRedstoneControlTab;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiSideConfigTab;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiTabGroup;
+import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.PortMode;
 import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
@@ -83,6 +82,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private final GuiTabGroup leftTabs;
     private final GuiTabGroup rightTabs;
 
+    private final List<GuiInfoEntry> infoEntries;
+    private final GuiMachineInfoTab machineInfoTab;
     private final GuiStatisticsTab statisticsTab;
     private final GuiSideConfigTab sideConfigTab;
     private final GuiRedstoneControlTab redstoneControlTab;
@@ -100,6 +101,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
+        infoEntries = this.createInfoEntries();
+        this.machineInfoTab = new GuiMachineInfoTab(this.font);
         this.statisticsTab = new GuiStatisticsTab(
             this.font,
             ENERGY_ICON
@@ -116,7 +119,10 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             )
         );
 
-        this.leftTabs = new GuiTabGroup(List.of(this.statisticsTab));
+        this.leftTabs = new GuiTabGroup(List.of(
+            this.machineInfoTab,
+            this.statisticsTab
+        ));
         this.rightTabs = new GuiTabGroup(List.of(
             this.sideConfigTab,
             this.redstoneControlTab
@@ -126,6 +132,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     @Override
     protected void containerTick() {
         super.containerTick();
+        this.machineInfoTab.tick();
         this.statisticsTab.tick();
         this.sideConfigTab.tick();
         this.redstoneControlTab.tick();
@@ -156,12 +163,17 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.menu.getCurrentProductionRate()
         );
 
+        int statisticsTabY = this.leftTabs.getTabY(
+            this.statisticsTab,
+            this.getLeftTabsY()
+        );
+
         this.statisticsTab.renderTooltip(
             graphics,
             mouseX,
             mouseY,
             this.leftPos,
-            this.getStatisticsTabY(),
+            statisticsTabY,
             tooltip
         );
 
@@ -169,9 +181,24 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             graphics,
             mouseX,
             mouseY,
-            this.getSideConfigTabX(),
-            this.getSideConfigTabY(),
+            this.getRightTabsX(),
+            this.getRightTabsY(),
             this.menu.getEnergySideConfiguration()
+        );
+
+        int redstoneTabY = this.rightTabs.getTabY(
+            this.redstoneControlTab,
+            this.getRightTabsY()
+        );
+
+
+        this.redstoneControlTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.getRightTabsX(),
+            redstoneTabY,
+            this.menu.getRedstoneControlMode()
         );
     }
 
@@ -183,7 +210,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         boolean isLeftGroupClicked = this.leftTabs.mouseClicked(
             event,
             this.leftPos,
-            this.getStatisticsTabY()
+            this.getLeftTabsY()
         );
         if (isLeftGroupClicked) {
             return true;
@@ -191,18 +218,25 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         boolean isRightGroupClicked = this.rightTabs.mouseClicked(
             event,
-            this.getSideConfigTabX(),
-            this.getSideConfigTabY()
+            this.getRightTabsX(),
+            this.getRightTabsY()
         );
 
         if (isRightGroupClicked) {
             return true;
         }
 
+        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return super.mouseClicked(
+                event,
+                doubled
+            );
+        }
+
         MachineSide clickedPort = this.sideConfigTab.getClickedPort(
             event,
-            this.getSideConfigTabX(),
-            this.getSideConfigTabY(),
+            this.getRightTabsX(),
+            this.getRightTabsY(),
             this.menu.getEnergySideConfiguration()
         );
 
@@ -213,13 +247,13 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         int redstoneTabY = this.rightTabs.getTabY(
             this.redstoneControlTab,
-            this.getSideConfigTabY()
+            this.getRightTabsY()
         );
 
         RedstoneControlMode clickedMode = this.redstoneControlTab.getHoveredMode(
             event.x(),
             event.y(),
-            this.getSideConfigTabX(),
+            this.getRightTabsX(),
             redstoneTabY
         );
 
@@ -231,6 +265,39 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         return super.mouseClicked(
             event,
             doubled
+        );
+    }
+
+    @Override
+    public boolean mouseScrolled(
+        double mouseX,
+        double mouseY,
+        double scrollX,
+        double scrollY
+    ) {
+        int machineTabY = this.leftTabs.getTabY(
+            this.machineInfoTab,
+            this.getLeftTabsY()
+        );
+
+        boolean isMachineTabMouseScrolled = this.machineInfoTab.mouseScrolled(
+            mouseX,
+            mouseY,
+            scrollY,
+            this.leftPos,
+            machineTabY,
+            this.infoEntries
+        );
+
+        if (isMachineTabMouseScrolled) {
+            return true;
+        }
+
+        return super.mouseScrolled(
+            mouseX,
+            mouseY,
+            scrollX,
+            scrollY
         );
     }
 
@@ -261,18 +328,33 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         this.drawFuelLabel(graphics);
         this.drawEnergyLabel(graphics);
 
+        int machineInfoTabY = this.getLeftTabsY();
+
+        this.machineInfoTab.render(
+            graphics,
+            this.infoEntries,
+            this.leftPos,
+            machineInfoTabY,
+            partialTick
+        );
+
+        int statisticsTabY = this.leftTabs.getTabY(
+            this.statisticsTab,
+            machineInfoTabY
+        );
+
         this.statisticsTab.render(
             graphics,
             this.leftPos,
-            this.getStatisticsTabY(),
+            statisticsTabY,
             partialTick,
             this.createStatisticsData()
         );
 
         this.sideConfigTab.render(
             graphics,
-            getSideConfigTabX(),
-            getSideConfigTabY(),
+            getRightTabsX(),
+            getRightTabsY(),
             partialTick,
             Component.translatable("gui.astralspace.side_config.title"),
             this.menu.getEnergySideConfiguration(),
@@ -281,14 +363,14 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         int redstoneTabY = this.rightTabs.getTabY(
             this.redstoneControlTab,
-            this.getSideConfigTabY()
+            this.getRightTabsY()
         );
 
         this.redstoneControlTab.render(
             graphics,
             this.menu.getRedstoneControlMode(),
             this.menu.isRedstoneBlocked(),
-            this.getSideConfigTabX(),
+            this.getRightTabsX(),
             redstoneTabY,
             partialTick
         );
@@ -590,15 +672,36 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         );
     }
 
-    private int getSideConfigTabX() {
+    private @NonNull @Unmodifiable List<GuiInfoEntry> createInfoEntries() {
+        return List.of(
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.name"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.description"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.fuel.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.fuel.description"),
+                false
+            )
+        );
+    }
+
+    private int getRightTabsX() {
         return this.leftPos + this.imageWidth;
     }
 
-    private int getSideConfigTabY() {
+    private int getRightTabsY() {
         return this.topPos + 2;
     }
 
-    private int getStatisticsTabY() {
+    private int getLeftTabsY() {
         return this.topPos + 2;
     }
 }
