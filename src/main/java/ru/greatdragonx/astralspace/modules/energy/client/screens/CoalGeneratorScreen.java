@@ -101,16 +101,21 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
 
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
+
         infoEntries = this.createInfoEntries();
+
         this.machineInfoTab = new GuiMachineInfoTab(this.font);
+
         this.statisticsTab = new GuiStatisticsTab(
             this.font,
             ENERGY_ICON
         );
+
         this.sideConfigTab = new GuiSideConfigTab(
             this.font,
             SIDE_CONFIG_ICON
         );
+
         this.redstoneControlTab = new GuiRedstoneControlTab(
             this.font,
             Identifier.fromNamespaceAndPath(
@@ -123,6 +128,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.machineInfoTab,
             this.statisticsTab
         ));
+
         this.rightTabs = new GuiTabGroup(List.of(
             this.sideConfigTab,
             this.redstoneControlTab
@@ -233,6 +239,23 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             );
         }
 
+        int machineTabY = this.leftTabs.getTabY(
+            this.machineInfoTab,
+            this.getLeftTabsY()
+        );
+        boolean isMachineTabInfoScrollClicked = this.machineInfoTab.mouseClicked(
+            event.x(),
+            event.y(),
+            event.button(),
+            this.leftPos,
+            machineTabY,
+            this.infoEntries
+        );
+
+        if (isMachineTabInfoScrollClicked) {
+            return true;
+        }
+
         MachineSide clickedPort = this.sideConfigTab.getClickedPort(
             event,
             this.getRightTabsX(),
@@ -266,6 +289,40 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             event,
             doubled
         );
+    }
+
+    @Override
+    public boolean mouseDragged(
+        @NonNull MouseButtonEvent event,
+        double dragX,
+        double dragY
+    ) {
+        boolean isMachineTabInfoTextDragged = this.machineInfoTab.mouseDragged(
+            event.y(),
+            event.button(),
+            this.infoEntries
+        );
+
+        if (isMachineTabInfoTextDragged) {
+            return true;
+        }
+
+        return super.mouseDragged(
+            event,
+            dragX,
+            dragY
+        );
+    }
+
+    @Override
+    public boolean mouseReleased(@NonNull MouseButtonEvent event) {
+        boolean isMachineTabInfoTextReleased = this.machineInfoTab.mouseReleased(event.button());
+
+        if (isMachineTabInfoTextReleased) {
+            return true;
+        }
+
+        return super.mouseReleased(event);
     }
 
     @Override
@@ -688,6 +745,47 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             ),
             new GuiInfoEntry(
                 Component.translatable("gui.astralspace.coal_generator.info.fuel.description"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.specs.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.coal_generator.info.specs.generation",
+                    CoalGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.coal_generator.info.specs.capacity",
+                    CoalGeneratorBlockEntity.ENERGY_CAPACITY
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.coal_generator.info.specs.transfer",
+                    CoalGeneratorBlockEntity.MAX_EXTRACT
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.features.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.features.pause"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.features.outputs"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.coal_generator.info.features.redstone"),
                 false
             )
         );
