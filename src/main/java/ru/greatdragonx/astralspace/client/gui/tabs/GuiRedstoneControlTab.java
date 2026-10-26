@@ -31,7 +31,7 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
     private static final int ICON_HEIGHT = 16;
 
     private static final int MODE_BUTTON_SIZE = 20;
-    private static final int MODE_ICON_SIZE = 16;
+    private static final int MODE_ICON_SIZE = 12;
     private static final int MODE_BUTTON_GAP = 4;
     private static final int MODE_BUTTONS_Y = 28;
 
