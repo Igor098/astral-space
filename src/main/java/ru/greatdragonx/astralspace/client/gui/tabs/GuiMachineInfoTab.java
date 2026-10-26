@@ -7,6 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.NonNull;
+import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
@@ -39,6 +40,12 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
     private static final int ENTRY_SPACING = 4;
 
     private static final int SCROLL_STEP = 10;
+    private static final int SCROLLBAR_OFFSET_X = 115;
+    private static final int SCROLLBAR_WIDTH = 4;
+    private static final int MIN_THUMB_HEIGHT = 12;
+
+    private static final int SCROLLBAR_TRACK_COLOR = 0xFF53616F;
+    private static final int SCROLLBAR_THUMB_COLOR = 0xFF98A8B8;
 
     private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
@@ -56,6 +63,9 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
     private int renderedWidth = TAB_WIDTH;
     private int renderedHeight = TAB_HEIGHT;
     private int scrollOffset = 0;
+    private double dragStartMouseY;
+    private int dragStartScrollOffset;
+    private boolean draggingScrollbar = false;
 
     public GuiMachineInfoTab(Font font) {
         this.font = font;
@@ -148,6 +158,46 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
     }
 
+    public boolean mouseClicked(
+        double mouseX,
+        double mouseY,
+        int button,
+        int anchorX,
+        int anchorY,
+        List<GuiInfoEntry> entries
+    ) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.isOpen() || this.renderedWidth < PANEL_WIDTH || this.renderedHeight < PANEL_HEIGHT) {
+            return false;
+        }
+
+        int maxScroll = getMaxScroll(entries);
+        if (maxScroll <= 0) {
+            return false;
+        }
+
+        int contentHeight = this.getContentHeight(entries);
+        int thumbHeight = this.getThumbHeight(contentHeight);
+        int thumbTravel = DESCRIPTION_VIEWPORT_HEIGHT - thumbHeight;
+        int thumbOffset = Math.round((float) this.scrollOffset / maxScroll * thumbTravel);
+
+        int x = anchorX - this.renderedWidth;
+        int trackX = x + SCROLLBAR_OFFSET_X;
+        int trackY = anchorY + DESCRIPTION_START_Y;
+
+        boolean inArea =
+            mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH && mouseY >= trackY + thumbOffset && mouseY < trackY + thumbOffset + thumbHeight;
+
+        if (!inArea) {
+            return false;
+        }
+
+        this.draggingScrollbar = true;
+        this.dragStartMouseY = mouseY;
+        this.dragStartScrollOffset = this.scrollOffset;
+
+        return true;
+    }
+
     public boolean mouseScrolled(
         double mouseX,
         double mouseY,
@@ -186,6 +236,48 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
             maxScroll
         );
 
+        return true;
+    }
+
+    public boolean mouseDragged(
+        double mouseY,
+        int button,
+        List<GuiInfoEntry> entries
+    ) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.draggingScrollbar) {
+            return false;
+        }
+
+        int contentHeight = this.getContentHeight(entries);
+        int thumbHeight = this.getThumbHeight(contentHeight);
+        int maxScroll = Math.max(
+            0,
+            contentHeight - DESCRIPTION_VIEWPORT_HEIGHT
+        );
+
+        if (maxScroll == 0) {
+            return false;
+        }
+
+        int thumbTravel = DESCRIPTION_VIEWPORT_HEIGHT - thumbHeight;
+
+        double deltaY = mouseY - this.dragStartMouseY;
+        int deltaTextY = Math.round((float) deltaY / thumbTravel * maxScroll);
+        int totalOffset = this.dragStartScrollOffset + deltaTextY;
+
+        this.scrollOffset = Math.clamp(
+            totalOffset,
+            0,
+            maxScroll
+        );
+        return true;
+    }
+
+    public boolean mouseReleased(int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.draggingScrollbar) {
+            return false;
+        }
+        this.draggingScrollbar = false;
         return true;
     }
 
@@ -288,6 +380,48 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         }
     }
 
+    private void drawScrollbar(
+        GuiGraphics graphics,
+        List<GuiInfoEntry> entries,
+        int x,
+        int y
+    ) {
+        int contentHeight = this.getContentHeight(entries);
+        int thumbHeight = this.getThumbHeight(contentHeight);
+        int maxScroll = Math.max(
+            0,
+            contentHeight - DESCRIPTION_VIEWPORT_HEIGHT
+        );
+
+        if (maxScroll == 0) {
+            return;
+        }
+
+        int thumbTravel = DESCRIPTION_VIEWPORT_HEIGHT - thumbHeight;
+        int thumbOffset = Math.round((float) this.scrollOffset / maxScroll * thumbTravel);
+
+        int trackX = x + SCROLLBAR_OFFSET_X;
+        int trackY = y + DESCRIPTION_START_Y;
+
+        int thumbY = trackY + thumbOffset;
+
+        graphics.fill(
+            trackX,
+            trackY,
+            trackX + SCROLLBAR_WIDTH,
+            trackY + DESCRIPTION_VIEWPORT_HEIGHT,
+            SCROLLBAR_TRACK_COLOR
+        );
+
+        graphics.fill(
+            trackX,
+            thumbY,
+            trackX + SCROLLBAR_WIDTH,
+            thumbY + thumbHeight,
+            SCROLLBAR_THUMB_COLOR
+        );
+    }
+
     private void drawContent(
         @NonNull GuiGraphics graphics,
         @NonNull List<GuiInfoEntry> entries,
@@ -326,6 +460,14 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
             anchorY
         );
         graphics.disableScissor();
+
+        this.drawScrollbar(
+            graphics,
+            entries,
+            anchorX,
+            anchorY
+        );
+
         graphics.disableScissor();
     }
 
@@ -382,6 +524,15 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         return Math.max(
             0,
             scrollableHeight
+        );
+    }
+
+    private int getThumbHeight(int contentHeight) {
+        float visibleFraction = (float) DESCRIPTION_VIEWPORT_HEIGHT / contentHeight;
+
+        return Math.max(
+            MIN_THUMB_HEIGHT,
+            Math.round(visibleFraction * DESCRIPTION_VIEWPORT_HEIGHT)
         );
     }
 }
