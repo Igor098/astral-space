@@ -15,25 +15,34 @@ public final class GuiTabGroup {
     }
 
     public void select(GuiCollapsibleTab selectedTab) {
-        if (!this.tabs.contains(selectedTab)) {
+        if (this.tabs.stream()
+            .noneMatch(tab -> tab == selectedTab))
+        {
             throw new IllegalArgumentException("Selected tab does not belong to this group");
         }
-
-        boolean isClosedSelected = !selectedTab.isOpen();
-
+        
         for (GuiCollapsibleTab tab : this.tabs) {
+            if (tab == selectedTab) {
+                continue;
+            }
+
             tab.close();
         }
 
-        if (isClosedSelected) {
+        boolean shouldOpen = !selectedTab.isOpen();
+
+        if (shouldOpen) {
             selectedTab.open();
+        } else {
+            selectedTab.close();
         }
     }
 
     public int getTabY(
         GuiCollapsibleTab targetTab,
         int startY
-    ) {
+    )
+    {
         int y = startY;
 
         for (GuiCollapsibleTab tab : this.tabs) {
@@ -52,7 +61,8 @@ public final class GuiTabGroup {
         double mouseY,
         int anchorX,
         int startY
-    ) {
+    )
+    {
         int y = startY;
 
         for (GuiCollapsibleTab tab : this.tabs) {
@@ -61,7 +71,8 @@ public final class GuiTabGroup {
                 mouseY,
                 anchorX,
                 y
-            )) {
+            ))
+            {
                 return tab;
             }
 
@@ -75,7 +86,8 @@ public final class GuiTabGroup {
         @NonNull MouseButtonEvent event,
         int anchorX,
         int startY
-    ) {
+    )
+    {
         if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }

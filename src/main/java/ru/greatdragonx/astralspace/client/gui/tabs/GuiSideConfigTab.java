@@ -10,9 +10,6 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
-import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
-import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
-import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.PortMode;
 import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
@@ -22,27 +19,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public final class GuiSideConfigTab implements GuiCollapsibleTab {
+public final class GuiSideConfigTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
-
-    private static final int TAB_WIDTH = 20;
-    private static final int TAB_HEIGHT = 20;
 
     private static final int PANEL_WIDTH = 100;
     private static final int PANEL_HEIGHT = 96;
 
-    private static final int TEXTURE_SIZE = 20;
-    private static final int BORDER_SIZE = 5;
-
-    private static final int ICON_WIDTH = 16;
-    private static final int ICON_HEIGHT = 16;
-
     private static final int PORT_SIZE = 16;
 
-    private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/tabs/tab_background.png"
-    );
     private static final Identifier MACHINE_CENTER_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/common/side_config/machine_center.png"
@@ -81,23 +65,24 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         )
     );
 
-    private int renderedWidth = TAB_WIDTH;
-    private int renderedHeight = TAB_HEIGHT;
-
-    private final GuiTabAnimation animation;
     private final Font font;
     private final Identifier iconTexture;
 
-    private record PortPlacement(@NonNull MachineSide side, int offsetX, int offsetY) {
-    }
+    private record PortPlacement(@NonNull MachineSide side, int offsetX, int offsetY) {}
 
     public GuiSideConfigTab(
         Font font,
         Identifier iconTexture
-    ) {
+    )
+    {
+        super(
+            false,
+            ANIMATION_STEP,
+            PANEL_WIDTH,
+            PANEL_HEIGHT
+        );
         this.font = font;
         this.iconTexture = iconTexture;
-        this.animation = new GuiTabAnimation(ANIMATION_STEP);
     }
 
     public void render(
@@ -108,29 +93,26 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         Component title,
         SideConfiguration configuration,
         Map<PortMode, Identifier> portTextures
-    ) {
-        float progress = this.animation.getProgress(partialTick);
-
-        int width = this.getAnimatedWidth(progress);
-        int height = this.getAnimatedHeight(progress);
-        this.renderedWidth = width;
-        this.renderedHeight = height;
-
-        NineSliceRenderer.draw(
+    )
+    {
+        float progress = this.renderPanelBackground(
             graphics,
-            BACKGROUND_TEXTURE,
             anchorX,
             anchorY,
-            width,
-            height,
-            TEXTURE_SIZE,
-            BORDER_SIZE
+            partialTick
         );
 
-        this.drawIcon(
+        int width = this.getRenderedWidth();
+        int height = this.getRenderedHeight();
+
+        int x = this.getPanelX(anchorX);
+
+        this.drawTabIcon(
             graphics,
-            anchorX,
-            anchorY
+            this.iconTexture,
+            x,
+            anchorY,
+            progress
         );
 
         this.drawContent(
@@ -138,45 +120,11 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
             configuration,
             portTextures,
             title,
-            anchorX,
+            x,
             anchorY,
             width,
             height
         );
-    }
-
-    @Override
-    public void open() {
-        this.animation.open();
-    }
-
-    @Override
-    public void close() {
-        this.animation.close();
-    }
-
-    @Override
-    public boolean isHeaderHovered(
-        double mouseX,
-        double mouseY,
-        int anchorX,
-        int anchorY
-    ) {
-        return mouseX >= anchorX && mouseX < anchorX + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
-    }
-
-    @Override
-    public boolean isOpen() {
-        return this.animation.isOpen();
-    }
-
-    @Override
-    public int getRenderedHeight() {
-        return this.renderedHeight;
-    }
-
-    public void tick() {
-        this.animation.tick();
     }
 
     public @Nullable MachineSide getClickedPort(
@@ -184,7 +132,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         SideConfiguration configuration
-    ) {
+    )
+    {
         if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return null;
         }
@@ -205,7 +154,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         SideConfiguration configuration
-    ) {
+    )
+    {
         MachineSide hoveredPort = this.getHoveredPort(
             mouseX,
             mouseY,
@@ -214,7 +164,7 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
             configuration
         );
 
-        boolean headerHovered = this.animation.isFullyClosed() && this.isHeaderHovered(
+        boolean headerHovered = this.isFullyClosed() && this.isHeaderHovered(
             mouseX,
             mouseY,
             anchorX,
@@ -232,12 +182,12 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
                 .get(hoveredPort);
             PortMode mode = portConfig.mode();
 
-            Component sideName =
-                Component.translatable("gui.astralspace.side_config.side." + hoveredPort.name()
+            Component sideName = Component.translatable("gui.astralspace.side_config.side." +
+                hoveredPort.name()
                     .toLowerCase(Locale.ROOT));
 
-            Component modeName =
-                Component.translatable("gui.astralspace.side_config.mode." + mode.name()
+            Component modeName = Component.translatable("gui.astralspace.side_config.mode." +
+                mode.name()
                     .toLowerCase(Locale.ROOT));
 
             tooltip = List.of(
@@ -256,72 +206,12 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         );
     }
 
-    private void drawIcon(
-        @NonNull GuiGraphics graphics,
-        int anchorX,
-        int anchorY
-    ) {
-        int iconXMargin = (TAB_WIDTH - ICON_WIDTH) / 2;
-        int iconYMargin = (TAB_HEIGHT - ICON_HEIGHT) / 2;
-
-        int iconX = anchorX + iconXMargin;
-        int iconY = anchorY + iconYMargin;
-
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            this.iconTexture,
-            iconX,
-            iconY,
-            0,
-            0,
-            ICON_WIDTH,
-            ICON_HEIGHT,
-            ICON_WIDTH,
-            ICON_HEIGHT
-        );
-    }
-
-    private void drawTitle(
-        GuiGraphics graphics,
-        Component title,
-        int anchorX,
-        int anchorY
-    ) {
-
-        int x = anchorX + TAB_WIDTH + 2;
-        int y = anchorY + (TAB_HEIGHT - this.font.lineHeight) / 2;
-
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            title,
-            x,
-            y + 3,
-            0.75f,
-            0xFFE4E8EC
-        );
-    }
-
-    private void drawDivider(
-        @NonNull GuiGraphics graphics,
-        int x,
-        int y,
-        int width
-    ) {
-        graphics.fill(
-            x + 5,
-            y + 19,
-            x + width - 5,
-            y + 20,
-            0xFF626C75
-        );
-    }
-
     private void drawMachineCenter(
         @NonNull GuiGraphics graphics,
         int anchorX,
         int anchorY
-    ) {
+    )
+    {
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
             MACHINE_CENTER_TEXTURE,
@@ -341,29 +231,31 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         @NonNull SideConfiguration configuration,
         @NonNull Map<PortMode, Identifier> portTextures,
         @NonNull Component title,
-        int anchorX,
-        int anchorY,
+        int panelX,
+        int panelY,
         int width,
         int height
-    ) {
+    )
+    {
         graphics.enableScissor(
-            anchorX + BORDER_SIZE,
-            anchorY + BORDER_SIZE,
-            anchorX + width - BORDER_SIZE,
-            anchorY + height - BORDER_SIZE
+            panelX + BORDER_SIZE,
+            panelY + BORDER_SIZE,
+            panelX + width - BORDER_SIZE,
+            panelY + height - BORDER_SIZE
         );
 
         this.drawTitle(
             graphics,
+            this.font,
             title,
-            anchorX,
-            anchorY
+            panelX,
+            panelY
         );
 
         this.drawDivider(
             graphics,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             width
         );
 
@@ -371,8 +263,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
             graphics,
             configuration,
             portTextures,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             width,
             height
         );
@@ -386,7 +278,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         @NonNull Identifier texture,
         int anchorX,
         int anchorY
-    ) {
+    )
+    {
         int x = anchorX + placement.offsetX();
         int y = anchorY + placement.offsetY();
 
@@ -410,7 +303,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         @NonNull Map<PortMode, Identifier> portTextures,
         int anchorX,
         int anchorY
-    ) {
+    )
+    {
         for (PortPlacement placement : PORT_PLACEMENTS) {
             MachineSide side = placement.side();
 
@@ -446,7 +340,8 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         int anchorY,
         int width,
         int height
-    ) {
+    )
+    {
         int minX = anchorX + BORDER_SIZE;
         int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
 
@@ -477,38 +372,23 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
         );
     }
 
-    private int getAnimatedWidth(float progress) {
-        int delta = PANEL_WIDTH - TAB_WIDTH;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_WIDTH + delta * normalizedProgress);
-    }
-
-    private int getAnimatedHeight(float progress) {
-        int delta = PANEL_HEIGHT - TAB_HEIGHT;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_HEIGHT + delta * normalizedProgress);
-    }
-
     private @Nullable MachineSide getHoveredPort(
         double mouseX,
         double mouseY,
         int anchorX,
         int anchorY,
         SideConfiguration configuration
-    ) {
-        int minX = anchorX + BORDER_SIZE;
+    )
+    {
+        int panelX = getPanelX(anchorX);
+        int renderedWidth = this.getRenderedWidth();
+        int renderedHeight = this.getRenderedHeight();
+
+        int minX = panelX + BORDER_SIZE;
         int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
 
-        int maxX = anchorX + this.renderedWidth - BORDER_SIZE;
-        int maxY = anchorY + this.renderedHeight - BORDER_SIZE;
+        int maxX = panelX + renderedWidth - BORDER_SIZE;
+        int maxY = anchorY + renderedHeight - BORDER_SIZE;
 
         if (maxX <= minX || maxY <= minY) {
             return null;
@@ -531,7 +411,7 @@ public final class GuiSideConfigTab implements GuiCollapsibleTab {
                 continue;
             }
 
-            int x = anchorX + placement.offsetX();
+            int x = panelX + placement.offsetX();
             int y = anchorY + placement.offsetY();
 
             boolean horizontalHovered = mouseX >= x && mouseX < x + PORT_SIZE;

@@ -24,6 +24,7 @@
   "gui.astralspace.coal_generator.info.features.pause": "При заполнении хранилища горение приостанавливается, сохраняя оставшееся время работы топлива.",
   "gui.astralspace.coal_generator.info.features.outputs": "Энергия передаётся через настраиваемые выходы.",
   "gui.astralspace.coal_generator.info.features.redstone": "Работой генератора можно управлять с помощью сигнала редстоуна.",
+  "gui.astralspace.machine_info.tooltip": "Информация о механизме",
   "gui.astralspace.machine_info.title": "Информация",
   "gui.astralspace.side_config.title": "Конфигурация",
   "gui.astralspace.side_config.side.front": "Передняя сторона",

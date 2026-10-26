@@ -16,12 +16,8 @@ import java.util.List;
 public final class GuiRedstoneControlTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
-    private static final int TAB_HEIGHT = 20;
-
     private static final int PANEL_WIDTH = 100;
     private static final int PANEL_HEIGHT = 96;
-
-    private static final int BORDER_SIZE = 5;
 
     private static final int MODE_BUTTON_SIZE = 20;
     private static final int MODE_ICON_SIZE = 12;
@@ -111,16 +107,16 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         int anchorY
     )
     {
-        if (!this.isOpen()) {
-            return null;
-        }
-
         int renderedWidth = this.getRenderedWidth();
         int renderedHeight = this.getRenderedHeight();
 
-        if (mouseX < anchorX ||
-            mouseX >= anchorX + renderedWidth ||
-            mouseY < anchorY + TAB_HEIGHT ||
+        if (!this.isOpen() || renderedWidth < PANEL_WIDTH || renderedHeight < PANEL_HEIGHT) {
+            return null;
+        }
+
+        int panelX = this.getPanelX(anchorX);
+
+        if (mouseX < panelX || mouseX >= panelX + renderedWidth || mouseY < anchorY + TAB_HEIGHT ||
             mouseY >= anchorY + renderedHeight)
         {
             return null;
@@ -128,17 +124,16 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
 
         int totalWidth =
             DISPLAY_MODES.size() * MODE_BUTTON_SIZE + (DISPLAY_MODES.size() - 1) * MODE_BUTTON_GAP;
-        int startX = anchorX + (PANEL_WIDTH - totalWidth) / 2;
+        int startX = panelX + (PANEL_WIDTH - totalWidth) / 2;
         int buttonY = anchorY + MODE_BUTTONS_Y;
 
         for (int i = 0; i < DISPLAY_MODES.size(); i++) {
             RedstoneControlMode mode = DISPLAY_MODES.get(i);
 
             int buttonX = startX + i * (MODE_BUTTON_SIZE + MODE_BUTTON_GAP);
-            boolean isButtonClicked = mouseX >= buttonX &&
-                mouseX < buttonX + MODE_BUTTON_SIZE &&
-                mouseY >= buttonY &&
-                mouseY < buttonY + MODE_BUTTON_SIZE;
+            boolean isButtonClicked =
+                mouseX >= buttonX && mouseX < buttonX + MODE_BUTTON_SIZE && mouseY >= buttonY &&
+                    mouseY < buttonY + MODE_BUTTON_SIZE;
             if (isButtonClicked) {
                 return mode;
             }
@@ -163,7 +158,7 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
             anchorY
         );
 
-        boolean headerHovered = this.animation.isFullyClosed() && this.isHeaderHovered(
+        boolean headerHovered = this.isFullyClosed() && this.isHeaderHovered(
             mouseX,
             mouseY,
             anchorX,

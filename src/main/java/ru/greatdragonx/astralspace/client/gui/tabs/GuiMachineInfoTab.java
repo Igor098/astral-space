@@ -15,16 +15,8 @@ import java.util.List;
 public final class GuiMachineInfoTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
-    private static final int TAB_WIDTH = 20;
-    private static final int TAB_HEIGHT = 20;
-
     private static final int PANEL_WIDTH = 128;
     private static final int PANEL_HEIGHT = 116;
-
-    private static final int BORDER_SIZE = 5;
-
-    private static final int ICON_WIDTH = 16;
-    private static final int ICON_HEIGHT = 16;
 
     private static final int DESCRIPTION_TEXT_WIDTH = 104;
 
@@ -54,6 +46,8 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
     private double dragStartMouseY;
     private int dragStartScrollOffset;
     private boolean draggingScrollbar = false;
+
+    private record EntryLayout(float scale, int lineHeight, List<FormattedCharSequence> lines) {}
 
     public GuiMachineInfoTab(Font font) {
         super(
@@ -115,10 +109,8 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int renderedWidth = this.getRenderedWidth();
         int renderedHeight = this.getRenderedHeight();
 
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
-            !this.isOpen() ||
-            renderedWidth < PANEL_WIDTH ||
-            renderedHeight < PANEL_HEIGHT)
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.isOpen() ||
+            renderedWidth < PANEL_WIDTH || renderedHeight < PANEL_HEIGHT)
         {
             return false;
         }
@@ -137,10 +129,8 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int trackX = x + SCROLLBAR_OFFSET_X;
         int trackY = anchorY + DESCRIPTION_START_Y;
 
-        boolean inArea = mouseX >= trackX &&
-            mouseX < trackX + SCROLLBAR_WIDTH &&
-            mouseY >= trackY + thumbOffset &&
-            mouseY < trackY + thumbOffset + thumbHeight;
+        boolean inArea = mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH &&
+            mouseY >= trackY + thumbOffset && mouseY < trackY + thumbOffset + thumbHeight;
 
         if (!inArea) {
             return false;
@@ -173,10 +163,8 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int viewportX = x + DESCRIPTION_START_X;
         int viewportY = anchorY + DESCRIPTION_START_Y;
 
-        boolean canScroll = mouseX >= viewportX &&
-            mouseX < viewportX + DESCRIPTION_TEXT_WIDTH &&
-            mouseY >= viewportY &&
-            mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
+        boolean canScroll = mouseX >= viewportX && mouseX < viewportX + DESCRIPTION_TEXT_WIDTH &&
+            mouseY >= viewportY && mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
 
         if (!canScroll) {
             return false;
@@ -242,6 +230,34 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         return true;
     }
 
+    public void renderTooltip(
+        GuiGraphics graphics,
+        int mouseX,
+        int mouseY,
+        int anchorX,
+        int anchorY
+    )
+    {
+        if (!this.isFullyClosed() || !this.isHeaderHovered(
+            mouseX,
+            mouseY,
+            anchorX,
+            anchorY
+        ))
+        {
+            return;
+        }
+
+        Component tooltip = Component.translatable("gui.astralspace.machine_info.tooltip");
+
+        graphics.setTooltipForNextFrame(
+            this.font,
+            tooltip,
+            mouseX,
+            mouseY
+        );
+    }
+
     private void drawDescription(
         @NonNull GuiGraphics graphics,
         @NonNull List<GuiInfoEntry> entries,
@@ -254,15 +270,12 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
 
         for (GuiInfoEntry entry : entries) {
             int color = entry.heading() ? 0xFF9FBAD4 : 0xFFD3DAE1;
-            float scale = entry.heading() ? 0.75f : 0.6f;
 
-            int wrapWidth = (int) (DESCRIPTION_TEXT_WIDTH / scale);
-            int scaledLineHeight = (int) Math.ceil(this.font.lineHeight * scale);
+            EntryLayout layout = this.getEntryLayout(entry);
 
-            List<FormattedCharSequence> lines = this.font.split(
-                entry.text(),
-                wrapWidth
-            );
+            float scale = layout.scale();
+            int lineHeight = layout.lineHeight();
+            List<FormattedCharSequence> lines = layout.lines();
 
             for (FormattedCharSequence line : lines) {
                 GuiTextRenderer.drawScaledText(
@@ -275,7 +288,7 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
                     color
                 );
 
-                cursorY += scaledLineHeight + LINE_SPACING;
+                cursorY += lineHeight + LINE_SPACING;
             }
 
             cursorY += ENTRY_SPACING;
@@ -384,20 +397,34 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         graphics.disableScissor();
     }
 
+    private @NonNull EntryLayout getEntryLayout(GuiInfoEntry entry) {
+        float scale = entry.heading() ? 0.75f : 0.6f;
+
+        int wrapWidth = (int) (DESCRIPTION_TEXT_WIDTH / scale);
+        int scaledLineHeight = (int) Math.ceil(this.font.lineHeight * scale);
+
+        List<FormattedCharSequence> lines = this.font.split(
+            entry.text(),
+            wrapWidth
+        );
+
+        return new EntryLayout(
+            scale,
+            scaledLineHeight,
+            lines
+        );
+    }
+
     private int getContentHeight(@NonNull List<GuiInfoEntry> entries) {
         int contentHeight = 0;
 
         for (GuiInfoEntry entry : entries) {
-            float scale = entry.heading() ? 0.75f : 0.6f;
-            int wrapWidth = (int) (DESCRIPTION_TEXT_WIDTH / scale);
-            int scaledLineHeight = (int) Math.ceil(this.font.lineHeight * scale);
+            EntryLayout layout = this.getEntryLayout(entry);
 
-            List<FormattedCharSequence> lines = this.font.split(
-                entry.text(),
-                wrapWidth
-            );
+            int lineHeight = layout.lineHeight();
+            List<FormattedCharSequence> lines = layout.lines();
 
-            contentHeight += lines.size() * (scaledLineHeight + LINE_SPACING) + ENTRY_SPACING;
+            contentHeight += lines.size() * (lineHeight + LINE_SPACING) + ENTRY_SPACING;
         }
 
         return contentHeight;

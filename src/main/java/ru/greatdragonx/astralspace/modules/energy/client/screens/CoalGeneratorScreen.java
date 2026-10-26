@@ -161,7 +161,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         );
 
         Component tooltip = Component.translatable(
-            "gui.astralspace.coal_generator.panel.tooltip",
+            "gui.astralspace.coal_generator.production_rate.tooltip",
             this.menu.getCurrentProductionRate()
         );
 
@@ -193,7 +193,6 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.getRightTabsY()
         );
 
-
         this.redstoneControlTab.renderTooltip(
             graphics,
             mouseX,
@@ -201,6 +200,19 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             this.getRightTabsX(),
             redstoneTabY,
             this.menu.getRedstoneControlMode()
+        );
+
+        int machineInfoTabY = this.leftTabs.getTabY(
+            this.machineInfoTab,
+            this.getLeftTabsY()
+        );
+
+        this.machineInfoTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.leftPos,
+            machineInfoTabY
         );
     }
 
