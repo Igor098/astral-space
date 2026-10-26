@@ -2,20 +2,17 @@ package ru.greatdragonx.astralspace.client.gui.tabs;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
-import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
-import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
 
 import java.util.List;
 
-public final class GuiMachineInfoTab implements GuiCollapsibleTab {
+public final class GuiMachineInfoTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
     private static final int TAB_WIDTH = 20;
@@ -24,7 +21,6 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
     private static final int PANEL_WIDTH = 128;
     private static final int PANEL_HEIGHT = 116;
 
-    private static final int TEXTURE_SIZE = 20;
     private static final int BORDER_SIZE = 5;
 
     private static final int ICON_WIDTH = 16;
@@ -47,29 +43,26 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
     private static final int SCROLLBAR_TRACK_COLOR = 0xFF53616F;
     private static final int SCROLLBAR_THUMB_COLOR = 0xFF98A8B8;
 
-    private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/tabs/tab_background.png"
-    );
-
     private static final Identifier ICON_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/common/tabs/machine_info.png"
     );
 
-    private final GuiTabAnimation animation;
     private final Font font;
 
-    private int renderedWidth = TAB_WIDTH;
-    private int renderedHeight = TAB_HEIGHT;
     private int scrollOffset = 0;
     private double dragStartMouseY;
     private int dragStartScrollOffset;
     private boolean draggingScrollbar = false;
 
     public GuiMachineInfoTab(Font font) {
+        super(
+            true,
+            ANIMATION_STEP,
+            PANEL_WIDTH,
+            PANEL_HEIGHT
+        );
         this.font = font;
-        this.animation = new GuiTabAnimation(ANIMATION_STEP);
     }
 
     public void render(
@@ -78,30 +71,19 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         float partialTick
-    ) {
-        float progress = this.animation.getProgress(partialTick);
-
-        int width = this.getAnimatedWidth(progress);
-        int height = this.getAnimatedHeight(progress);
-
-        this.renderedWidth = width;
-        this.renderedHeight = height;
-
-        int x = this.getX(
-            anchorX,
-            width
-        );
-
-        NineSliceRenderer.draw(
+    )
+    {
+        float progress = this.renderPanelBackground(
             graphics,
-            BACKGROUND_TEXTURE,
-            x,
+            anchorX,
             anchorY,
-            width,
-            height,
-            TEXTURE_SIZE,
-            BORDER_SIZE
+            partialTick
         );
+
+        int width = this.getRenderedWidth();
+        int height = this.getRenderedHeight();
+
+        int x = this.getPanelX(anchorX);
 
         this.drawContent(
             graphics,
@@ -112,50 +94,13 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
             height
         );
 
-        this.drawIcon(
+        this.drawTabIcon(
             graphics,
-            progress,
+            ICON_TEXTURE,
             x,
-            anchorY
+            anchorY,
+            progress
         );
-    }
-
-    public void tick() {
-        this.animation.tick();
-    }
-
-    @Override
-    public void open() {
-        this.animation.open();
-    }
-
-    @Override
-    public void close() {
-        this.animation.close();
-    }
-
-    @Override
-    public boolean isOpen() {
-        return this.animation.isOpen();
-    }
-
-    @Override
-    public int getRenderedHeight() {
-        return this.renderedHeight;
-    }
-
-    @Override
-    public boolean isHeaderHovered(
-        double mouseX,
-        double mouseY,
-        int anchorX,
-        int anchorY
-    ) {
-        int x = this.getX(
-            anchorX,
-            this.renderedWidth
-        );
-        return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
     }
 
     public boolean mouseClicked(
@@ -165,8 +110,16 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         List<GuiInfoEntry> entries
-    ) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.isOpen() || this.renderedWidth < PANEL_WIDTH || this.renderedHeight < PANEL_HEIGHT) {
+    )
+    {
+        int renderedWidth = this.getRenderedWidth();
+        int renderedHeight = this.getRenderedHeight();
+
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
+            !this.isOpen() ||
+            renderedWidth < PANEL_WIDTH ||
+            renderedHeight < PANEL_HEIGHT)
+        {
             return false;
         }
 
@@ -180,12 +133,14 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         int thumbTravel = DESCRIPTION_VIEWPORT_HEIGHT - thumbHeight;
         int thumbOffset = Math.round((float) this.scrollOffset / maxScroll * thumbTravel);
 
-        int x = anchorX - this.renderedWidth;
+        int x = anchorX - renderedWidth;
         int trackX = x + SCROLLBAR_OFFSET_X;
         int trackY = anchorY + DESCRIPTION_START_Y;
 
-        boolean inArea =
-            mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH && mouseY >= trackY + thumbOffset && mouseY < trackY + thumbOffset + thumbHeight;
+        boolean inArea = mouseX >= trackX &&
+            mouseX < trackX + SCROLLBAR_WIDTH &&
+            mouseY >= trackY + thumbOffset &&
+            mouseY < trackY + thumbOffset + thumbHeight;
 
         if (!inArea) {
             return false;
@@ -205,18 +160,23 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         List<GuiInfoEntry> entries
-    ) {
-        if (!this.isOpen() || this.renderedWidth < PANEL_WIDTH || this.renderedHeight < PANEL_HEIGHT) {
+    )
+    {
+        int renderedWidth = this.getRenderedWidth();
+        int renderedHeight = this.getRenderedHeight();
+        if (!this.isOpen() || renderedWidth < PANEL_WIDTH || renderedHeight < PANEL_HEIGHT) {
             return false;
         }
 
-        int x = anchorX - this.renderedWidth;
+        int x = anchorX - renderedWidth;
 
         int viewportX = x + DESCRIPTION_START_X;
         int viewportY = anchorY + DESCRIPTION_START_Y;
 
-        boolean canScroll =
-            mouseX >= viewportX && mouseX < viewportX + DESCRIPTION_TEXT_WIDTH && mouseY >= viewportY && mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
+        boolean canScroll = mouseX >= viewportX &&
+            mouseX < viewportX + DESCRIPTION_TEXT_WIDTH &&
+            mouseY >= viewportY &&
+            mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
 
         if (!canScroll) {
             return false;
@@ -243,7 +203,8 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         double mouseY,
         int button,
         List<GuiInfoEntry> entries
-    ) {
+    )
+    {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.draggingScrollbar) {
             return false;
         }
@@ -281,72 +242,13 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         return true;
     }
 
-    private void drawIcon(
-        @NonNull GuiGraphics graphics,
-        float progress,
-        int x,
-        int y
-    ) {
-        int iconXMargin = (TAB_WIDTH - ICON_WIDTH) / 2;
-        int iconYMargin = (TAB_HEIGHT - ICON_HEIGHT) / 2;
-        int animatedIconXMargin = Math.round(iconXMargin + (5 - iconXMargin) * progress);
-        int iconX = x + animatedIconXMargin;
-        int iconY = y + iconYMargin;
-
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            ICON_TEXTURE,
-            iconX,
-            iconY,
-            0,
-            0,
-            ICON_WIDTH,
-            ICON_HEIGHT,
-            ICON_WIDTH,
-            ICON_HEIGHT
-        );
-    }
-
-    private void drawTitle(
-        @NonNull GuiGraphics graphics,
-        int anchorX,
-        int anchorY
-    ) {
-        int x = anchorX + TAB_WIDTH + 2;
-        int y = anchorY + (TAB_HEIGHT - this.font.lineHeight) / 2;
-        Component title = Component.translatable("gui.astralspace.machine_info.title");
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            title,
-            x,
-            y + 3,
-            0.75f,
-            0xFFE4E8EC
-        );
-    }
-
-    private void drawDivider(
-        @NonNull GuiGraphics graphics,
-        int x,
-        int y,
-        int width
-    ) {
-        graphics.fill(
-            x + 5,
-            y + 19,
-            x + width - 5,
-            y + 20,
-            0xFF626C75
-        );
-    }
-
     private void drawDescription(
         @NonNull GuiGraphics graphics,
         @NonNull List<GuiInfoEntry> entries,
         int x,
         int y
-    ) {
+    )
+    {
         int textX = x + DESCRIPTION_START_X;
         int cursorY = y + DESCRIPTION_START_Y - this.scrollOffset;
 
@@ -385,7 +287,8 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
         List<GuiInfoEntry> entries,
         int x,
         int y
-    ) {
+    )
+    {
         int contentHeight = this.getContentHeight(entries);
         int thumbHeight = this.getThumbHeight(contentHeight);
         int maxScroll = Math.max(
@@ -425,77 +328,60 @@ public final class GuiMachineInfoTab implements GuiCollapsibleTab {
     private void drawContent(
         @NonNull GuiGraphics graphics,
         @NonNull List<GuiInfoEntry> entries,
-        int anchorX,
-        int anchorY,
+        int panelX,
+        int panelY,
         int width,
         int height
-    ) {
+    )
+    {
+        Component title = Component.translatable("gui.astralspace.machine_info.title");
+
         graphics.enableScissor(
-            anchorX + BORDER_SIZE,
-            anchorY + BORDER_SIZE,
-            anchorX + width - BORDER_SIZE,
-            anchorY + height - BORDER_SIZE
+            panelX + BORDER_SIZE,
+            panelY + BORDER_SIZE,
+            panelX + width - BORDER_SIZE,
+            panelY + height - BORDER_SIZE
         );
+
         this.drawTitle(
             graphics,
-            anchorX,
-            anchorY
+            this.font,
+            title,
+            panelX,
+            panelY
         );
+
         this.drawDivider(
             graphics,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             width
         );
+
         graphics.enableScissor(
-            anchorX + DESCRIPTION_START_X,
-            anchorY + DESCRIPTION_START_Y,
-            anchorX + DESCRIPTION_START_X + DESCRIPTION_TEXT_WIDTH,
-            anchorY + DESCRIPTION_START_Y + DESCRIPTION_VIEWPORT_HEIGHT
+            panelX + DESCRIPTION_START_X,
+            panelY + DESCRIPTION_START_Y,
+            panelX + DESCRIPTION_START_X + DESCRIPTION_TEXT_WIDTH,
+            panelY + DESCRIPTION_START_Y + DESCRIPTION_VIEWPORT_HEIGHT
         );
+
         this.drawDescription(
             graphics,
             entries,
-            anchorX,
-            anchorY
+            panelX,
+            panelY
         );
+
         graphics.disableScissor();
 
         this.drawScrollbar(
             graphics,
             entries,
-            anchorX,
-            anchorY
+            panelX,
+            panelY
         );
 
         graphics.disableScissor();
-    }
-
-    private int getX(
-        int screenLeft,
-        int animatedWidth
-    ) {
-        return screenLeft - animatedWidth;
-    }
-
-    private int getAnimatedWidth(float progress) {
-        int delta = PANEL_WIDTH - TAB_WIDTH;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_WIDTH + delta * normalizedProgress);
-    }
-
-    private int getAnimatedHeight(float progress) {
-        int delta = PANEL_HEIGHT - TAB_HEIGHT;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_HEIGHT + delta * normalizedProgress);
     }
 
     private int getContentHeight(@NonNull List<GuiInfoEntry> entries) {

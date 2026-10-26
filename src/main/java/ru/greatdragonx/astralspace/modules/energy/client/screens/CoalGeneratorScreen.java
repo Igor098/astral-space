@@ -92,7 +92,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         CoalGeneratorMenu menu,
         Inventory playerInventory,
         Component title
-    ) {
+    )
+    {
         super(
             menu,
             playerInventory,
@@ -116,13 +117,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             SIDE_CONFIG_ICON
         );
 
-        this.redstoneControlTab = new GuiRedstoneControlTab(
-            this.font,
-            Identifier.fromNamespaceAndPath(
-                AstralSpace.MOD_ID,
-                "textures/gui/common/tabs/redstone_control.png"
-            )
-        );
+        this.redstoneControlTab = new GuiRedstoneControlTab(this.font);
 
         this.leftTabs = new GuiTabGroup(List.of(
             this.machineInfoTab,
@@ -150,7 +145,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         int mouseX,
         int mouseY,
         float partialTick
-    ) {
+    )
+    {
         super.render(
             graphics,
             mouseX,
@@ -212,7 +208,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     public boolean mouseClicked(
         @NonNull MouseButtonEvent event,
         boolean doubled
-    ) {
+    )
+    {
         boolean isLeftGroupClicked = this.leftTabs.mouseClicked(
             event,
             this.leftPos,
@@ -296,7 +293,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         @NonNull MouseButtonEvent event,
         double dragX,
         double dragY
-    ) {
+    )
+    {
         boolean isMachineTabInfoTextDragged = this.machineInfoTab.mouseDragged(
             event.y(),
             event.button(),
@@ -331,7 +329,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         double mouseY,
         double scrollX,
         double scrollY
-    ) {
+    )
+    {
         int machineTabY = this.leftTabs.getTabY(
             this.machineInfoTab,
             this.getLeftTabsY()
@@ -364,7 +363,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         float partialTick,
         int mouseX,
         int mouseY
-    ) {
+    )
+    {
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
             BACKGROUND,
@@ -438,7 +438,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         @NonNull GuiGraphics graphics,
         int mouseX,
         int mouseY
-    ) {
+    )
+    {
         float scale = 0.75f;
 
         this.drawScaledText(
@@ -489,7 +490,8 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         float y,
         float scale,
         int color
-    ) {
+    )
+    {
         graphics.pose()
             .pushMatrix();
 

@@ -8,37 +8,25 @@ import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
-import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
-import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
 import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 
 import java.util.List;
 
-public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
+public final class GuiRedstoneControlTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
-    private static final int TAB_WIDTH = 20;
     private static final int TAB_HEIGHT = 20;
 
     private static final int PANEL_WIDTH = 100;
     private static final int PANEL_HEIGHT = 96;
 
-    private static final int TEXTURE_SIZE = 20;
     private static final int BORDER_SIZE = 5;
-
-    private static final int ICON_WIDTH = 16;
-    private static final int ICON_HEIGHT = 16;
 
     private static final int MODE_BUTTON_SIZE = 20;
     private static final int MODE_ICON_SIZE = 12;
     private static final int MODE_BUTTON_GAP = 4;
     private static final int MODE_BUTTONS_Y = 28;
-
-    private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/tabs/tab_background.png"
-    );
 
     private static final Identifier MODE_BUTTONS_TEXTURE = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
@@ -50,6 +38,11 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         "textures/gui/common/redstone/redstone_mode_icons.png"
     );
 
+    private static final Identifier ICON_TEXTURE = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/common/tabs/redstone_control.png"
+    );
+
     private static final List<RedstoneControlMode> DISPLAY_MODES = List.of(
         RedstoneControlMode.IGNORE,
         RedstoneControlMode.WHEN_UNPOWERED,
@@ -57,20 +50,18 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
     );
 
     private final Font font;
-    private final GuiTabAnimation animation;
-    private final Identifier iconTexture;
-
-    private int renderedWidth = TAB_WIDTH;
-    private int renderedHeight = TAB_HEIGHT;
-
 
     public GuiRedstoneControlTab(
-        Font font,
-        Identifier iconTexture
-    ) {
+        Font font
+    )
+    {
+        super(
+            false,
+            ANIMATION_STEP,
+            PANEL_WIDTH,
+            PANEL_HEIGHT
+        );
         this.font = font;
-        this.iconTexture = iconTexture;
-        this.animation = new GuiTabAnimation(ANIMATION_STEP);
     }
 
     public void render(
@@ -80,74 +71,37 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         float partialTick
-    ) {
-        float progress = this.animation.getProgress(partialTick);
-
-        int width = this.getAnimatedWidth(progress);
-        int height = this.getAnimatedHeight(progress);
-        this.renderedWidth = width;
-        this.renderedHeight = height;
-
-        NineSliceRenderer.draw(
+    )
+    {
+        float progress = this.renderPanelBackground(
             graphics,
-            BACKGROUND_TEXTURE,
             anchorX,
             anchorY,
-            width,
-            height,
-            TEXTURE_SIZE,
-            BORDER_SIZE
+            partialTick
         );
+
+        int width = this.getRenderedWidth();
+        int height = this.getRenderedHeight();
+
+        int x = this.getPanelX(anchorX);
 
         this.drawContent(
             graphics,
             selectedMode,
             redstoneBlocked,
-            anchorX,
+            x,
             anchorY,
             width,
             height
         );
 
-        this.drawIcon(
+        this.drawTabIcon(
             graphics,
-            anchorX,
-            anchorY
+            ICON_TEXTURE,
+            x,
+            anchorY,
+            progress
         );
-    }
-
-    @Override
-    public void open() {
-        this.animation.open();
-    }
-
-    @Override
-    public void close() {
-        this.animation.close();
-    }
-
-    @Override
-    public boolean isOpen() {
-        return this.animation.isOpen();
-    }
-
-    @Override
-    public int getRenderedHeight() {
-        return this.renderedHeight;
-    }
-
-    @Override
-    public boolean isHeaderHovered(
-        double mouseX,
-        double mouseY,
-        int anchorX,
-        int anchorY
-    ) {
-        return mouseX >= anchorX && mouseX < anchorX + this.renderedWidth && mouseY >= anchorY && mouseY < anchorY + TAB_HEIGHT;
-    }
-
-    public void tick() {
-        this.animation.tick();
     }
 
     public @Nullable RedstoneControlMode getHoveredMode(
@@ -155,12 +109,20 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         double mouseY,
         int anchorX,
         int anchorY
-    ) {
+    )
+    {
         if (!this.isOpen()) {
             return null;
         }
 
-        if (mouseX < anchorX || mouseX >= anchorX + this.renderedWidth || mouseY < anchorY + TAB_HEIGHT || mouseY >= anchorY + this.renderedHeight) {
+        int renderedWidth = this.getRenderedWidth();
+        int renderedHeight = this.getRenderedHeight();
+
+        if (mouseX < anchorX ||
+            mouseX >= anchorX + renderedWidth ||
+            mouseY < anchorY + TAB_HEIGHT ||
+            mouseY >= anchorY + renderedHeight)
+        {
             return null;
         }
 
@@ -173,8 +135,10 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
             RedstoneControlMode mode = DISPLAY_MODES.get(i);
 
             int buttonX = startX + i * (MODE_BUTTON_SIZE + MODE_BUTTON_GAP);
-            boolean isButtonClicked =
-                mouseX >= buttonX && mouseX < buttonX + MODE_BUTTON_SIZE && mouseY >= buttonY && mouseY < buttonY + MODE_BUTTON_SIZE;
+            boolean isButtonClicked = mouseX >= buttonX &&
+                mouseX < buttonX + MODE_BUTTON_SIZE &&
+                mouseY >= buttonY &&
+                mouseY < buttonY + MODE_BUTTON_SIZE;
             if (isButtonClicked) {
                 return mode;
             }
@@ -190,7 +154,8 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         RedstoneControlMode selectedMode
-    ) {
+    )
+    {
         RedstoneControlMode hoveredMode = this.getHoveredMode(
             mouseX,
             mouseY,
@@ -235,73 +200,13 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         );
     }
 
-    private void drawIcon(
-        @NonNull GuiGraphics graphics,
-        int anchorX,
-        int anchorY
-    ) {
-        int iconXMargin = (TAB_WIDTH - ICON_WIDTH) / 2;
-        int iconYMargin = (TAB_HEIGHT - ICON_HEIGHT) / 2;
-
-        int iconX = anchorX + iconXMargin;
-        int iconY = anchorY + iconYMargin;
-
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            this.iconTexture,
-            iconX,
-            iconY,
-            0,
-            0,
-            ICON_WIDTH,
-            ICON_HEIGHT,
-            ICON_WIDTH,
-            ICON_HEIGHT
-        );
-    }
-
-    private void drawTitle(
-        @NonNull GuiGraphics graphics,
-        int anchorX,
-        int anchorY
-    ) {
-        int x = anchorX + TAB_WIDTH + 2;
-        int y = anchorY + (TAB_HEIGHT - this.font.lineHeight) / 2;
-
-        Component title = Component.translatable("gui.astralspace.redstone_control.title");
-
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            title,
-            x,
-            y + 3,
-            0.75f,
-            0xFFE0E5EA
-        );
-    }
-
-    private void drawDivider(
-        @NonNull GuiGraphics graphics,
-        int x,
-        int y,
-        int width
-    ) {
-        graphics.fill(
-            x + 5,
-            y + 19,
-            x + width - 5,
-            y + 20,
-            0xFF626C75
-        );
-    }
-
     private void drawModeButtons(
         GuiGraphics graphics,
         int anchorX,
         int anchorY,
         RedstoneControlMode selectedMode
-    ) {
+    )
+    {
         int totalWidth =
             DISPLAY_MODES.size() * MODE_BUTTON_SIZE + (DISPLAY_MODES.size() - 1) * MODE_BUTTON_GAP;
         int startX = anchorX + (PANEL_WIDTH - totalWidth) / 2;
@@ -351,7 +256,8 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         int anchorX,
         int anchorY,
         boolean redstoneBlocked
-    ) {
+    )
+    {
         int textX = anchorX + 6;
         int titleY = anchorY + 54;
         int statusValueY = anchorY + 62;
@@ -386,7 +292,8 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         @NonNull RedstoneControlMode selectedMode,
         int anchorX,
         int anchorY
-    ) {
+    )
+    {
         int textX = anchorX + 6;
         int titleY = anchorY + 74;
         int signalValueY = anchorY + 82;
@@ -423,72 +330,57 @@ public final class GuiRedstoneControlTab implements GuiCollapsibleTab {
         @NonNull GuiGraphics graphics,
         @NonNull RedstoneControlMode selectedMode,
         boolean redstoneBlocked,
-        int anchorX,
-        int anchorY,
+        int panelX,
+        int panelY,
         int width,
         int height
-    ) {
+    )
+    {
+        Component title = Component.translatable("gui.astralspace.redstone_control.title");
+
         graphics.enableScissor(
-            anchorX + BORDER_SIZE,
-            anchorY + BORDER_SIZE,
-            anchorX + width - BORDER_SIZE,
-            anchorY + height - BORDER_SIZE
+            panelX + BORDER_SIZE,
+            panelY + BORDER_SIZE,
+            panelX + width - BORDER_SIZE,
+            panelY + height - BORDER_SIZE
         );
 
         this.drawTitle(
             graphics,
-            anchorX,
-            anchorY
+            this.font,
+            title,
+            panelX,
+            panelY
         );
 
         this.drawDivider(
             graphics,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             width
         );
 
         this.drawModeButtons(
             graphics,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             selectedMode
         );
 
         this.drawStatus(
             graphics,
-            anchorX,
-            anchorY,
+            panelX,
+            panelY,
             redstoneBlocked
         );
 
         this.drawSignal(
             graphics,
             selectedMode,
-            anchorX,
-            anchorY
+            panelX,
+            panelY
         );
 
         graphics.disableScissor();
-    }
-
-    private int getAnimatedWidth(float progress) {
-        int delta = PANEL_WIDTH - TAB_WIDTH;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_WIDTH + delta * normalizedProgress);
-    }
-
-    private int getAnimatedHeight(float progress) {
-        int delta = PANEL_HEIGHT - TAB_HEIGHT;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-        return Math.round(TAB_HEIGHT + delta * normalizedProgress);
     }
 }
