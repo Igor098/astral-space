@@ -17,7 +17,10 @@ import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.transfer.TransferPreconditions;
 import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil;
 import net.neoforged.neoforge.transfer.energy.SimpleEnergyHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
@@ -26,6 +29,9 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.common.energy.EnergyExtractionBudget;
+import ru.greatdragonx.astralspace.common.energy.EnergyTransferTracker;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
@@ -40,11 +46,12 @@ import java.util.Map;
 import java.util.Objects;
 
 public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvider {
-    private static final long LOW_FUEL_THRESHOLD = 8_000L;
     public static final int FUEL_SLOT = 0;
+
     public static final int ENERGY_CAPACITY = 10_000;
     public static final int MAX_EXTRACT = 80;
     public static final int ENERGY_GENERATION_PER_TICK = 40;
+
     public static final int DATA_ENERGY = 0;
     public static final int DATA_BURN_TIME = 1;
     public static final int DATA_BURN_DURATION = 2;
@@ -55,15 +62,18 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_REDSTONE_MODE = 7;
     public static final int DATA_REDSTONE_BLOCKED = 8;
     public static final int DATA_COUNT = 9;
+
+    private static final long LOW_FUEL_THRESHOLD = 8_000L;
+
+    private final EnergyTransferTracker transferTracker;
+    private final EnergyExtractionBudget extractionBudget;
     private final SimpleEnergyHandler energyHandler;
     private final ItemStacksResourceHandler fuelInventory;
     private final Map<Direction, OutputEnergyHandler> outputHandlers =
         new EnumMap<>(Direction.class);
+
     private int burnTime = 0;
     private int burnDuration = 0;
-    private long transferTick = -1L;
-    private int transferredThisTick = 0;
-    private int transferredPreviousTick = 0;
     private int currentProductionRate = 0;
     private RedstoneControlMode redstoneControlMode = RedstoneControlMode.IGNORE;
 
@@ -109,7 +119,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         public void set(
             int index,
             int value
-        ) {
+        )
+        {
         }
 
         @Override
@@ -139,7 +150,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         public int insert(
             int amount,
             @NonNull TransactionContext transaction
-        ) {
+        )
+        {
+            TransferPreconditions.checkNonNegative(amount);
+
             return 0;
         }
 
@@ -147,19 +161,56 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         public int extract(
             int amount,
             @NonNull TransactionContext transaction
-        ) {
+        )
+        {
+            TransferPreconditions.checkNonNegative(amount);
+
             boolean isOutputEnabled = CoalGeneratorBlockEntity.this.isEnergyOutputEnabled(side);
             if (!isOutputEnabled) {
                 return 0;
             }
 
-            int extracted = CoalGeneratorBlockEntity.this.energyHandler.extract(
+            Level level = CoalGeneratorBlockEntity.this.getLevel();
+            if (level == null) {
+                return 0;
+            }
+
+            long currentTick = level.getGameTime();
+
+            int allowed = CoalGeneratorBlockEntity.this.extractionBudget.getAllowedAmount(
                 amount,
+                currentTick
+            );
+
+            if (allowed == 0) {
+                return 0;
+            }
+
+            int extracted = CoalGeneratorBlockEntity.this.energyHandler.extract(
+                allowed,
                 transaction
             );
 
             if (extracted > 0) {
-                new RootCommitJournal(() -> CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted)).updateSnapshots(transaction);
+                CoalGeneratorBlockEntity.this.extractionBudget.recordExtraction(
+                    extracted,
+                    currentTick,
+                    transaction
+                );
+//                new RootCommitJournal(() -> CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted)).updateSnapshots(transaction);
+                new RootCommitJournal(() -> {
+                    CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted);
+
+                    if (CoalGeneratorBlockEntity.this.level != null &&
+                        CoalGeneratorBlockEntity.this.level.getGameTime() % 20 == 0)
+                    {
+                        AstralSpace.LOGGER.info(
+                            "[Energy Extract] side={}, amount={}",
+                            side,
+                            extracted
+                        );
+                    }
+                }).updateSnapshots(transaction);
             }
 
             return extracted;
@@ -169,18 +220,23 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public CoalGeneratorBlockEntity(
         BlockPos pos,
         BlockState blockState
-    ) {
+    )
+    {
         super(
             EnergyBlockEntities.COAL_GENERATOR_BLOCK_ENTITY.get(),
             pos,
             blockState
         );
 
+        this.transferTracker = new EnergyTransferTracker();
+        this.extractionBudget = new EnergyExtractionBudget(MAX_EXTRACT);
+
         this.energyHandler = new SimpleEnergyHandler(
             ENERGY_CAPACITY,
             0,
             MAX_EXTRACT
-        ) {
+        )
+        {
             @Override
             protected void onEnergyChanged(int previousAmount) {
                 CoalGeneratorBlockEntity.this.setChanged();
@@ -192,7 +248,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             protected void onContentsChanged(
                 int index,
                 @NonNull ItemStack previousContents
-            ) {
+            )
+            {
                 CoalGeneratorBlockEntity.this.setChanged();
             }
 
@@ -200,7 +257,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             public boolean isValid(
                 int index,
                 @NonNull ItemResource resource
-            ) {
+            )
+            {
                 ItemStack stack = resource.toStack();
                 Level level = CoalGeneratorBlockEntity.this.level;
 
@@ -209,7 +267,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 }
 
                 if (!stack.getCraftingRemainder()
-                    .isEmpty()) {
+                    .isEmpty())
+                {
                     return false;
                 }
 
@@ -224,7 +283,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
     public @Nullable EnergyHandler getEnergyHandlerForSide(
         @Nullable Direction side
-    ) {
+    )
+    {
         if (side == null) {
             return null;
         }
@@ -245,8 +305,14 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         BlockPos pos,
         BlockState state,
         @NonNull CoalGeneratorBlockEntity blockEntity
-    ) {
+    )
+    {
         blockEntity.currentProductionRate = 0;
+
+        blockEntity.pushEnergyToNeighbors(
+            level,
+            pos
+        );
 
         if (blockEntity.energyHandler.getAmountAsInt() >= ENERGY_CAPACITY) {
             blockEntity.updateFrontState(
@@ -302,15 +368,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         long currentTick = this.level.getGameTime();
 
-        if (this.transferTick == currentTick) {
-            return this.transferredPreviousTick;
-        }
-
-        if (this.transferTick == currentTick - 1) {
-            return this.transferredThisTick;
-        }
-
-        return 0;
+        return this.transferTracker.getCurrentTransferRate(currentTick);
     }
 
     public int getCurrentProductionRate() {
@@ -327,7 +385,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         int containerId,
         @NonNull Inventory playerInventory,
         @NonNull Player player
-    ) {
+    )
+    {
         if (this.level == null) {
             return null;
         }
@@ -459,15 +518,18 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         long currentTick = this.level.getGameTime();
 
-        if (this.transferTick != currentTick) {
-            this.transferredPreviousTick =
-                this.transferTick == currentTick - 1 ? this.transferredThisTick : 0;
+        this.transferTracker.recordTransfer(
+            amount,
+            currentTick
+        );
 
-            this.transferTick = currentTick;
-            this.transferredThisTick = 0;
+        if (currentTick % 20 == 0) {
+            AstralSpace.LOGGER.info(
+                "[Energy Transfer] tick={}, amount={}",
+                currentTick,
+                amount
+            );
         }
-
-        this.transferredThisTick += amount;
     }
 
     private boolean consumeFuel() {
@@ -517,7 +579,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         ItemStack stack = resource.toStack();
 
         if (!stack.getCraftingRemainder()
-            .isEmpty()) {
+            .isEmpty())
+        {
             return false;
         }
 
@@ -609,7 +672,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private void updateFrontState(
         BlockState state,
         boolean isRunning
-    ) {
+    )
+    {
         if (level == null) {
             return;
         }
@@ -628,5 +692,66 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             ),
             Block.UPDATE_CLIENTS
         );
+    }
+
+    private void pushEnergyToNeighbors(
+        Level level,
+        BlockPos pos
+    )
+    {
+        for (Direction side : Direction.values()) {
+            if (!this.isEnergyOutputEnabled(side)) {
+                continue;
+            }
+
+            if (this.extractionBudget.getRemaining(level.getGameTime()) == 0) {
+                break;
+            }
+
+            BlockPos neighborPos = pos.relative(side);
+            if (!level.getChunkSource()
+                .hasChunk(
+                    neighborPos.getX() >> 4,
+                    neighborPos.getZ() >> 4
+                ))
+            {
+                continue;
+            }
+
+            EnergyHandler target = level.getCapability(
+                Capabilities.Energy.BLOCK,
+                neighborPos,
+                side.getOpposite()
+            );
+
+            if (target == null) {
+                continue;
+            }
+
+            EnergyHandler source = this.getEnergyHandlerForSide(side);
+
+            if (source == null) {
+                continue;
+            }
+
+            try (Transaction tx = Transaction.openRoot()) {
+                int transferred = EnergyHandlerUtil.move(
+                    source,
+                    target,
+                    MAX_EXTRACT,
+                    tx
+                );
+
+                if (transferred > 0) {
+                    AstralSpace.LOGGER.info(
+                        "[Energy Push] tick={}, side={}, transferred={}",
+                        level.getGameTime(),
+                        side,
+                        transferred
+                    );
+                    tx.commit();
+                }
+            }
+        }
     }
 }
