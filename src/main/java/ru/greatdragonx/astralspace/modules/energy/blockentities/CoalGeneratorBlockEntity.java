@@ -30,6 +30,7 @@ import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.common.energy.EnergyDistributionManager;
 import ru.greatdragonx.astralspace.common.energy.EnergyExtractionBudget;
 import ru.greatdragonx.astralspace.common.energy.EnergyTransferTracker;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
@@ -41,9 +42,7 @@ import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFron
 import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutputMapper;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
 
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvider {
     public static final int FUEL_SLOT = 0;
@@ -67,6 +66,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
     private final EnergyTransferTracker transferTracker;
     private final EnergyExtractionBudget extractionBudget;
+    private final EnergyDistributionManager distributionManager;
     private final SimpleEnergyHandler energyHandler;
     private final ItemStacksResourceHandler fuelInventory;
     private final Map<Direction, OutputEnergyHandler> outputHandlers =
@@ -177,8 +177,23 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
             long currentTick = level.getGameTime();
 
-            int allowed = CoalGeneratorBlockEntity.this.extractionBudget.getAllowedAmount(
+            CoalGeneratorBlockEntity.this.distributionManager.recordRequest(
+                side,
                 amount,
+                currentTick
+            );
+
+            int budget = CoalGeneratorBlockEntity.this.extractionBudget.getRemaining(currentTick);
+            int adaptiveLimit =
+                CoalGeneratorBlockEntity.this.distributionManager.getAllowedAdaptiveAmount(
+                    side,
+                    amount,
+                    CoalGeneratorBlockEntity.MAX_EXTRACT,
+                    budget,
+                    currentTick
+                );
+            int allowed = CoalGeneratorBlockEntity.this.extractionBudget.getAllowedAmount(
+                adaptiveLimit,
                 currentTick
             );
 
@@ -197,20 +212,15 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                     currentTick,
                     transaction
                 );
-//                new RootCommitJournal(() -> CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted)).updateSnapshots(transaction);
-                new RootCommitJournal(() -> {
-                    CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted);
 
-                    if (CoalGeneratorBlockEntity.this.level != null &&
-                        CoalGeneratorBlockEntity.this.level.getGameTime() % 20 == 0)
-                    {
-                        AstralSpace.LOGGER.info(
-                            "[Energy Extract] side={}, amount={}",
-                            side,
-                            extracted
-                        );
-                    }
-                }).updateSnapshots(transaction);
+                CoalGeneratorBlockEntity.this.distributionManager.recordExtraction(
+                    side,
+                    extracted,
+                    currentTick,
+                    transaction
+                );
+
+                new RootCommitJournal(() -> CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted)).updateSnapshots(transaction);
             }
 
             return extracted;
@@ -230,6 +240,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         this.transferTracker = new EnergyTransferTracker();
         this.extractionBudget = new EnergyExtractionBudget(MAX_EXTRACT);
+        this.distributionManager = new EnergyDistributionManager();
 
         this.energyHandler = new SimpleEnergyHandler(
             ENERGY_CAPACITY,
@@ -694,20 +705,39 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         );
     }
 
+    private @NonNull List<Direction> getRotatedOutputSides(long currentTick) {
+        List<Direction> sides = new ArrayList<>();
+
+        for (Direction side : Direction.values()) {
+            if (this.isEnergyOutputEnabled(side)) {
+                sides.add(side);
+            }
+        }
+
+        if (sides.isEmpty()) {
+            return sides;
+        }
+
+        int distance = Math.floorMod(
+            currentTick,
+            sides.size()
+        );
+
+        Collections.rotate(
+            sides,
+            -distance
+        );
+
+        return sides;
+    }
+
     private void pushEnergyToNeighbors(
-        Level level,
+        @NonNull Level level,
         BlockPos pos
     )
     {
-        for (Direction side : Direction.values()) {
-            if (!this.isEnergyOutputEnabled(side)) {
-                continue;
-            }
-
-            if (this.extractionBudget.getRemaining(level.getGameTime()) == 0) {
-                break;
-            }
-
+        List<Direction> rotatedEnergyOutputSides = this.getRotatedOutputSides(level.getGameTime());
+        for (Direction side : rotatedEnergyOutputSides) {
             BlockPos neighborPos = pos.relative(side);
             if (!level.getChunkSource()
                 .hasChunk(

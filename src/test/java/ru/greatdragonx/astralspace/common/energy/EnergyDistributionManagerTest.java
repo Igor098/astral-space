@@ -569,4 +569,626 @@ class EnergyDistributionManagerTest {
             )
         );
     }
+
+    @Test
+    void shouldReadPreviousTickUsage() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                30,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        assertEquals(
+            30,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                20,
+                101,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        assertEquals(
+            30,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        assertEquals(
+            20,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                102
+            )
+        );
+
+        assertEquals(
+            0,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                105
+            )
+        );
+    }
+
+    @Test
+    void shouldRestoreUsageHistoryAfterRollback() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                30,
+                100,
+                tx
+            );
+            assertEquals(
+                30,
+                manager.getPreviousExtractedBySide(
+                    Direction.NORTH,
+                    101
+                )
+            );
+            tx.commit();
+        }
+        assertEquals(
+            30,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                20,
+                101,
+                tx
+            );
+            assertEquals(
+                20,
+                manager.getExtractedBySide(
+                    Direction.NORTH,
+                    101
+                )
+            );
+            assertEquals(
+                30,
+                manager.getPreviousExtractedBySide(
+                    Direction.NORTH,
+                    101
+                )
+            );
+        }
+
+        assertEquals(
+            30,
+            manager.getExtractedBySide(
+                Direction.NORTH,
+                100
+            )
+        );
+
+        assertEquals(
+            0,
+            manager.getExtractedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        assertEquals(
+            30,
+            manager.getPreviousExtractedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+    }
+
+    @Test
+    void shouldTrackMaximumDemandPerSide() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            20,
+            100
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            60,
+            100
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            30,
+            100
+        );
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            40,
+            100
+        );
+
+        assertEquals(
+            60,
+            manager.getMaxRequestedBySide(
+                Direction.NORTH,
+                100
+            )
+        );
+        assertEquals(
+            40,
+            manager.getMaxRequestedBySide(
+                Direction.SOUTH,
+                100
+            )
+        );
+        assertEquals(
+            0,
+            manager.getMaxRequestedBySide(
+                Direction.EAST,
+                100
+            )
+        );
+        assertEquals(
+            0,
+            manager.getMaxRequestedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            101
+        );
+        assertEquals(
+            10,
+            manager.getMaxRequestedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+        assertEquals(
+            0,
+            manager.getMaxRequestedBySide(
+                Direction.SOUTH,
+                101
+            )
+        );
+    }
+
+    @Test
+    void shouldReadPreviousTickDemand() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            100
+        );
+        assertEquals(
+            80,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            40,
+            100
+        );
+        assertEquals(
+            40,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.SOUTH,
+                101
+            )
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            30,
+            101
+        );
+        assertEquals(
+            80,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.NORTH,
+                101
+            )
+        );
+        assertEquals(
+            40,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.SOUTH,
+                101
+            )
+        );
+
+        assertEquals(
+            30,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.NORTH,
+                102
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.SOUTH,
+                102
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPreviousMaxRequestedBySide(
+                Direction.NORTH,
+                105
+            )
+        );
+    }
+
+    @Test
+    void shouldCalculateProtectedRemainingQuota() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            99
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            99
+        );
+
+        assertEquals(
+            10,
+            manager.getProtectedRemainingQuota(
+                Direction.NORTH,
+                80,
+                100
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                5,
+                100,
+                tx
+            );
+            assertEquals(
+                5,
+                manager.getProtectedRemainingQuota(
+                    Direction.NORTH,
+                    80,
+                    100
+                )
+            );
+
+            manager.recordExtraction(
+                Direction.NORTH,
+                5,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+        assertEquals(
+            0,
+            manager.getProtectedRemainingQuota(
+                Direction.NORTH,
+                80,
+                100
+            )
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            100
+        );
+        assertEquals(
+            30,
+            manager.getProtectedRemainingQuota(
+                Direction.NORTH,
+                80,
+                100
+            )
+        );
+    }
+
+    @Test
+    void shouldReduceProtectedQuotaWithoutRecentDemand() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            40,
+            98
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            40,
+            98
+        );
+
+        assertEquals(
+            40,
+            manager.getProtectedRemainingQuota(
+                Direction.NORTH,
+                80,
+                100
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                15,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        assertEquals(
+            25,
+            manager.getProtectedRemainingQuota(
+                Direction.NORTH,
+                80,
+                100
+            )
+        );
+    }
+
+    @Test
+    void shouldBorrowUnusedProtectedQuota() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            99
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            99
+        );
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            100
+        );
+
+        assertEquals(
+            70,
+            manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                80,
+                80,
+                80,
+                100
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.SOUTH,
+                70,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            100
+        );
+        assertEquals(
+            10,
+            manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                10,
+                80,
+                10,
+                100
+            )
+        );
+    }
+
+    @Test
+    void shouldDistributeEnergyInReverseRequestOrder() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            99
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            99
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            10,
+            100
+        );
+
+        int allowed = manager.getAllowedAdaptiveAmount(
+            Direction.NORTH,
+            10,
+            80,
+            80,
+            100
+        );
+
+        assertEquals(
+            10,
+            allowed
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                10,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            100
+        );
+
+        int allowedSouth = manager.getAllowedAdaptiveAmount(
+            Direction.SOUTH,
+            80,
+            80,
+            70,
+            100
+        );
+
+        assertEquals(
+            70,
+            allowedSouth
+        );
+    }
+
+    @Test
+    void shouldRecoverAfterSecondSideBecomesActive() {
+        EnergyDistributionManager manager = new EnergyDistributionManager();
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            100
+        );
+
+        assertEquals(
+            80,
+            manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                80,
+                80,
+                80,
+                100
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                80,
+                100,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            100
+        );
+        assertEquals(
+            0,
+            manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                80,
+                80,
+                0,
+                100
+            )
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            101
+        );
+
+        assertEquals(
+            40,
+            manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                80,
+                80,
+                80,
+                101
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                40,
+                101,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            101
+        );
+        assertEquals(
+            40,
+            manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                80,
+                80,
+                40,
+                101
+            )
+        );
+    }
 }
