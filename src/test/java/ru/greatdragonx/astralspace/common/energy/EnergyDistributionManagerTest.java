@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class EnergyDistributionManagerTest {
     @Test
     void shouldTrackActiveSide() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -49,7 +49,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCountActiveSides() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
         assertEquals(
             0,
             manager.countActiveSides(100)
@@ -111,7 +111,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCalculateBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -123,7 +123,6 @@ class EnergyDistributionManagerTest {
             80,
             manager.getBaseQuota(
                 Direction.NORTH,
-                80,
                 100
             )
         );
@@ -131,7 +130,6 @@ class EnergyDistributionManagerTest {
             0,
             manager.getBaseQuota(
                 Direction.SOUTH,
-                80,
                 100
             )
         );
@@ -145,7 +143,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getBaseQuota(
                 Direction.NORTH,
-                80,
                 105
             )
         );
@@ -153,7 +150,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getBaseQuota(
                 Direction.SOUTH,
-                80,
                 105
             )
         );
@@ -167,7 +163,6 @@ class EnergyDistributionManagerTest {
             26,
             manager.getBaseQuota(
                 Direction.NORTH,
-                80,
                 108
             )
         );
@@ -175,7 +170,6 @@ class EnergyDistributionManagerTest {
             26,
             manager.getBaseQuota(
                 Direction.SOUTH,
-                80,
                 108
             )
         );
@@ -183,7 +177,6 @@ class EnergyDistributionManagerTest {
             26,
             manager.getBaseQuota(
                 Direction.EAST,
-                80,
                 108
             )
         );
@@ -191,7 +184,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRestoreSideUsageAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
@@ -254,7 +247,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRestoreMultipleSidesAfterNestedRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
             manager.recordExtraction(
@@ -365,7 +358,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCalculateRemainingBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -383,7 +376,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getBaseQuota(
                 Direction.NORTH,
-                80,
                 100
             )
         );
@@ -391,7 +383,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getBaseQuota(
                 Direction.SOUTH,
-                80,
                 100
             )
         );
@@ -407,7 +398,6 @@ class EnergyDistributionManagerTest {
                 15,
                 manager.getRemainingBaseQuota(
                     Direction.NORTH,
-                    80,
                     100
                 )
             );
@@ -415,7 +405,6 @@ class EnergyDistributionManagerTest {
                 40,
                 manager.getRemainingBaseQuota(
                     Direction.SOUTH,
-                    80,
                     100
                 )
             );
@@ -430,7 +419,6 @@ class EnergyDistributionManagerTest {
                 0,
                 manager.getRemainingBaseQuota(
                     Direction.NORTH,
-                    80,
                     100
                 )
             );
@@ -438,7 +426,6 @@ class EnergyDistributionManagerTest {
                 40,
                 manager.getRemainingBaseQuota(
                     Direction.SOUTH,
-                    80,
                     100
                 )
             );
@@ -450,7 +437,6 @@ class EnergyDistributionManagerTest {
             0,
             manager.getRemainingBaseQuota(
                 Direction.NORTH,
-                80,
                 100
             )
         );
@@ -458,7 +444,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getRemainingBaseQuota(
                 Direction.SOUTH,
-                80,
                 100
             )
         );
@@ -467,7 +452,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getRemainingBaseQuota(
                 Direction.NORTH,
-                80,
                 101
             )
         );
@@ -475,7 +459,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getRemainingBaseQuota(
                 Direction.SOUTH,
-                80,
                 101
             )
         );
@@ -483,7 +466,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldLimitRequestByRemainingBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -500,7 +483,6 @@ class EnergyDistributionManagerTest {
         int allowed = manager.getAllowedBaseAmount(
             Direction.NORTH,
             60,
-            80,
             100
         );
         assertEquals(
@@ -524,7 +506,6 @@ class EnergyDistributionManagerTest {
             manager.getAllowedBaseAmount(
                 Direction.NORTH,
                 50,
-                80,
                 100
             )
         );
@@ -534,7 +515,6 @@ class EnergyDistributionManagerTest {
             manager.getAllowedBaseAmount(
                 Direction.NORTH,
                 10,
-                80,
                 100
             )
         );
@@ -543,7 +523,6 @@ class EnergyDistributionManagerTest {
             40,
             manager.getAllowedBaseAmount(
                 Direction.SOUTH,
-                80,
                 80,
                 100
             )
@@ -554,7 +533,6 @@ class EnergyDistributionManagerTest {
             manager.getAllowedBaseAmount(
                 Direction.EAST,
                 80,
-                80,
                 100
             )
         );
@@ -564,7 +542,6 @@ class EnergyDistributionManagerTest {
             manager.getAllowedBaseAmount(
                 Direction.NORTH,
                 0,
-                80,
                 100
             )
         );
@@ -572,7 +549,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReadPreviousTickUsage() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
@@ -631,7 +608,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRestoreUsageHistoryAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
@@ -707,7 +684,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldTrackMaximumDemandPerSide() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -785,7 +762,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReadPreviousTickDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -858,7 +835,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCalculateProtectedRemainingQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -931,7 +908,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReduceProtectedQuotaWithoutRecentDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -976,7 +953,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldBorrowUnusedProtectedQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -1027,7 +1004,7 @@ class EnergyDistributionManagerTest {
             manager.getAllowedAdaptiveAmount(
                 Direction.NORTH,
                 10,
-                80,
+                10,
                 10,
                 100
             )
@@ -1036,7 +1013,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldDistributeEnergyInReverseRequestOrder() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -1088,7 +1065,7 @@ class EnergyDistributionManagerTest {
         int allowedSouth = manager.getAllowedAdaptiveAmount(
             Direction.SOUTH,
             80,
-            80,
+            70,
             70,
             100
         );
@@ -1101,7 +1078,7 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRecoverAfterSecondSideBecomesActive() {
-        EnergyDistributionManager manager = new EnergyDistributionManager();
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
         manager.recordRequest(
             Direction.NORTH,
@@ -1141,12 +1118,12 @@ class EnergyDistributionManagerTest {
             manager.getAllowedAdaptiveAmount(
                 Direction.SOUTH,
                 80,
-                80,
+                0,
                 0,
                 100
             )
         );
-
+        
         manager.recordRequest(
             Direction.NORTH,
             80,
@@ -1185,10 +1162,199 @@ class EnergyDistributionManagerTest {
             manager.getAllowedAdaptiveAmount(
                 Direction.SOUTH,
                 80,
-                80,
+                40,
                 40,
                 101
             )
+        );
+    }
+
+    @Test
+    void shouldDistributeEnergyWhenBufferIsLow() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            99
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            99
+        );
+
+        manager.recordRequest(
+            Direction.NORTH,
+            80,
+            100
+        );
+        int allowedNorth = manager.getAllowedAdaptiveAmount(
+            Direction.NORTH,
+            80,
+            80,
+            40,
+            100
+        );
+        assertEquals(
+            20,
+            allowedNorth
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.NORTH,
+                allowedNorth,
+                100,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.recordRequest(
+            Direction.SOUTH,
+            80,
+            100
+        );
+        int allowedSouth = manager.getAllowedAdaptiveAmount(
+            Direction.SOUTH,
+            80,
+            60,
+            20,
+            100
+        );
+        assertEquals(
+            20,
+            allowedSouth
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                Direction.SOUTH,
+                allowedSouth,
+                100,
+                tx
+            );
+            tx.commit();
+        }
+
+        assertEquals(
+            20,
+            manager.getExtractedBySide(
+                Direction.NORTH,
+                100
+            )
+        );
+        assertEquals(
+            20,
+            manager.getExtractedBySide(
+                Direction.SOUTH,
+                100
+            )
+        );
+    }
+
+    @Test
+    void shouldShareEnergyFairlyWhenProductionOccursBetweenPullRequests() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        manager.recordRequest(
+            Direction.NORTH,
+            128,
+            99
+        );
+        manager.recordRequest(
+            Direction.SOUTH,
+            128,
+            99
+        );
+
+        int storedEnergy = 20;
+        int totalNorth = 0;
+        int totalSouth = 0;
+
+        for (long tick = 100; tick < 120; tick++) {
+            manager.recordRequest(
+                Direction.SOUTH,
+                128,
+                tick
+            );
+            int allowedSouth = manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                128,
+                80,
+                storedEnergy,
+                tick
+            );
+            int extractedSouth = Math.min(
+                allowedSouth,
+                storedEnergy
+            );
+
+            try (Transaction tx = Transaction.openRoot()) {
+                manager.recordExtraction(
+                    Direction.SOUTH,
+                    extractedSouth,
+                    tick,
+                    tx
+                );
+                tx.commit();
+            }
+
+            storedEnergy -= extractedSouth;
+            totalSouth += extractedSouth;
+
+            storedEnergy += 40;
+
+            manager.recordRequest(
+                Direction.NORTH,
+                128,
+                tick
+            );
+            int allowedNorth = manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                128,
+                80 - extractedSouth,
+                storedEnergy,
+                tick
+            );
+            int extractedNorth = Math.min(
+                allowedNorth,
+                storedEnergy
+            );
+
+            try (Transaction tx = Transaction.openRoot()) {
+                manager.recordExtraction(
+                    Direction.NORTH,
+                    extractedNorth,
+                    tick,
+                    tx
+                );
+                tx.commit();
+            }
+
+            storedEnergy -= extractedNorth;
+            totalNorth += extractedNorth;
+        }
+
+        assertEquals(
+            800,
+            totalNorth + totalSouth
+        );
+        assertEquals(
+            20,
+            storedEnergy
+        );
+
+        assertEquals(
+            400,
+            totalSouth,
+            "SOUTH не должен голодать из-за порядка Pull-запросов"
+        );
+        assertEquals(
+            400,
+            totalNorth,
+            "NORTH не должен получать львиную долю энергии"
         );
     }
 }

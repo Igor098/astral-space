@@ -72,6 +72,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private final Map<Direction, OutputEnergyHandler> outputHandlers =
         new EnumMap<>(Direction.class);
 
+    private final Map<Direction, Integer> debugTransferred = new EnumMap<>(Direction.class);
+
+    private int debugTicks = 0;
+
     private int burnTime = 0;
     private int burnDuration = 0;
     private int currentProductionRate = 0;
@@ -184,14 +188,35 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             );
 
             int budget = CoalGeneratorBlockEntity.this.extractionBudget.getRemaining(currentTick);
+            int storedEnergy = CoalGeneratorBlockEntity.this.energyHandler.getAmountAsInt();
             int adaptiveLimit =
                 CoalGeneratorBlockEntity.this.distributionManager.getAllowedAdaptiveAmount(
                     side,
                     amount,
-                    CoalGeneratorBlockEntity.MAX_EXTRACT,
                     budget,
+                    storedEnergy,
                     currentTick
                 );
+            if (currentTick % 20 == 0) {
+                AstralSpace.LOGGER.info(
+                    "[Energy trace] tick={} side={} req={} stored={} budget={} active={} prevDemand={} currentDemand={} limit={}",
+                    currentTick,
+                    side,
+                    amount,
+                    storedEnergy,
+                    budget,
+                    CoalGeneratorBlockEntity.this.distributionManager.countActiveSides(currentTick),
+                    CoalGeneratorBlockEntity.this.distributionManager.getPreviousMaxRequestedBySide(
+                        side,
+                        currentTick
+                    ),
+                    CoalGeneratorBlockEntity.this.distributionManager.getMaxRequestedBySide(
+                        side,
+                        currentTick
+                    ),
+                    adaptiveLimit
+                );
+            }
             int allowed = CoalGeneratorBlockEntity.this.extractionBudget.getAllowedAmount(
                 adaptiveLimit,
                 currentTick
@@ -240,7 +265,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         this.transferTracker = new EnergyTransferTracker();
         this.extractionBudget = new EnergyExtractionBudget(MAX_EXTRACT);
-        this.distributionManager = new EnergyDistributionManager();
+        this.distributionManager = new EnergyDistributionManager(80);
 
         this.energyHandler = new SimpleEnergyHandler(
             ENERGY_CAPACITY,
@@ -320,10 +345,12 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     {
         blockEntity.currentProductionRate = 0;
 
-        blockEntity.pushEnergyToNeighbors(
-            level,
-            pos
-        );
+//        blockEntity.pushEnergyToNeighbors(
+//            level,
+//            pos
+//        );
+
+        blockEntity.logEnergyDistribution(level);
 
         if (blockEntity.energyHandler.getAmountAsInt() >= ENERGY_CAPACITY) {
             blockEntity.updateFrontState(
@@ -522,6 +549,71 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         this.fuelInventory.serialize(fuelOutput);
     }
 
+    private void logEnergyDistribution(@NonNull Level level) {
+        long currentTick = level.getGameTime();
+
+        for (Direction side : Direction.values()) {
+            int transferred = this.distributionManager.getPreviousExtractedBySide(
+                side,
+                currentTick
+            );
+
+            this.debugTransferred.merge(
+                side,
+                transferred,
+                Integer::sum
+            );
+        }
+
+        this.debugTicks++;
+
+        if (this.debugTicks < 20) {
+            return;
+        }
+
+        int total = 0;
+
+        for (Direction side : Direction.values()) {
+            total += this.debugTransferred.getOrDefault(
+                side,
+                0
+            );
+        }
+
+        AstralSpace.LOGGER.info(
+            "[Energy 20t] N={} S={} E={} W={} U={} D={} TOTAL={} AVG={} FE/t",
+            this.debugTransferred.getOrDefault(
+                Direction.NORTH,
+                0
+            ),
+            this.debugTransferred.getOrDefault(
+                Direction.SOUTH,
+                0
+            ),
+            this.debugTransferred.getOrDefault(
+                Direction.EAST,
+                0
+            ),
+            this.debugTransferred.getOrDefault(
+                Direction.WEST,
+                0
+            ),
+            this.debugTransferred.getOrDefault(
+                Direction.UP,
+                0
+            ),
+            this.debugTransferred.getOrDefault(
+                Direction.DOWN,
+                0
+            ),
+            total,
+            total / 20.0
+        );
+
+        this.debugTransferred.clear();
+        this.debugTicks = 0;
+    }
+
     private void recordEnergyTransfer(int amount) {
         if (this.level == null || amount <= 0) {
             return;
@@ -533,14 +625,6 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             amount,
             currentTick
         );
-
-        if (currentTick % 20 == 0) {
-            AstralSpace.LOGGER.info(
-                "[Energy Transfer] tick={}, amount={}",
-                currentTick,
-                amount
-            );
-        }
     }
 
     private boolean consumeFuel() {
@@ -736,6 +820,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         BlockPos pos
     )
     {
+        this.logEnergyDistribution(level);
         List<Direction> rotatedEnergyOutputSides = this.getRotatedOutputSides(level.getGameTime());
         for (Direction side : rotatedEnergyOutputSides) {
             BlockPos neighborPos = pos.relative(side);
@@ -773,12 +858,6 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 );
 
                 if (transferred > 0) {
-                    AstralSpace.LOGGER.info(
-                        "[Energy Push] tick={}, side={}, transferred={}",
-                        level.getGameTime(),
-                        side,
-                        transferred
-                    );
                     tx.commit();
                 }
             }

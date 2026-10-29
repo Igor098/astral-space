@@ -17,6 +17,7 @@ public final class EnergyDistributionManager {
     private final Map<Direction, Integer> previousExtractedBySide = new EnumMap<>(Direction.class);
     private final Map<Direction, Integer> previousMaxRequestedBySide =
         new EnumMap<>(Direction.class);
+    private final Map<Direction, Long> fairnessCredits = new EnumMap<>(Direction.class);
 
 
     private long lastUsageTick = -1L;
@@ -24,6 +25,7 @@ public final class EnergyDistributionManager {
     private long previousUsageTick = -1L;
     private long previousDemandTick = -1L;
 
+    private final int maxTransferPerTick;
 
     private record UsageSnapshot(
         long tick,
@@ -53,6 +55,10 @@ public final class EnergyDistributionManager {
             EnergyDistributionManager.this.previousExtractedBySide.putAll(snapshot.previousExtracted());
         }
     };
+
+    public EnergyDistributionManager(int maxTransferPerTick) {
+        this.maxTransferPerTick = maxTransferPerTick;
+    }
 
     public void recordRequest(
         Direction side,
@@ -170,7 +176,6 @@ public final class EnergyDistributionManager {
 
     public int getBaseQuota(
         Direction side,
-        int maxPerTick,
         long currentTick
     )
     {
@@ -184,18 +189,16 @@ public final class EnergyDistributionManager {
 
         int activeSides = this.countActiveSides(currentTick);
 
-        return maxPerTick / activeSides;
+        return this.maxTransferPerTick / activeSides;
     }
 
     public int getRemainingBaseQuota(
         Direction side,
-        int maxPerTick,
         long currentTick
     )
     {
         int quota = this.getBaseQuota(
             side,
-            maxPerTick,
             currentTick
         );
 
@@ -212,10 +215,31 @@ public final class EnergyDistributionManager {
         );
     }
 
+    private int getBaseQuotaForSupply(
+        Direction side,
+        int effectiveSupply,
+        long currentTick
+    )
+    {
+        if (!this.isActive(
+            side,
+            currentTick
+        ))
+        {
+            return 0;
+        }
+
+        int activeSides = this.countActiveSides(currentTick);
+        if (activeSides == 0) {
+            return 0;
+        }
+
+        return effectiveSupply / activeSides;
+    }
+
     public int getAllowedBaseAmount(
         Direction side,
         int requested,
-        int maxPerTick,
         long currentTick
     )
     {
@@ -225,7 +249,6 @@ public final class EnergyDistributionManager {
 
         int remainingQuota = this.getRemainingBaseQuota(
             side,
-            maxPerTick,
             currentTick
         );
 
@@ -311,13 +334,13 @@ public final class EnergyDistributionManager {
 
     public int getProtectedRemainingQuota(
         Direction side,
-        int maxPerTick,
+        int effectiveSupply,
         long currentTick
     )
     {
-        int baseQuota = this.getBaseQuota(
+        int baseQuota = this.getBaseQuotaForSupply(
             side,
-            maxPerTick,
+            effectiveSupply,
             currentTick
         );
         int previousMaxRequested = this.getPreviousMaxRequestedBySide(
@@ -358,7 +381,7 @@ public final class EnergyDistributionManager {
 
     public int getTotalProtectedRemainingForOtherSides(
         Direction requestingSide,
-        int maxPerTick,
+        int effectiveSupply,
         long currentTick
     )
     {
@@ -371,7 +394,7 @@ public final class EnergyDistributionManager {
 
             totalProtected += this.getProtectedRemainingQuota(
                 side,
-                maxPerTick,
+                effectiveSupply,
                 currentTick
             );
         }
@@ -382,8 +405,8 @@ public final class EnergyDistributionManager {
     public int getAllowedAdaptiveAmount(
         Direction side,
         int requested,
-        int maxPerTick,
         int remainingGlobalBudget,
+        int storedEnergy,
         long currentTick
     )
     {
@@ -391,22 +414,57 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
+        int alreadyExtracted = this.maxTransferPerTick - remainingGlobalBudget;
+
+        int effectiveSupply = Math.min(
+            this.maxTransferPerTick,
+            alreadyExtracted + storedEnergy
+        );
+
         int protectedFromOtherSides = this.getTotalProtectedRemainingForOtherSides(
             side,
-            maxPerTick,
+            effectiveSupply,
             currentTick
         );
 
-        int allowed = Math.max(
+        int availableForSide = Math.max(
             0,
-            remainingGlobalBudget - protectedFromOtherSides
+            effectiveSupply - alreadyExtracted - protectedFromOtherSides
         );
 
         return Math.min(
-            allowed,
+            availableForSide,
             requested
         );
     }
 
+    private int getTotalExtractedPreviousTick(long currentTick) {
+        int total = 0;
 
+        for (Direction side : Direction.values()) {
+            total += this.getPreviousExtractedBySide(
+                side,
+                currentTick
+            );
+        }
+
+        return total;
+    }
+
+    private int countDemandingSidesPreviousTick(long currentTick) {
+        int count = 0;
+
+        for (Direction side : Direction.values()) {
+            int previousMaxRequested = this.getPreviousMaxRequestedBySide(
+                side,
+                currentTick
+            );
+
+            if (previousMaxRequested > 0) {
+                count++;
+            }
+        }
+
+        return count;
+    }
 }
