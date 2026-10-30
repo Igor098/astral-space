@@ -18,6 +18,7 @@ public final class EnergyDistributionManager {
     private final Map<Direction, Integer> previousMaxRequestedBySide =
         new EnumMap<>(Direction.class);
     private final Map<Direction, Long> fairnessCredits = new EnumMap<>(Direction.class);
+    private final Map<Direction, Long> activeSinceTicks = new EnumMap<>(Direction.class);
 
 
     private long lastUsageTick = -1L;
@@ -28,12 +29,20 @@ public final class EnergyDistributionManager {
 
     private final int maxTransferPerTick;
 
-    private record UsageSnapshot(
-        long tick,
+    private record UsageSnapshot(long tick,
         long previousTick,
         Map<Direction, Integer> extracted,
-        Map<Direction, Integer> previousExtracted
-    ) {}
+        Map<Direction, Integer> previousExtracted) {}
+
+    private record DemandSnapshot(long lastDemandTick,
+        long previousDemandTick,
+        Map<Direction, Long> lastRequestTicks,
+        Map<Direction, Long> activeSinceTicks,
+        Map<Direction, Integer> maxRequestedBySide,
+        Map<Direction, Integer> previousMaxRequestedBySide) {}
+
+    private record FairnessSnapshot(long lastFairnessUpdateTick,
+        Map<Direction, Long> fairnessCredits) {}
 
     private final SnapshotJournal<UsageSnapshot> journal = new SnapshotJournal<>() {
         @Override
@@ -57,6 +66,57 @@ public final class EnergyDistributionManager {
         }
     };
 
+    private final SnapshotJournal<DemandSnapshot> demandJournal = new SnapshotJournal<>() {
+        @Override
+        protected @NonNull DemandSnapshot createSnapshot() {
+            return new DemandSnapshot(
+                EnergyDistributionManager.this.lastDemandTick,
+                EnergyDistributionManager.this.previousDemandTick,
+                new EnumMap<>(EnergyDistributionManager.this.lastRequestTicks),
+                new EnumMap<>(EnergyDistributionManager.this.activeSinceTicks),
+                new EnumMap<>(EnergyDistributionManager.this.maxRequestedBySide),
+                new EnumMap<>(EnergyDistributionManager.this.previousMaxRequestedBySide)
+            );
+        }
+
+        @Override
+        protected void revertToSnapshot(@NonNull DemandSnapshot snapshot) {
+            EnergyDistributionManager.this.lastDemandTick = snapshot.lastDemandTick();
+            EnergyDistributionManager.this.previousDemandTick = snapshot.previousDemandTick();
+            EnergyDistributionManager.this.lastRequestTicks.clear();
+            EnergyDistributionManager.this.activeSinceTicks.clear();
+            EnergyDistributionManager.this.maxRequestedBySide.clear();
+            EnergyDistributionManager.this.previousMaxRequestedBySide.clear();
+            EnergyDistributionManager.this.lastRequestTicks.putAll(snapshot.lastRequestTicks());
+            EnergyDistributionManager.this.activeSinceTicks.putAll(snapshot.activeSinceTicks());
+            EnergyDistributionManager.this.maxRequestedBySide.putAll(snapshot.maxRequestedBySide());
+            EnergyDistributionManager.this.previousMaxRequestedBySide.putAll(snapshot.previousMaxRequestedBySide());
+        }
+    };
+
+    private final SnapshotJournal<FairnessSnapshot> fairnessJournal = new SnapshotJournal<>() {
+
+        @Override
+        protected @NonNull FairnessSnapshot createSnapshot() {
+            return new FairnessSnapshot(
+                EnergyDistributionManager.this.lastFairnessUpdateTick,
+                new EnumMap<>(EnergyDistributionManager.this.fairnessCredits)
+            );
+        }
+
+        @Override
+        protected void revertToSnapshot(
+            @NonNull FairnessSnapshot snapshot
+        )
+        {
+            EnergyDistributionManager.this.lastFairnessUpdateTick =
+                snapshot.lastFairnessUpdateTick();
+
+            EnergyDistributionManager.this.fairnessCredits.clear();
+            EnergyDistributionManager.this.fairnessCredits.putAll(snapshot.fairnessCredits());
+        }
+    };
+
     public EnergyDistributionManager(int maxTransferPerTick) {
         this.maxTransferPerTick = maxTransferPerTick;
     }
@@ -64,12 +124,15 @@ public final class EnergyDistributionManager {
     public void recordRequest(
         Direction side,
         int requested,
-        long currentTick
+        long currentTick,
+        TransactionContext transaction
     )
     {
         if (requested <= 0) {
             return;
         }
+
+        this.demandJournal.updateSnapshots(transaction);
 
         if (this.lastDemandTick != currentTick) {
             if (this.lastDemandTick == currentTick - 1) {
@@ -82,6 +145,20 @@ public final class EnergyDistributionManager {
             }
             this.lastDemandTick = currentTick;
             this.maxRequestedBySide.clear();
+        }
+
+        if (!this.isActive(
+            side,
+            currentTick
+        ))
+        {
+            this.fairnessJournal.updateSnapshots(transaction);
+            this.fairnessCredits.remove(side);
+
+            this.activeSinceTicks.put(
+                side,
+                currentTick
+            );
         }
 
         int maxRequested = this.maxRequestedBySide.getOrDefault(
@@ -408,10 +485,16 @@ public final class EnergyDistributionManager {
         int requested,
         int remainingGlobalBudget,
         int storedEnergy,
-        long currentTick
+        long currentTick,
+        TransactionContext transaction
     )
     {
+        this.fairnessJournal.updateSnapshots(transaction);
+
         this.updateFairnessCredits(currentTick);
+        if (this.countActiveSides(currentTick) <= 1) {
+            this.fairnessCredits.clear();
+        }
 
         if (requested <= 0 || remainingGlobalBudget <= 0) {
             return 0;
@@ -472,16 +555,33 @@ public final class EnergyDistributionManager {
         return total;
     }
 
+    private int getEffectivePreviousDemand(
+        Direction side,
+        long currentTick
+    )
+    {
+        return Math.max(
+            this.getPreviousMaxRequestedBySide(
+                side,
+                currentTick
+            ),
+            this.getPreviousExtractedBySide(
+                side,
+                currentTick
+            )
+        );
+    }
+
     private int countDemandingSidesPreviousTick(long currentTick) {
         int count = 0;
 
         for (Direction side : Direction.values()) {
-            int previousMaxRequested = this.getPreviousMaxRequestedBySide(
+            int previousDemand = this.getEffectivePreviousDemand(
                 side,
                 currentTick
             );
 
-            if (previousMaxRequested > 0) {
+            if (previousDemand > 0) {
                 count++;
             }
         }
@@ -494,7 +594,24 @@ public final class EnergyDistributionManager {
             return;
         }
 
+        long previousTick = currentTick - 1;
         this.lastFairnessUpdateTick = currentTick;
+
+        for (Direction side : Direction.values()) {
+            int previousDemand = this.getEffectivePreviousDemand(
+                side,
+                currentTick
+            );
+            if (previousDemand <= 0) {
+                continue;
+            }
+
+            Long activeSince = this.activeSinceTicks.get(side);
+
+            if (activeSince == null || activeSince >= previousTick) {
+                return;
+            }
+        }
 
         int countDemandingSides = this.countDemandingSidesPreviousTick(currentTick);
         if (countDemandingSides == 0) {
@@ -504,14 +621,107 @@ public final class EnergyDistributionManager {
         int totalEnergyExtracted = this.getTotalExtractedPreviousTick(currentTick);
 
         int fairShare = totalEnergyExtracted / countDemandingSides;
+        int unusedQuota = 0;
 
         for (Direction side : Direction.values()) {
-            int previousMaxRequested = this.getPreviousMaxRequestedBySide(
+            int demand = this.getEffectivePreviousDemand(
                 side,
                 currentTick
             );
 
-            if (previousMaxRequested <= 0) {
+            if (demand <= 0) {
+                continue;
+            }
+
+            unusedQuota += Math.max(
+                0,
+                fairShare - demand
+            );
+        }
+
+        Map<Direction, Integer> targetShares = new EnumMap<>(Direction.class);
+
+        for (Direction side : Direction.values()) {
+            int demand = this.getEffectivePreviousDemand(
+                side,
+                currentTick
+            );
+
+            if (demand <= 0) {
+                continue;
+            }
+
+            targetShares.put(
+                side,
+                Math.min(
+                    demand,
+                    fairShare
+                )
+            );
+        }
+
+        int remainingToDistribute = unusedQuota + totalEnergyExtracted % countDemandingSides;
+
+        while (remainingToDistribute > 0) {
+            int eligibleSides = 0;
+
+            for (Direction side : targetShares.keySet()) {
+                int demand = this.getEffectivePreviousDemand(
+                    side,
+                    currentTick
+                );
+
+                int currentShare = targetShares.get(side);
+
+                if (currentShare < demand) {
+                    eligibleSides++;
+                }
+            }
+
+            if (eligibleSides == 0) {
+                break;
+            }
+
+            int portion = Math.max(
+                1,
+                remainingToDistribute / eligibleSides
+            );
+
+            for (Direction side : targetShares.keySet()) {
+                int demand = this.getEffectivePreviousDemand(
+                    side,
+                    currentTick
+                );
+
+                int currentShare = targetShares.get(side);
+
+                int remainingDemand = demand - currentShare;
+                int addition = Math.min(
+                    portion,
+                    Math.min(
+                        remainingDemand,
+                        remainingToDistribute
+                    )
+                );
+                if (addition <= 0) {
+                    continue;
+                }
+
+                targetShares.put(
+                    side,
+                    currentShare + addition
+                );
+                remainingToDistribute -= addition;
+            }
+        }
+
+        for (Direction side : Direction.values()) {
+            int previousDemand = this.getEffectivePreviousDemand(
+                side,
+                currentTick
+            );
+
+            if (previousDemand <= 0) {
                 continue;
             }
 
@@ -519,7 +729,9 @@ public final class EnergyDistributionManager {
                 side,
                 currentTick
             );
-            int delta = fairShare - actualExtracted;
+
+            int targetShare = targetShares.get(side);
+            int delta = targetShare - actualExtracted;
 
             long currentSideBalance = this.fairnessCredits.getOrDefault(
                 side,
