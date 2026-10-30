@@ -24,6 +24,7 @@ public final class EnergyDistributionManager {
     private long lastDemandTick = -1L;
     private long previousUsageTick = -1L;
     private long previousDemandTick = -1L;
+    private long lastFairnessUpdateTick = -1L;
 
     private final int maxTransferPerTick;
 
@@ -410,6 +411,8 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
+        this.updateFairnessCredits(currentTick);
+
         if (requested <= 0 || remainingGlobalBudget <= 0) {
             return 0;
         }
@@ -432,8 +435,26 @@ public final class EnergyDistributionManager {
             effectiveSupply - alreadyExtracted - protectedFromOtherSides
         );
 
+        long balance = this.fairnessCredits.getOrDefault(
+            side,
+            0L
+        );
+
+        int maxLimit = Math.min(
+            storedEnergy,
+            remainingGlobalBudget
+        );
+
+        long adjustedAvailable = availableForSide + balance;
+
+        int allowed = Math.clamp(
+            adjustedAvailable,
+            0,
+            maxLimit
+        );
+
         return Math.min(
-            availableForSide,
+            allowed,
             requested
         );
     }
@@ -466,5 +487,55 @@ public final class EnergyDistributionManager {
         }
 
         return count;
+    }
+
+    private void updateFairnessCredits(long currentTick) {
+        if (this.lastFairnessUpdateTick == currentTick) {
+            return;
+        }
+
+        this.lastFairnessUpdateTick = currentTick;
+
+        int countDemandingSides = this.countDemandingSidesPreviousTick(currentTick);
+        if (countDemandingSides == 0) {
+            return;
+        }
+
+        int totalEnergyExtracted = this.getTotalExtractedPreviousTick(currentTick);
+
+        int fairShare = totalEnergyExtracted / countDemandingSides;
+
+        for (Direction side : Direction.values()) {
+            int previousMaxRequested = this.getPreviousMaxRequestedBySide(
+                side,
+                currentTick
+            );
+
+            if (previousMaxRequested <= 0) {
+                continue;
+            }
+
+            int actualExtracted = this.getPreviousExtractedBySide(
+                side,
+                currentTick
+            );
+            int delta = fairShare - actualExtracted;
+
+            long currentSideBalance = this.fairnessCredits.getOrDefault(
+                side,
+                0L
+            );
+
+            long newBalance = Math.clamp(
+                currentSideBalance + delta,
+                (long) -this.maxTransferPerTick,
+                this.maxTransferPerTick
+            );
+
+            this.fairnessCredits.put(
+                side,
+                newBalance
+            );
+        }
     }
 }

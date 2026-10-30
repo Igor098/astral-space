@@ -1123,7 +1123,7 @@ class EnergyDistributionManagerTest {
                 100
             )
         );
-        
+
         manager.recordRequest(
             Direction.NORTH,
             80,
@@ -1322,6 +1322,17 @@ class EnergyDistributionManagerTest {
                 allowedNorth,
                 storedEnergy
             );
+
+            if (tick > 100) {
+                assertEquals(
+                    20,
+                    extractedSouth
+                );
+                assertEquals(
+                    20,
+                    extractedNorth
+                );
+            }
 
             try (Transaction tx = Transaction.openRoot()) {
                 manager.recordExtraction(
