@@ -2899,4 +2899,513 @@ class EnergyDistributionManagerTest {
             tx.commit();
         }
     }
+
+    @Test
+    void shouldProtectPushConsumerShareWhenConfirmedDemandIsSmall() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        long previousTick = 99L;
+        long currentTick = 100L;
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                previousTick,
+                tx
+            );
+            manager.recordRequest(
+                Direction.SOUTH,
+                1,
+                previousTick,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            currentTick
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                2,
+                currentTick,
+                tx
+            );
+            manager.recordExtraction(
+                Direction.NORTH,
+                2,
+                currentTick,
+                tx
+            );
+
+            manager.recordRequest(
+                Direction.SOUTH,
+                1,
+                currentTick,
+                tx
+            );
+            manager.recordExtraction(
+                Direction.SOUTH,
+                1,
+                currentTick,
+                tx
+            );
+
+            manager.recordRequest(
+                Direction.NORTH,
+                128,
+                currentTick,
+                tx
+            );
+
+            int allowed = manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                128,
+                77,
+                40,
+                currentTick,
+                tx
+            );
+
+            assertEquals(
+                20,
+                allowed
+            );
+        }
+    }
+
+    @Test
+    void shouldAllowPositiveFairnessCreditToCompensatePreviousDeficit() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        for (long tick : new long[]{98L, 99L}) {
+            try (Transaction tx = Transaction.openRoot()) {
+                manager.recordRequest(
+                    Direction.NORTH,
+                    40,
+                    tick,
+                    tx
+                );
+                manager.recordRequest(
+                    Direction.SOUTH,
+                    40,
+                    tick,
+                    tx
+                );
+
+                if (tick == 99L) {
+                    manager.recordExtraction(
+                        Direction.SOUTH,
+                        40,
+                        tick,
+                        tx
+                    );
+                }
+
+                tx.commit();
+            }
+        }
+
+        long currentTick = 100L;
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            currentTick
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                currentTick,
+                tx
+            );
+
+            int allowed = manager.getAllowedAdaptiveAmount(
+                Direction.NORTH,
+                40,
+                80,
+                40,
+                currentTick,
+                tx
+            );
+
+            assertEquals(
+                40,
+                allowed
+            );
+        }
+    }
+
+    @Test
+    void shouldProtectObservedPushConsumerWithoutCommittedRequest() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        long currentTick = 100L;
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            currentTick
+        );
+
+        int protectedQuota = manager.getProtectedRemainingQuota(
+            Direction.SOUTH,
+            40,
+            currentTick
+        );
+
+        assertEquals(
+            20,
+            protectedQuota
+        );
+    }
+
+    @Test
+    void shouldPreservePreviousPushAvailabilityAcrossTicks() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                60
+            ),
+            100L
+        );
+
+        assertEquals(
+            80,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                101L
+            )
+        );
+        assertEquals(
+            60,
+            manager.getPreviousPushAvailability(
+                Direction.SOUTH,
+                101L
+            )
+        );
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                40,
+                Direction.SOUTH,
+                20
+            ),
+            101L
+        );
+
+        assertEquals(
+            40,
+            manager.getPushAvailability(
+                Direction.NORTH,
+                101L
+            )
+        );
+        assertEquals(
+            20,
+            manager.getPushAvailability(
+                Direction.SOUTH,
+                101L
+            )
+        );
+
+        assertEquals(
+            80,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                101L
+            )
+        );
+        assertEquals(
+            60,
+            manager.getPreviousPushAvailability(
+                Direction.SOUTH,
+                101L
+            )
+        );
+    }
+
+    @Test
+    void shouldKeepPreviousPushAvailabilityOnSameTickUpdate() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80
+            ),
+            100L
+        );
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                40
+            ),
+            101L
+        );
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                20
+            ),
+            101L
+        );
+
+        assertEquals(
+            20,
+            manager.getPushAvailability(
+                Direction.NORTH,
+                101L
+            )
+        );
+
+        assertEquals(
+            80,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                101L
+            )
+        );
+    }
+
+    @Test
+    void shouldNotReturnStalePushAvailabilityAfterSkippedTick() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80
+            ),
+            100L
+        );
+
+        assertEquals(
+            0,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                104L
+            )
+        );
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                30
+            ),
+            104L
+        );
+
+        assertEquals(
+            0,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                104L
+            )
+        );
+
+        assertEquals(
+            30,
+            manager.getPreviousPushAvailability(
+                Direction.NORTH,
+                105L
+            )
+        );
+    }
+
+    @Test
+    void shouldUsePreviousPushAvailabilityWhenCalculatingFairnessCredits() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                98L,
+                tx
+            );
+            manager.recordRequest(
+                Direction.SOUTH,
+                40,
+                98L,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            99L
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                99L,
+                tx
+            );
+            manager.recordRequest(
+                Direction.SOUTH,
+                1,
+                99L,
+                tx
+            );
+
+            manager.recordExtraction(
+                Direction.NORTH,
+                39,
+                99L,
+                tx
+            );
+            manager.recordExtraction(
+                Direction.SOUTH,
+                1,
+                99L,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            100L
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.SOUTH,
+                40,
+                100L,
+                tx
+            );
+
+            int allowed = manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                40,
+                80,
+                40,
+                100L,
+                tx
+            );
+
+            assertEquals(
+                39,
+                allowed
+            );
+        }
+    }
+
+    @Test
+    void shouldCompensatePushConsumerWithoutPreviousCommittedRequest() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                98L,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            99L
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.NORTH,
+                40,
+                99L,
+                tx
+            );
+
+            manager.recordExtraction(
+                Direction.NORTH,
+                40,
+                99L,
+                tx
+            );
+
+            tx.commit();
+        }
+
+        manager.updatePushAvailability(
+            Map.of(
+                Direction.NORTH,
+                80,
+                Direction.SOUTH,
+                80
+            ),
+            100L
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(
+                Direction.SOUTH,
+                40,
+                100L,
+                tx
+            );
+
+            int allowed = manager.getAllowedAdaptiveAmount(
+                Direction.SOUTH,
+                40,
+                80,
+                40,
+                100L,
+                tx
+            );
+
+            assertEquals(
+                40,
+                allowed
+            );
+        }
+    }
 }

@@ -19,13 +19,17 @@ public final class EnergyDistributionManager {
         new EnumMap<>(Direction.class);
     private final Map<Direction, Long> fairnessCredits = new EnumMap<>(Direction.class);
     private final Map<Direction, Long> activeSinceTicks = new EnumMap<>(Direction.class);
-
+    private final Map<Direction, Integer> pushAvailabilityBySide = new EnumMap<>(Direction.class);
+    private final Map<Direction, Integer> previousPushAvailabilityBySide =
+        new EnumMap<>(Direction.class);
 
     private long lastUsageTick = -1L;
     private long lastDemandTick = -1L;
     private long previousUsageTick = -1L;
     private long previousDemandTick = -1L;
     private long lastFairnessUpdateTick = -1L;
+    private long lastPushAvailabilityTick = -1L;
+    private long previousPushAvailabilityTick = -1L;
 
     private final int maxTransferPerTick;
 
@@ -218,6 +222,37 @@ public final class EnergyDistributionManager {
         );
     }
 
+    public void updatePushAvailability(
+        @NonNull Map<Direction, Integer> availability,
+        long currentTick
+    )
+    {
+        if (this.lastPushAvailabilityTick != currentTick) {
+            this.previousPushAvailabilityBySide.clear();
+            this.previousPushAvailabilityBySide.putAll(this.pushAvailabilityBySide);
+
+            this.previousPushAvailabilityTick = this.lastPushAvailabilityTick;
+        }
+
+        this.pushAvailabilityBySide.clear();
+
+        for (Map.Entry<Direction, Integer> entry : availability.entrySet()) {
+            Direction side = entry.getKey();
+            int available = entry.getValue();
+
+            if (available <= 0) {
+                continue;
+            }
+
+            this.pushAvailabilityBySide.put(
+                side,
+                available
+            );
+        }
+
+        this.lastPushAvailabilityTick = currentTick;
+    }
+
     public boolean isActive(
         Direction side,
         long currentTick
@@ -299,7 +334,7 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        if (!this.isActive(
+        if (!this.isEligibleForQuota(
             side,
             currentTick
         ))
@@ -307,12 +342,12 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
-        int activeSides = this.countActiveSides(currentTick);
-        if (activeSides == 0) {
+        int eligibleSides = this.countEligibleForQuota(currentTick);
+        if (eligibleSides == 0) {
             return 0;
         }
 
-        return effectiveSupply / activeSides;
+        return effectiveSupply / eligibleSides;
     }
 
     public int getAllowedBaseAmount(
@@ -430,9 +465,17 @@ public final class EnergyDistributionManager {
             currentTick
         );
 
+        int pushAvailability = this.getPushAvailability(
+            side,
+            currentTick
+        );
+
         int maxRequested = Math.max(
-            previousMaxRequested,
-            currentMaxRequested
+            Math.max(
+                previousMaxRequested,
+                currentMaxRequested
+            ),
+            pushAvailability
         );
 
         int reserve;
@@ -542,6 +585,78 @@ public final class EnergyDistributionManager {
         );
     }
 
+    public int getPushAvailability(
+        Direction side,
+        long currentTick
+    )
+    {
+        if (this.lastPushAvailabilityTick != currentTick) {
+            return 0;
+        }
+
+        return this.pushAvailabilityBySide.getOrDefault(
+            side,
+            0
+        );
+    }
+
+    public int getPreviousPushAvailability(
+        Direction side,
+        long currentTick
+    )
+    {
+        long targetTick = currentTick - 1;
+
+        if (this.lastPushAvailabilityTick == targetTick) {
+            return this.pushAvailabilityBySide.getOrDefault(
+                side,
+                0
+            );
+        }
+
+        if (this.previousPushAvailabilityTick == targetTick) {
+            return this.previousPushAvailabilityBySide.getOrDefault(
+                side,
+                0
+            );
+        }
+
+        return 0;
+    }
+
+    private boolean isEligibleForQuota(
+        Direction side,
+        long currentTick
+    )
+    {
+        return this.isActive(
+            side,
+            currentTick
+        ) || this.getPushAvailability(
+            side,
+            currentTick
+        ) > 0;
+    }
+
+    private int countEligibleForQuota(
+        long currentTick
+    )
+    {
+        int count = 0;
+
+        for (Direction side : Direction.values()) {
+            if (this.isEligibleForQuota(
+                side,
+                currentTick
+            ))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     private int getTotalExtractedPreviousTick(long currentTick) {
         int total = 0;
 
@@ -561,11 +676,17 @@ public final class EnergyDistributionManager {
     )
     {
         return Math.max(
-            this.getPreviousMaxRequestedBySide(
-                side,
-                currentTick
+            Math.max(
+                this.getPreviousMaxRequestedBySide(
+                    side,
+                    currentTick
+                ),
+                this.getPreviousExtractedBySide(
+                    side,
+                    currentTick
+                )
             ),
-            this.getPreviousExtractedBySide(
+            this.getPreviousPushAvailability(
                 side,
                 currentTick
             )
@@ -606,9 +727,16 @@ public final class EnergyDistributionManager {
                 continue;
             }
 
+            boolean hadPreviousPushAvailability = this.getPreviousPushAvailability(
+                side,
+                currentTick
+            ) > 0;
+
             Long activeSince = this.activeSinceTicks.get(side);
 
-            if (activeSince == null || activeSince >= previousTick) {
+            if (!hadPreviousPushAvailability &&
+                (activeSince == null || activeSince >= previousTick))
+            {
                 return;
             }
         }

@@ -837,37 +837,37 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         Map<Direction, Integer> discoveryNeighbours = new EnumMap<>(Direction.class);
 
         List<Direction> rotatedEnergyOutputSides = this.getRotatedOutputSides(level.getGameTime());
-//        for (Direction side : rotatedEnergyOutputSides) {
-//            BlockPos neighborPos = pos.relative(side);
-//            if (!level.getChunkSource()
-//                .hasChunk(
-//                    neighborPos.getX() >> 4,
-//                    neighborPos.getZ() >> 4
-//                ))
-//            {
-//                continue;
-//            }
-//
-//            EnergyHandler target = level.getCapability(
-//                Capabilities.Energy.BLOCK,
-//                neighborPos,
-//                side.getOpposite()
-//            );
-//            if (target == null) {
-//                continue;
-//            }
-//
-//            int probeResult = this.probeEnergyAcceptance(
-//                target,
-//                MAX_EXTRACT
-//            );
-//            if (probeResult > 0) {
-//                discoveryNeighbours.put(
-//                    side,
-//                    probeResult
-//                );
-//            }
-//        }
+        for (Direction side : rotatedEnergyOutputSides) {
+            BlockPos neighborPos = pos.relative(side);
+            if (!level.getChunkSource()
+                .hasChunk(
+                    neighborPos.getX() >> 4,
+                    neighborPos.getZ() >> 4
+                ))
+            {
+                continue;
+            }
+
+            EnergyHandler target = level.getCapability(
+                Capabilities.Energy.BLOCK,
+                neighborPos,
+                side.getOpposite()
+            );
+            if (target == null) {
+                continue;
+            }
+
+            int probeResult = this.probeEnergyAcceptance(
+                target,
+                MAX_EXTRACT
+            );
+            if (probeResult > 0) {
+                discoveryNeighbours.put(
+                    side,
+                    probeResult
+                );
+            }
+        }
 //
 //        long currentTick = level.getGameTime();
 //
@@ -895,6 +895,11 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 //                )
 //            );
 //        }
+
+        this.distributionManager.updatePushAvailability(
+            discoveryNeighbours,
+            level.getGameTime()
+        );
 
         for (Direction side : rotatedEnergyOutputSides) {
             BlockPos neighborPos = pos.relative(side);
