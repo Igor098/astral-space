@@ -6,6 +6,7 @@ import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.EnumMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -3407,5 +3408,114 @@ class EnergyDistributionManagerTest {
                 allowed
             );
         }
+    }
+
+    @Test
+    void shouldNotFavorOneDirectionOverManyTicks() {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+
+        Direction[] sides = {Direction.NORTH, Direction.SOUTH, Direction.WEST};
+
+        Map<Direction, Integer> totalExtracted = new EnumMap<>(Direction.class);
+
+        for (Direction side : sides) {
+            totalExtracted.put(
+                side,
+                0
+            );
+        }
+
+        for (long tick = 100L; tick < 160L; tick++) {
+            int storedEnergy = 40;
+            int remainingBudget = 80;
+
+            manager.updatePushAvailability(
+                Map.of(
+                    Direction.NORTH,
+                    80,
+                    Direction.SOUTH,
+                    80,
+                    Direction.WEST,
+                    80
+                ),
+                tick
+            );
+
+            try (Transaction tx = Transaction.openRoot()) {
+
+                for (Direction side : sides) {
+                    manager.recordRequest(
+                        side,
+                        80,
+                        tick,
+                        tx
+                    );
+                }
+
+                for (Direction side : sides) {
+                    int allowed = manager.getAllowedAdaptiveAmount(
+                        side,
+                        80,
+                        remainingBudget,
+                        storedEnergy,
+                        tick,
+                        tx
+                    );
+
+                    int extracted = Math.min(
+                        allowed,
+                        storedEnergy
+                    );
+
+                    manager.recordExtraction(
+                        side,
+                        extracted,
+                        tick,
+                        tx
+                    );
+
+                    storedEnergy -= extracted;
+                    remainingBudget -= extracted;
+
+                    totalExtracted.merge(
+                        side,
+                        extracted,
+                        Integer::sum
+                    );
+                }
+
+                tx.commit();
+            }
+
+            assertEquals(
+                0,
+                storedEnergy,
+                "Не вся энергия распределена в тике " + tick
+            );
+        }
+
+        int north = totalExtracted.get(Direction.NORTH);
+        int south = totalExtracted.get(Direction.SOUTH);
+        int west = totalExtracted.get(Direction.WEST);
+
+        int max = Math.max(
+            north,
+            Math.max(
+                south,
+                west
+            )
+        );
+        int min = Math.min(
+            north,
+            Math.min(
+                south,
+                west
+            )
+        );
+
+        assertTrue(
+            max - min <= 2,
+            "Обнаружен долговременный перекос: " + "N=" + north + " S=" + south + " W=" + west
+        );
     }
 }

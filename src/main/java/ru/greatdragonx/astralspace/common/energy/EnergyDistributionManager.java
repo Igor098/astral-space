@@ -5,7 +5,9 @@ import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jspecify.annotations.NonNull;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 public final class EnergyDistributionManager {
@@ -791,7 +793,7 @@ public final class EnergyDistributionManager {
         int remainingToDistribute = unusedQuota + totalEnergyExtracted % countDemandingSides;
 
         while (remainingToDistribute > 0) {
-            int eligibleSides = 0;
+            List<Direction> eligibleSides = new ArrayList<>();
 
             for (Direction side : targetShares.keySet()) {
                 int demand = this.getEffectivePreviousDemand(
@@ -802,20 +804,27 @@ public final class EnergyDistributionManager {
                 int currentShare = targetShares.get(side);
 
                 if (currentShare < demand) {
-                    eligibleSides++;
+                    eligibleSides.add(side);
                 }
             }
 
-            if (eligibleSides == 0) {
+            if (eligibleSides.isEmpty()) {
                 break;
             }
 
             int portion = Math.max(
                 1,
-                remainingToDistribute / eligibleSides
+                remainingToDistribute / eligibleSides.size()
             );
 
-            for (Direction side : targetShares.keySet()) {
+            int startIndex = Math.floorMod(
+                previousTick,
+                eligibleSides.size()
+            );
+
+            for (int i = 0; i < eligibleSides.size(); i++) {
+                Direction side = eligibleSides.get((startIndex + i) % eligibleSides.size());
+                
                 int demand = this.getEffectivePreviousDemand(
                     side,
                     currentTick
