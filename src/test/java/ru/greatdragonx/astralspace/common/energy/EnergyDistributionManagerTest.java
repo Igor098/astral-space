@@ -1,27 +1,54 @@
 package ru.greatdragonx.astralspace.common.energy;
 
-import net.minecraft.core.Direction;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
+import ru.greatdragonx.astralspace.common.energy.port.EnergyPortId;
 
 import java.lang.reflect.Field;
-import java.util.EnumMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class EnergyDistributionManagerTest {
+    private static final EnergyPortId PORT_DOWN = new EnergyPortId("test.down");
+    private static final EnergyPortId PORT_UP = new EnergyPortId("test.up");
+    private static final EnergyPortId PORT_NORTH = new EnergyPortId("test.north");
+    private static final EnergyPortId PORT_SOUTH = new EnergyPortId("test.south");
+    private static final EnergyPortId PORT_WEST = new EnergyPortId("test.west");
+    private static final EnergyPortId PORT_EAST = new EnergyPortId("test.east");
+
+    private static final List<EnergyPortId> LEGACY_PORT_ORDER = List.of(
+        PORT_DOWN,
+        PORT_UP,
+        PORT_NORTH,
+        PORT_SOUTH,
+        PORT_WEST,
+        PORT_EAST
+    );
+
+    private static @NonNull EnergyDistributionManager newManager(int maxTransferPerTick) {
+        EnergyDistributionManager manager = new EnergyDistributionManager(maxTransferPerTick);
+        manager.updateAvailablePorts(LEGACY_PORT_ORDER);
+        return manager;
+    }
+
+    private static @NonNull EnergyDistributionManager managerWithPorts(EnergyPortId... ports) {
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        manager.updateAvailablePorts(List.of(ports));
+        return manager;
+    }
+
     private static void recordCommittedRequest(
         @NonNull EnergyDistributionManager manager,
-        Direction side,
+        @NonNull EnergyPortId portId,
         int requested,
         long currentTick
     )
     {
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                side,
+                portId,
                 requested,
                 currentTick,
                 tx
@@ -32,7 +59,7 @@ class EnergyDistributionManagerTest {
 
     private static int getCommittedAdaptiveAmount(
         @NonNull EnergyDistributionManager manager,
-        @NonNull Direction side,
+        @NonNull EnergyPortId portId,
         int requested,
         int remainingGlobalBudget,
         int storedEnergy,
@@ -41,7 +68,7 @@ class EnergyDistributionManagerTest {
     {
         try (Transaction tx = Transaction.openRoot()) {
             int allowed = manager.getAllowedAdaptiveAmount(
-                side,
+                portId,
                 requested,
                 remainingGlobalBudget,
                 storedEnergy,
@@ -53,27 +80,27 @@ class EnergyDistributionManagerTest {
         }
     }
 
-    private static @NonNull EnergyDistributionManager managerWithThreeSideCredits()
+    private static @NonNull EnergyDistributionManager managerWithThreePortCredits()
         throws ReflectiveOperationException
     {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         for (long tick = 99; tick <= 100; tick++) {
             recordCommittedRequest(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 tick
             );
             recordCommittedRequest(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 tick
             );
             recordCommittedRequest(
                 manager,
-                Direction.EAST,
+                PORT_EAST,
                 80,
                 tick
             );
@@ -81,13 +108,13 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 tx
             );
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 10,
                 100,
                 tx
@@ -97,7 +124,7 @@ class EnergyDistributionManagerTest {
 
         getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             80,
             80,
@@ -105,150 +132,150 @@ class EnergyDistributionManagerTest {
         );
 
         assertTrue(fairnessCredits(manager).getOrDefault(
-            Direction.EAST,
+            PORT_EAST,
             0L
         ) > 0);
 
         for (long tick : new long[]{110, 119}) {
             recordCommittedRequest(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 tick
             );
             recordCommittedRequest(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 tick
             );
         }
 
         assertFalse(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             120
         ));
         assertEquals(
             2,
-            manager.countActiveSides(120)
+            manager.countActivePorts(120)
         );
 
         return manager;
     }
 
     @Test
-    void shouldTrackActiveSide() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldTrackActivePort() {
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
 
         assertTrue(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             100
         ));
         assertTrue(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             119
         ));
         assertFalse(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             120
         ));
 
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             100
         ));
 
         recordCommittedRequest(
             manager,
-            Direction.EAST,
+            PORT_EAST,
             0,
             100
         );
 
         assertFalse(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             100
         ));
     }
 
     @Test
-    void shouldCountActiveSides() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldCountActivePorts() {
+        EnergyDistributionManager manager = newManager(80);
         assertEquals(
             0,
-            manager.countActiveSides(100)
+            manager.countActivePorts(100)
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
 
         assertEquals(
             1,
-            manager.countActiveSides(100)
+            manager.countActivePorts(100)
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             105
         );
 
         assertEquals(
             2,
-            manager.countActiveSides(105)
+            manager.countActivePorts(105)
         );
 
         assertTrue(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             119
         ));
         assertTrue(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             119
         ));
         assertEquals(
             2,
-            manager.countActiveSides(119)
+            manager.countActivePorts(119)
         );
 
         assertFalse(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             120
         ));
         assertEquals(
             1,
-            manager.countActiveSides(120)
+            manager.countActivePorts(120)
         );
 
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             125
         ));
         assertEquals(
             0,
-            manager.countActiveSides(125)
+            manager.countActivePorts(125)
         );
     }
 
     @Test
     void shouldCalculateBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
@@ -256,83 +283,83 @@ class EnergyDistributionManagerTest {
         assertEquals(
             80,
             manager.getBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             0,
             manager.getBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 100
             )
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             40,
             105
         );
         assertEquals(
             40,
             manager.getBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 105
             )
         );
         assertEquals(
             40,
             manager.getBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 105
             )
         );
 
         recordCommittedRequest(
             manager,
-            Direction.EAST,
+            PORT_EAST,
             20,
             108
         );
         assertEquals(
             26,
             manager.getBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 108
             )
         );
         assertEquals(
             26,
             manager.getBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 108
             )
         );
         assertEquals(
             26,
             manager.getBaseQuota(
-                Direction.EAST,
+                PORT_EAST,
                 108
             )
         );
     }
 
     @Test
-    void shouldRestoreSideUsageAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldRestorePortUsageAfterRollback() {
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 tx
             );
             assertEquals(
                 30,
-                manager.getExtractedBySide(
-                    Direction.NORTH,
+                manager.getExtractedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
@@ -342,23 +369,23 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 20,
                 100,
                 tx
             );
             assertEquals(
                 50,
-                manager.getExtractedBySide(
-                    Direction.NORTH,
+                manager.getExtractedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
@@ -366,63 +393,63 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
 
         assertEquals(
             0,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
     }
 
     @Test
-    void shouldRestoreMultipleSidesAfterNestedRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldRestoreMultiplePortsAfterNestedRollback() {
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 root
             );
             assertEquals(
                 30,
-                manager.getExtractedBySide(
-                    Direction.NORTH,
+                manager.getExtractedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
 
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 20,
                 100,
                 root
             );
             assertEquals(
                 20,
-                manager.getExtractedBySide(
-                    Direction.SOUTH,
+                manager.getExtractedByPort(
+                    PORT_SOUTH,
                     100
                 )
             );
 
             try (Transaction nested = Transaction.open(root)) {
                 manager.recordExtraction(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     10,
                     100,
                     nested
                 );
                 manager.recordExtraction(
-                    Direction.EAST,
+                    PORT_EAST,
                     15,
                     100,
                     nested
@@ -430,15 +457,15 @@ class EnergyDistributionManagerTest {
 
                 assertEquals(
                     40,
-                    manager.getExtractedBySide(
-                        Direction.NORTH,
+                    manager.getExtractedByPort(
+                        PORT_NORTH,
                         100
                     )
                 );
                 assertEquals(
                     15,
-                    manager.getExtractedBySide(
-                        Direction.EAST,
+                    manager.getExtractedByPort(
+                        PORT_EAST,
                         100
                     )
                 );
@@ -446,22 +473,22 @@ class EnergyDistributionManagerTest {
 
             assertEquals(
                 30,
-                manager.getExtractedBySide(
-                    Direction.NORTH,
+                manager.getExtractedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
             assertEquals(
                 20,
-                manager.getExtractedBySide(
-                    Direction.SOUTH,
+                manager.getExtractedByPort(
+                    PORT_SOUTH,
                     100
                 )
             );
             assertEquals(
                 0,
-                manager.getExtractedBySide(
-                    Direction.EAST,
+                manager.getExtractedByPort(
+                    PORT_EAST,
                     100
                 )
             );
@@ -471,22 +498,22 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             20,
-            manager.getExtractedBySide(
-                Direction.SOUTH,
+            manager.getExtractedByPort(
+                PORT_SOUTH,
                 100
             )
         );
         assertEquals(
             0,
-            manager.getExtractedBySide(
-                Direction.EAST,
+            manager.getExtractedByPort(
+                PORT_EAST,
                 100
             )
         );
@@ -494,18 +521,18 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCalculateRemainingBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
@@ -513,21 +540,21 @@ class EnergyDistributionManagerTest {
         assertEquals(
             40,
             manager.getBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             40,
             manager.getBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 100
             )
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 25,
                 100,
                 tx
@@ -535,20 +562,20 @@ class EnergyDistributionManagerTest {
             assertEquals(
                 15,
                 manager.getRemainingBaseQuota(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     100
                 )
             );
             assertEquals(
                 40,
                 manager.getRemainingBaseQuota(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     100
                 )
             );
 
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 20,
                 100,
                 tx
@@ -556,14 +583,14 @@ class EnergyDistributionManagerTest {
             assertEquals(
                 0,
                 manager.getRemainingBaseQuota(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     100
                 )
             );
             assertEquals(
                 40,
                 manager.getRemainingBaseQuota(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     100
                 )
             );
@@ -574,14 +601,14 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getRemainingBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             40,
             manager.getRemainingBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 100
             )
         );
@@ -589,14 +616,14 @@ class EnergyDistributionManagerTest {
         assertEquals(
             40,
             manager.getRemainingBaseQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 101
             )
         );
         assertEquals(
             40,
             manager.getRemainingBaseQuota(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 101
             )
         );
@@ -604,24 +631,24 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldLimitRequestByRemainingBaseQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
 
         int allowed = manager.getAllowedBaseAmount(
-            Direction.NORTH,
+            PORT_NORTH,
             60,
             100
         );
@@ -632,7 +659,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 25,
                 100,
                 tx
@@ -644,7 +671,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             15,
             manager.getAllowedBaseAmount(
-                Direction.NORTH,
+                PORT_NORTH,
                 50,
                 100
             )
@@ -653,7 +680,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             10,
             manager.getAllowedBaseAmount(
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 100
             )
@@ -662,7 +689,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             40,
             manager.getAllowedBaseAmount(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 100
             )
@@ -671,7 +698,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getAllowedBaseAmount(
-                Direction.EAST,
+                PORT_EAST,
                 80,
                 100
             )
@@ -680,7 +707,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getAllowedBaseAmount(
-                Direction.NORTH,
+                PORT_NORTH,
                 0,
                 100
             )
@@ -689,11 +716,11 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReadPreviousTickUsage() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 tx
@@ -704,15 +731,15 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 20,
                 101,
                 tx
@@ -723,24 +750,24 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         assertEquals(
             20,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 102
             )
         );
 
         assertEquals(
             0,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 105
             )
         );
@@ -748,19 +775,19 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRestoreUsageHistoryAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 tx
             );
             assertEquals(
                 30,
-                manager.getPreviousExtractedBySide(
-                    Direction.NORTH,
+                manager.getPreviousExtractedByPort(
+                    PORT_NORTH,
                     101
                 )
             );
@@ -768,30 +795,30 @@ class EnergyDistributionManagerTest {
         }
         assertEquals(
             30,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 20,
                 101,
                 tx
             );
             assertEquals(
                 20,
-                manager.getExtractedBySide(
-                    Direction.NORTH,
+                manager.getExtractedByPort(
+                    PORT_NORTH,
                     101
                 )
             );
             assertEquals(
                 30,
-                manager.getPreviousExtractedBySide(
-                    Direction.NORTH,
+                manager.getPreviousExtractedByPort(
+                    PORT_NORTH,
                     101
                 )
             );
@@ -799,107 +826,107 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
 
         assertEquals(
             0,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         assertEquals(
             30,
-            manager.getPreviousExtractedBySide(
-                Direction.NORTH,
+            manager.getPreviousExtractedByPort(
+                PORT_NORTH,
                 101
             )
         );
     }
 
     @Test
-    void shouldTrackMaximumDemandPerSide() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldTrackMaximumDemandPerPort() {
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             20,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             60,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             30,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             40,
             100
         );
 
         assertEquals(
             60,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             40,
-            manager.getMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getMaxRequestedByPort(
+                PORT_SOUTH,
                 100
             )
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.EAST,
+            manager.getMaxRequestedByPort(
+                PORT_EAST,
                 100
             )
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             101
         );
         assertEquals(
             10,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getMaxRequestedByPort(
+                PORT_SOUTH,
                 101
             )
         );
@@ -907,75 +934,75 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReadPreviousTickDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
         assertEquals(
             80,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             40,
             100
         );
         assertEquals(
             40,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_SOUTH,
                 101
             )
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             30,
             101
         );
         assertEquals(
             80,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
         assertEquals(
             40,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_SOUTH,
                 101
             )
         );
 
         assertEquals(
             30,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 102
             )
         );
         assertEquals(
             0,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_SOUTH,
                 102
             )
         );
         assertEquals(
             0,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 105
             )
         );
@@ -983,17 +1010,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCalculateProtectedRemainingQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             99
         );
@@ -1001,7 +1028,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             10,
             manager.getProtectedRemainingQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100
             )
@@ -1009,7 +1036,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 5,
                 100,
                 tx
@@ -1017,14 +1044,14 @@ class EnergyDistributionManagerTest {
             assertEquals(
                 5,
                 manager.getProtectedRemainingQuota(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     100
                 )
             );
 
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 5,
                 100,
                 tx
@@ -1035,7 +1062,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getProtectedRemainingQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100
             )
@@ -1043,14 +1070,14 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
         assertEquals(
             30,
             manager.getProtectedRemainingQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100
             )
@@ -1059,17 +1086,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldReduceProtectedQuotaWithoutRecentDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             40,
             98
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             40,
             98
         );
@@ -1077,7 +1104,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             40,
             manager.getProtectedRemainingQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100
             )
@@ -1085,7 +1112,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 15,
                 100,
                 tx
@@ -1097,7 +1124,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             25,
             manager.getProtectedRemainingQuota(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100
             )
@@ -1106,24 +1133,24 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldBorrowUnusedProtectedQuota() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             99
         );
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
@@ -1132,7 +1159,7 @@ class EnergyDistributionManagerTest {
             70,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 80,
                 80,
@@ -1142,7 +1169,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 70,
                 100,
                 tx
@@ -1153,7 +1180,7 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             100
         );
@@ -1161,7 +1188,7 @@ class EnergyDistributionManagerTest {
             10,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 10,
                 10,
@@ -1172,31 +1199,31 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldDistributeEnergyInReverseRequestOrder() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             99
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             100
         );
 
         int allowed = getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             80,
             80,
@@ -1210,7 +1237,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 100,
                 tx
@@ -1221,14 +1248,14 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
 
         int allowedSouth = getCommittedAdaptiveAmount(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             70,
             70,
@@ -1242,12 +1269,12 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldRecoverAfterSecondSideBecomesActive() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldRecoverAfterSecondPortBecomesActive() {
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
@@ -1256,7 +1283,7 @@ class EnergyDistributionManagerTest {
             80,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 80,
                 80,
@@ -1266,7 +1293,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 100,
                 tx
@@ -1277,7 +1304,7 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
@@ -1285,7 +1312,7 @@ class EnergyDistributionManagerTest {
             0,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 0,
                 0,
@@ -1295,7 +1322,7 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             101
         );
@@ -1304,7 +1331,7 @@ class EnergyDistributionManagerTest {
             40,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 80,
                 80,
@@ -1314,7 +1341,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 101,
                 tx
@@ -1325,7 +1352,7 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             101
         );
@@ -1333,7 +1360,7 @@ class EnergyDistributionManagerTest {
             40,
             getCommittedAdaptiveAmount(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 40,
                 40,
@@ -1344,30 +1371,30 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldDistributeEnergyWhenBufferIsLow() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             99
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             100
         );
         int allowedNorth = getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             80,
             40,
@@ -1380,7 +1407,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 allowedNorth,
                 100,
                 tx
@@ -1390,13 +1417,13 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             100
         );
         int allowedSouth = getCommittedAdaptiveAmount(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             80,
             60,
             20,
@@ -1409,7 +1436,7 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 allowedSouth,
                 100,
                 tx
@@ -1419,15 +1446,15 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             20,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             20,
-            manager.getExtractedBySide(
-                Direction.SOUTH,
+            manager.getExtractedByPort(
+                PORT_SOUTH,
                 100
             )
         );
@@ -1435,17 +1462,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldShareEnergyFairlyWhenProductionOccursBetweenPullRequests() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             128,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             99
         );
@@ -1457,13 +1484,13 @@ class EnergyDistributionManagerTest {
         for (long tick = 100; tick < 121; tick++) {
             recordCommittedRequest(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 128,
                 tick
             );
             int allowedSouth = getCommittedAdaptiveAmount(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 128,
                 80,
                 storedEnergy,
@@ -1476,7 +1503,7 @@ class EnergyDistributionManagerTest {
 
             try (Transaction tx = Transaction.openRoot()) {
                 manager.recordExtraction(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     extractedSouth,
                     tick,
                     tx
@@ -1494,13 +1521,13 @@ class EnergyDistributionManagerTest {
 
             recordCommittedRequest(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 128,
                 tick
             );
             int allowedNorth = getCommittedAdaptiveAmount(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 128,
                 80 - extractedSouth,
                 storedEnergy,
@@ -1524,7 +1551,7 @@ class EnergyDistributionManagerTest {
 
             try (Transaction tx = Transaction.openRoot()) {
                 manager.recordExtraction(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     extractedNorth,
                     tick,
                     tx
@@ -1561,44 +1588,44 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldAllowFullExtractionAfterOtherSideDisconnects() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldAllowFullExtractionAfterOtherPortDisconnects() {
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             128,
             100
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             100
         );
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             128,
             101
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             101
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 101,
                 tx
             );
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 10,
                 101,
                 tx
@@ -1608,14 +1635,14 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             40,
             102
         );
 
         getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             40,
             80,
             40,
@@ -1624,27 +1651,27 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             40,
             121
         );
 
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             121
         ));
         assertTrue(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             121
         ));
         assertEquals(
             1,
-            manager.countActiveSides(121)
+            manager.countActivePorts(121)
         );
 
         int allowed = getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             40,
             80,
             40,
@@ -1659,18 +1686,18 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldRedistributeEnergyAfterSideReconnects() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldRedistributeEnergyAfterPortReconnects() {
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             128,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             99
         );
@@ -1679,7 +1706,7 @@ class EnergyDistributionManagerTest {
             10,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 100,
                 20,
                 80
@@ -1689,7 +1716,7 @@ class EnergyDistributionManagerTest {
             30,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 100,
                 50,
                 70
@@ -1700,7 +1727,7 @@ class EnergyDistributionManagerTest {
             20,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 101,
                 20,
                 80
@@ -1710,7 +1737,7 @@ class EnergyDistributionManagerTest {
             20,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 101,
                 40,
                 60
@@ -1720,7 +1747,7 @@ class EnergyDistributionManagerTest {
         for (long tick = 102; tick <= 121; tick++) {
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 tick,
                 40,
                 80
@@ -1728,19 +1755,19 @@ class EnergyDistributionManagerTest {
         }
 
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             122
         ));
         assertEquals(
             1,
-            manager.countActiveSides(122)
+            manager.countActivePorts(122)
         );
 
         assertEquals(
             40,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 122,
                 40,
                 80
@@ -1751,7 +1778,7 @@ class EnergyDistributionManagerTest {
             40,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 123,
                 40,
                 80
@@ -1761,7 +1788,7 @@ class EnergyDistributionManagerTest {
             0,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 123,
                 0,
                 40
@@ -1772,7 +1799,7 @@ class EnergyDistributionManagerTest {
             40,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 124,
                 40,
                 80
@@ -1784,7 +1811,7 @@ class EnergyDistributionManagerTest {
             20,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 124,
                 20,
                 40
@@ -1792,25 +1819,25 @@ class EnergyDistributionManagerTest {
             "SOUTH должен успешно зарегистрироваться при возвращении"
         );
         assertTrue(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             124
         ));
         assertEquals(
             2,
-            manager.countActiveSides(124)
+            manager.countActivePorts(124)
         );
 
         for (long tick = 125; tick <= 128; tick++) {
             int north = pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 tick,
                 40,
                 80
             );
             int south = pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 tick,
                 20,
                 60
@@ -1831,17 +1858,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldNotWasteEnergyWhenConsumersHaveDifferentDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             99
         );
@@ -1850,7 +1877,7 @@ class EnergyDistributionManagerTest {
             10,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 100,
                 40,
@@ -1862,7 +1889,7 @@ class EnergyDistributionManagerTest {
             30,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 128,
                 100,
                 30,
@@ -1874,7 +1901,7 @@ class EnergyDistributionManagerTest {
             10,
             pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 101,
                 40,
@@ -1886,7 +1913,7 @@ class EnergyDistributionManagerTest {
             30,
             pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 128,
                 101,
                 30,
@@ -1897,52 +1924,52 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRollbackRequestAfterRootTransactionIsAborted() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 64,
                 100,
                 tx
             );
 
             assertTrue(manager.isActive(
-                Direction.NORTH,
+                PORT_NORTH,
                 100
             ));
             assertEquals(
                 1,
-                manager.countActiveSides(100)
+                manager.countActivePorts(100)
             );
             assertEquals(
                 64,
-                manager.getMaxRequestedBySide(
-                    Direction.NORTH,
+                manager.getMaxRequestedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
         }
 
         assertFalse(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             100
         ));
         assertEquals(
             0,
-            manager.countActiveSides(100)
+            manager.countActivePorts(100)
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             0,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
@@ -1950,11 +1977,11 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRollbackSimulatedRequestWithoutUndoingParentRequest() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 root
@@ -1962,13 +1989,13 @@ class EnergyDistributionManagerTest {
 
             try (Transaction simulated = Transaction.open(root)) {
                 manager.recordRequest(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     100,
                     simulated
                 );
                 manager.recordRequest(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     128,
                     100,
                     simulated
@@ -1976,33 +2003,33 @@ class EnergyDistributionManagerTest {
 
                 assertEquals(
                     80,
-                    manager.getMaxRequestedBySide(
-                        Direction.NORTH,
+                    manager.getMaxRequestedByPort(
+                        PORT_NORTH,
                         100
                     )
                 );
                 assertTrue(manager.isActive(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     100
                 ));
             }
 
             assertEquals(
                 30,
-                manager.getMaxRequestedBySide(
-                    Direction.NORTH,
+                manager.getMaxRequestedByPort(
+                    PORT_NORTH,
                     100
                 )
             );
             assertEquals(
                 0,
-                manager.getMaxRequestedBySide(
-                    Direction.SOUTH,
+                manager.getMaxRequestedByPort(
+                    PORT_SOUTH,
                     100
                 )
             );
             assertFalse(manager.isActive(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 100
             ));
             root.commit();
@@ -2010,25 +2037,25 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             30,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             100
         ));
     }
 
     @Test
     void shouldRollbackChildRequestWhenParentTransactionIsAborted() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction child = Transaction.open(root)) {
                 manager.recordRequest(
-                    Direction.EAST,
+                    PORT_EAST,
                     128,
                     100,
                     child
@@ -2037,33 +2064,33 @@ class EnergyDistributionManagerTest {
             }
 
             assertTrue(manager.isActive(
-                Direction.EAST,
+                PORT_EAST,
                 100
             ));
             assertEquals(
                 128,
-                manager.getMaxRequestedBySide(
-                    Direction.EAST,
+                manager.getMaxRequestedByPort(
+                    PORT_EAST,
                     100
                 )
             );
         }
 
         assertFalse(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             100
         ));
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.EAST,
+            manager.getMaxRequestedByPort(
+                PORT_EAST,
                 100
             )
         );
         assertEquals(
             0,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.EAST,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_EAST,
                 101
             )
         );
@@ -2071,23 +2098,23 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldRestorePreviousDemandHistoryAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             60,
             100
         );
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 101,
                 tx
             );
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 101,
                 tx
@@ -2095,22 +2122,22 @@ class EnergyDistributionManagerTest {
 
             assertEquals(
                 60,
-                manager.getPreviousMaxRequestedBySide(
-                    Direction.NORTH,
+                manager.getPreviousMaxRequestedByPort(
+                    PORT_NORTH,
                     101
                 )
             );
             assertEquals(
                 10,
-                manager.getMaxRequestedBySide(
-                    Direction.NORTH,
+                manager.getMaxRequestedByPort(
+                    PORT_NORTH,
                     101
                 )
             );
             assertEquals(
                 40,
-                manager.getMaxRequestedBySide(
-                    Direction.SOUTH,
+                manager.getMaxRequestedByPort(
+                    PORT_SOUTH,
                     101
                 )
             );
@@ -2118,41 +2145,41 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             60,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             60,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 101
             )
         );
         assertEquals(
             0,
-            manager.getPreviousMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getPreviousMaxRequestedByPort(
+                PORT_SOUTH,
                 101
             )
         );
         assertFalse(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             101
         ));
     }
 
     private static int pullEnergy(
         EnergyDistributionManager manager,
-        Direction side,
+        EnergyPortId portId,
         long currentTick,
         int storedEnergy,
         int remainingGlobalBudget
@@ -2160,7 +2187,7 @@ class EnergyDistributionManagerTest {
     {
         return pullEnergy(
             manager,
-            side,
+            portId,
             128,
             currentTick,
             storedEnergy,
@@ -2170,7 +2197,7 @@ class EnergyDistributionManagerTest {
 
     private static int pullEnergy(
         @NonNull EnergyDistributionManager manager,
-        Direction side,
+        EnergyPortId portId,
         int requested,
         long currentTick,
         int storedEnergy,
@@ -2179,14 +2206,14 @@ class EnergyDistributionManagerTest {
     {
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                side,
+                portId,
                 requested,
                 currentTick,
                 tx
             );
 
             int extracted = manager.getAllowedAdaptiveAmount(
-                side,
+                portId,
                 requested,
                 remainingGlobalBudget,
                 storedEnergy,
@@ -2196,7 +2223,7 @@ class EnergyDistributionManagerTest {
 
             if (extracted > 0) {
                 manager.recordExtraction(
-                    side,
+                    portId,
                     extracted,
                     currentTick,
                     tx
@@ -2209,23 +2236,23 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldDistributeEnergyFairlyAmongThreeConsumers() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             5,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             128,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.EAST,
+            PORT_EAST,
             128,
             99
         );
@@ -2236,7 +2263,7 @@ class EnergyDistributionManagerTest {
 
             int north = pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 5,
                 tick,
                 storedEnergy,
@@ -2247,7 +2274,7 @@ class EnergyDistributionManagerTest {
 
             int south = pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 128,
                 tick,
                 storedEnergy,
@@ -2258,7 +2285,7 @@ class EnergyDistributionManagerTest {
 
             int east = pullEnergy(
                 manager,
-                Direction.EAST,
+                PORT_EAST,
                 128,
                 tick,
                 storedEnergy,
@@ -2289,18 +2316,18 @@ class EnergyDistributionManagerTest {
     }
 
     private static @NonNull EnergyDistributionManager managerWithPendingFairnessCorrection() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         for (long tick = 99; tick <= 100; tick++) {
             recordCommittedRequest(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
                 tick
             );
             recordCommittedRequest(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80,
                 tick
             );
@@ -2308,13 +2335,13 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 30,
                 100,
                 tx
             );
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 10,
                 100,
                 tx
@@ -2333,25 +2360,25 @@ class EnergyDistributionManagerTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<Direction, Long> fairnessCredits(EnergyDistributionManager manager)
+    private static Map<EnergyPortId, Long> fairnessCredits(EnergyDistributionManager manager)
         throws ReflectiveOperationException
     {
         Field field = EnergyDistributionManager.class.getDeclaredField("fairnessCredits");
         field.setAccessible(true);
-        return (Map<Direction, Long>) field.get(manager);
+        return (Map<EnergyPortId, Long>) field.get(manager);
     }
 
     @Test
     void shouldRollbackFairnessCreditsAndTickAfterSimulation() throws ReflectiveOperationException {
         EnergyDistributionManager manager = managerWithPendingFairnessCorrection();
         long beforeTick = fairnessUpdateTick(manager);
-        Map<Direction, Long> beforeCredits = Map.copyOf(fairnessCredits(manager));
+        Map<EnergyPortId, Long> beforeCredits = Map.copyOf(fairnessCredits(manager));
 
         try (Transaction simulated = Transaction.openRoot()) {
             assertEquals(
                 30,
                 manager.getAllowedAdaptiveAmount(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     80,
                     80,
@@ -2365,11 +2392,11 @@ class EnergyDistributionManagerTest {
             );
             assertEquals(
                 -10L,
-                fairnessCredits(manager).get(Direction.NORTH)
+                fairnessCredits(manager).get(PORT_NORTH)
             );
             assertEquals(
                 10L,
-                fairnessCredits(manager).get(Direction.SOUTH)
+                fairnessCredits(manager).get(PORT_SOUTH)
             );
         }
 
@@ -2386,7 +2413,7 @@ class EnergyDistributionManagerTest {
             assertEquals(
                 30,
                 manager.getAllowedAdaptiveAmount(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     80,
                     80,
@@ -2402,11 +2429,11 @@ class EnergyDistributionManagerTest {
         );
         assertEquals(
             -10L,
-            fairnessCredits(manager).get(Direction.NORTH)
+            fairnessCredits(manager).get(PORT_NORTH)
         );
         assertEquals(
             10L,
-            fairnessCredits(manager).get(Direction.SOUTH)
+            fairnessCredits(manager).get(PORT_SOUTH)
         );
     }
 
@@ -2416,14 +2443,14 @@ class EnergyDistributionManagerTest {
     {
         EnergyDistributionManager manager = managerWithPendingFairnessCorrection();
         long beforeTick = fairnessUpdateTick(manager);
-        Map<Direction, Long> beforeCredits = Map.copyOf(fairnessCredits(manager));
+        Map<EnergyPortId, Long> beforeCredits = Map.copyOf(fairnessCredits(manager));
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction child = Transaction.open(root)) {
                 assertEquals(
                     30,
                     manager.getAllowedAdaptiveAmount(
-                        Direction.NORTH,
+                        PORT_NORTH,
                         80,
                         80,
                         80,
@@ -2440,11 +2467,11 @@ class EnergyDistributionManagerTest {
             );
             assertEquals(
                 -10L,
-                fairnessCredits(manager).get(Direction.NORTH)
+                fairnessCredits(manager).get(PORT_NORTH)
             );
             assertEquals(
                 10L,
-                fairnessCredits(manager).get(Direction.SOUTH)
+                fairnessCredits(manager).get(PORT_SOUTH)
             );
         }
 
@@ -2459,11 +2486,11 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldRestoreCreditsAfterRollbackOfSingleSideReset() throws ReflectiveOperationException {
+    void shouldRestoreCreditsAfterRollbackOfSinglePortReset() throws ReflectiveOperationException {
         EnergyDistributionManager manager = managerWithPendingFairnessCorrection();
         getCommittedAdaptiveAmount(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             80,
             80,
@@ -2472,11 +2499,11 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             -10L,
-            fairnessCredits(manager).get(Direction.NORTH)
+            fairnessCredits(manager).get(PORT_NORTH)
         );
         assertEquals(
             10L,
-            fairnessCredits(manager).get(Direction.SOUTH)
+            fairnessCredits(manager).get(PORT_SOUTH)
         );
         assertEquals(
             101L,
@@ -2485,26 +2512,26 @@ class EnergyDistributionManagerTest {
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             110
         );
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             121
         );
         assertEquals(
             1,
-            manager.countActiveSides(121)
+            manager.countActivePorts(121)
         );
 
         try (Transaction simulated = Transaction.openRoot()) {
             assertEquals(
                 80,
                 manager.getAllowedAdaptiveAmount(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     80,
                     80,
@@ -2525,20 +2552,20 @@ class EnergyDistributionManagerTest {
         );
         assertEquals(
             -10L,
-            fairnessCredits(manager).get(Direction.NORTH)
+            fairnessCredits(manager).get(PORT_NORTH)
         );
         assertEquals(
             10L,
-            fairnessCredits(manager).get(Direction.SOUTH)
+            fairnessCredits(manager).get(PORT_SOUTH)
         );
     }
 
     @Test
     void shouldNotTreatSimulatedRequestAsActiveAfterRollback() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             80,
             120
         );
@@ -2546,19 +2573,19 @@ class EnergyDistributionManagerTest {
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction simulated = Transaction.open(root)) {
                 manager.recordRequest(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     128,
                     121,
                     simulated
                 );
                 assertEquals(
                     2,
-                    manager.countActiveSides(121)
+                    manager.countActivePorts(121)
                 );
                 assertEquals(
                     40,
                     manager.getAllowedAdaptiveAmount(
-                        Direction.SOUTH,
+                        PORT_SOUTH,
                         128,
                         80,
                         80,
@@ -2569,17 +2596,17 @@ class EnergyDistributionManagerTest {
             }
 
             assertFalse(manager.isActive(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 121
             ));
             assertEquals(
                 1,
-                manager.countActiveSides(121)
+                manager.countActivePorts(121)
             );
             assertEquals(
                 80,
                 manager.getAllowedAdaptiveAmount(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
                     80,
                     80,
@@ -2594,17 +2621,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldNotPenalizeRepeatedSmallTransfersAsExcessDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         recordCommittedRequest(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             99
         );
         recordCommittedRequest(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             10,
             99
         );
@@ -2615,7 +2642,7 @@ class EnergyDistributionManagerTest {
         for (int packet = 0; packet < 4; packet++) {
             int north = pullEnergy(
                 manager,
-                Direction.NORTH,
+                PORT_NORTH,
                 10,
                 100,
                 storedEnergy,
@@ -2631,7 +2658,7 @@ class EnergyDistributionManagerTest {
 
             int south = pullEnergy(
                 manager,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 10,
                 100,
                 storedEnergy,
@@ -2648,36 +2675,36 @@ class EnergyDistributionManagerTest {
 
         assertEquals(
             40,
-            manager.getExtractedBySide(
-                Direction.NORTH,
+            manager.getExtractedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             40,
-            manager.getExtractedBySide(
-                Direction.SOUTH,
+            manager.getExtractedByPort(
+                PORT_SOUTH,
                 100
             )
         );
         assertEquals(
             10,
-            manager.getMaxRequestedBySide(
-                Direction.NORTH,
+            manager.getMaxRequestedByPort(
+                PORT_NORTH,
                 100
             )
         );
         assertEquals(
             10,
-            manager.getMaxRequestedBySide(
-                Direction.SOUTH,
+            manager.getMaxRequestedByPort(
+                PORT_SOUTH,
                 100
             )
         );
 
         int north = pullEnergy(
             manager,
-            Direction.NORTH,
+            PORT_NORTH,
             10,
             101,
             40,
@@ -2691,7 +2718,7 @@ class EnergyDistributionManagerTest {
 
         int south = pullEnergy(
             manager,
-            Direction.SOUTH,
+            PORT_SOUTH,
             10,
             101,
             40 - north,
@@ -2706,27 +2733,27 @@ class EnergyDistributionManagerTest {
 
 
     @Test
-    void shouldKeepOtherFairnessCreditsWhileThirdSideIsInactive()
+    void shouldKeepOtherFairnessCreditsWhileThirdPortIsInactive()
         throws ReflectiveOperationException
     {
-        EnergyDistributionManager manager = managerWithThreeSideCredits();
-        Map<Direction, Long> before = Map.copyOf(fairnessCredits(manager));
+        EnergyDistributionManager manager = managerWithThreePortCredits();
+        Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
 
         assertTrue(before.getOrDefault(
-            Direction.EAST,
+            PORT_EAST,
             0L
         ) > 0);
 
         assertTrue(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             120
         ));
         assertTrue(manager.isActive(
-            Direction.SOUTH,
+            PORT_SOUTH,
             120
         ));
         assertFalse(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             120
         ));
 
@@ -2738,49 +2765,49 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldResetOnlyReconnectedSideFairnessCredit() throws ReflectiveOperationException
+    void shouldResetOnlyReconnectedPortFairnessCredit() throws ReflectiveOperationException
     {
-        EnergyDistributionManager manager = managerWithThreeSideCredits();
+        EnergyDistributionManager manager = managerWithThreePortCredits();
 
-        Map<Direction, Long> before = Map.copyOf(fairnessCredits(manager));
+        Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
         long lastUpdate = fairnessUpdateTick(manager);
 
         recordCommittedRequest(
             manager,
-            Direction.EAST,
+            PORT_EAST,
             80,
             120
         );
 
         assertTrue(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             120
         ));
         assertEquals(
             3,
-            manager.countActiveSides(120)
+            manager.countActivePorts(120)
         );
         assertEquals(
             80,
-            manager.getMaxRequestedBySide(
-                Direction.EAST,
+            manager.getMaxRequestedByPort(
+                PORT_EAST,
                 120
             )
         );
 
         assertFalse(
-            fairnessCredits(manager).containsKey(Direction.EAST),
+            fairnessCredits(manager).containsKey(PORT_EAST),
             "EAST не должен сохранять компенсацию после переподключения"
         );
 
         assertEquals(
-            before.get(Direction.NORTH),
-            fairnessCredits(manager).get(Direction.NORTH)
+            before.get(PORT_NORTH),
+            fairnessCredits(manager).get(PORT_NORTH)
         );
 
         assertEquals(
-            before.get(Direction.SOUTH),
-            fairnessCredits(manager).get(Direction.SOUTH)
+            before.get(PORT_SOUTH),
+            fairnessCredits(manager).get(PORT_SOUTH)
         );
 
         assertEquals(
@@ -2791,50 +2818,50 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldRollbackReconnectionAndRestoreExpiredSideCredit() throws ReflectiveOperationException
+    void shouldRollbackReconnectionAndRestoreExpiredPortCredit() throws ReflectiveOperationException
     {
-        EnergyDistributionManager manager = managerWithThreeSideCredits();
+        EnergyDistributionManager manager = managerWithThreePortCredits();
 
-        Map<Direction, Long> before = Map.copyOf(fairnessCredits(manager));
+        Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
         long lastUpdate = fairnessUpdateTick(manager);
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction child = Transaction.open(root)) {
                 manager.recordRequest(
-                    Direction.EAST,
+                    PORT_EAST,
                     80,
                     120,
                     child
                 );
 
                 assertTrue(manager.isActive(
-                    Direction.EAST,
+                    PORT_EAST,
                     120
                 ));
-                assertFalse(fairnessCredits(manager).containsKey(Direction.EAST));
+                assertFalse(fairnessCredits(manager).containsKey(PORT_EAST));
 
                 child.commit();
             }
 
             assertEquals(
                 3,
-                manager.countActiveSides(120)
+                manager.countActivePorts(120)
             );
 
         }
 
         assertFalse(manager.isActive(
-            Direction.EAST,
+            PORT_EAST,
             120
         ));
         assertEquals(
             2,
-            manager.countActiveSides(120)
+            manager.countActivePorts(120)
         );
         assertEquals(
             0,
-            manager.getMaxRequestedBySide(
-                Direction.EAST,
+            manager.getMaxRequestedByPort(
+                PORT_EAST,
                 120
             )
         );
@@ -2853,39 +2880,39 @@ class EnergyDistributionManagerTest {
 
     @Test
     void abortedRequestIsNotRememberedAsDemand() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         long tick = 100L;
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 tick,
                 tx
             );
 
             assertTrue(manager.isActive(
-                Direction.NORTH,
+                PORT_NORTH,
                 tick
             ));
         }
 
         assertFalse(manager.isActive(
-            Direction.NORTH,
+            PORT_NORTH,
             tick
         ));
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 tick,
                 tx
             );
 
             int allowed = manager.getAllowedAdaptiveAmount(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 80,
                 40,
@@ -2903,20 +2930,20 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldProtectPushConsumerShareWhenConfirmedDemandIsSmall() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         long previousTick = 99L;
         long currentTick = 100L;
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 previousTick,
                 tx
             );
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 1,
                 previousTick,
                 tx
@@ -2926,9 +2953,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             currentTick
@@ -2936,40 +2963,40 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 2,
                 currentTick,
                 tx
             );
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 2,
                 currentTick,
                 tx
             );
 
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 1,
                 currentTick,
                 tx
             );
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 1,
                 currentTick,
                 tx
             );
 
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 128,
                 currentTick,
                 tx
             );
 
             int allowed = manager.getAllowedAdaptiveAmount(
-                Direction.NORTH,
+                PORT_NORTH,
                 128,
                 77,
                 40,
@@ -2986,18 +3013,18 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldAllowPositiveFairnessCreditToCompensatePreviousDeficit() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         for (long tick : new long[]{98L, 99L}) {
             try (Transaction tx = Transaction.openRoot()) {
                 manager.recordRequest(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     40,
                     tick,
                     tx
                 );
                 manager.recordRequest(
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     40,
                     tick,
                     tx
@@ -3005,7 +3032,7 @@ class EnergyDistributionManagerTest {
 
                 if (tick == 99L) {
                     manager.recordExtraction(
-                        Direction.SOUTH,
+                        PORT_SOUTH,
                         40,
                         tick,
                         tx
@@ -3020,9 +3047,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             currentTick
@@ -3030,14 +3057,14 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 currentTick,
                 tx
             );
 
             int allowed = manager.getAllowedAdaptiveAmount(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 80,
                 40,
@@ -3054,22 +3081,22 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldProtectObservedPushConsumerWithoutCommittedRequest() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         long currentTick = 100L;
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             currentTick
         );
 
         int protectedQuota = manager.getProtectedRemainingQuota(
-            Direction.SOUTH,
+            PORT_SOUTH,
             40,
             currentTick
         );
@@ -3082,13 +3109,13 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldPreservePreviousPushAvailabilityAcrossTicks() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 60
             ),
             100L
@@ -3097,23 +3124,23 @@ class EnergyDistributionManagerTest {
         assertEquals(
             80,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 101L
             )
         );
         assertEquals(
             60,
             manager.getPreviousPushAvailability(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 101L
             )
         );
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 20
             ),
             101L
@@ -3122,14 +3149,14 @@ class EnergyDistributionManagerTest {
         assertEquals(
             40,
             manager.getPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 101L
             )
         );
         assertEquals(
             20,
             manager.getPushAvailability(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 101L
             )
         );
@@ -3137,14 +3164,14 @@ class EnergyDistributionManagerTest {
         assertEquals(
             80,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 101L
             )
         );
         assertEquals(
             60,
             manager.getPreviousPushAvailability(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 101L
             )
         );
@@ -3152,11 +3179,11 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldKeepPreviousPushAvailabilityOnSameTickUpdate() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80
             ),
             100L
@@ -3164,7 +3191,7 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 40
             ),
             101L
@@ -3172,7 +3199,7 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 20
             ),
             101L
@@ -3181,7 +3208,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             20,
             manager.getPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 101L
             )
         );
@@ -3189,7 +3216,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             80,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 101L
             )
         );
@@ -3197,11 +3224,11 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldNotReturnStalePushAvailabilityAfterSkippedTick() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80
             ),
             100L
@@ -3210,14 +3237,14 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 104L
             )
         );
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 30
             ),
             104L
@@ -3226,7 +3253,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             0,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 104L
             )
         );
@@ -3234,7 +3261,7 @@ class EnergyDistributionManagerTest {
         assertEquals(
             30,
             manager.getPreviousPushAvailability(
-                Direction.NORTH,
+                PORT_NORTH,
                 105L
             )
         );
@@ -3242,17 +3269,17 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldUsePreviousPushAvailabilityWhenCalculatingFairnessCredits() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 98L,
                 tx
             );
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 98L,
                 tx
@@ -3262,9 +3289,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             99L
@@ -3272,26 +3299,26 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 99L,
                 tx
             );
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 1,
                 99L,
                 tx
             );
 
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 39,
                 99L,
                 tx
             );
             manager.recordExtraction(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 1,
                 99L,
                 tx
@@ -3302,9 +3329,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             100L
@@ -3312,14 +3339,14 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 100L,
                 tx
             );
 
             int allowed = manager.getAllowedAdaptiveAmount(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 80,
                 40,
@@ -3336,11 +3363,11 @@ class EnergyDistributionManagerTest {
 
     @Test
     void shouldCompensatePushConsumerWithoutPreviousCommittedRequest() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 98L,
                 tx
@@ -3350,9 +3377,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             99L
@@ -3360,14 +3387,14 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 99L,
                 tx
             );
 
             manager.recordExtraction(
-                Direction.NORTH,
+                PORT_NORTH,
                 40,
                 99L,
                 tx
@@ -3378,9 +3405,9 @@ class EnergyDistributionManagerTest {
 
         manager.updatePushAvailability(
             Map.of(
-                Direction.NORTH,
+                PORT_NORTH,
                 80,
-                Direction.SOUTH,
+                PORT_SOUTH,
                 80
             ),
             100L
@@ -3388,14 +3415,14 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             manager.recordRequest(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 100L,
                 tx
             );
 
             int allowed = manager.getAllowedAdaptiveAmount(
-                Direction.SOUTH,
+                PORT_SOUTH,
                 40,
                 80,
                 40,
@@ -3411,16 +3438,16 @@ class EnergyDistributionManagerTest {
     }
 
     @Test
-    void shouldNotFavorOneDirectionOverManyTicks() {
-        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+    void shouldNotFavorOnePortOverManyTicks() {
+        EnergyDistributionManager manager = newManager(80);
 
-        Direction[] sides = {Direction.NORTH, Direction.SOUTH, Direction.WEST};
+        EnergyPortId[] ports = {PORT_NORTH, PORT_SOUTH, PORT_WEST};
 
-        Map<Direction, Integer> totalExtracted = new EnumMap<>(Direction.class);
+        Map<EnergyPortId, Integer> totalExtracted = new LinkedHashMap<>();
 
-        for (Direction side : sides) {
+        for (EnergyPortId portId : ports) {
             totalExtracted.put(
-                side,
+                portId,
                 0
             );
         }
@@ -3431,11 +3458,11 @@ class EnergyDistributionManagerTest {
 
             manager.updatePushAvailability(
                 Map.of(
-                    Direction.NORTH,
+                    PORT_NORTH,
                     80,
-                    Direction.SOUTH,
+                    PORT_SOUTH,
                     80,
-                    Direction.WEST,
+                    PORT_WEST,
                     80
                 ),
                 tick
@@ -3443,18 +3470,18 @@ class EnergyDistributionManagerTest {
 
             try (Transaction tx = Transaction.openRoot()) {
 
-                for (Direction side : sides) {
+                for (EnergyPortId portId : ports) {
                     manager.recordRequest(
-                        side,
+                        portId,
                         80,
                         tick,
                         tx
                     );
                 }
 
-                for (Direction side : sides) {
+                for (EnergyPortId portId : ports) {
                     int allowed = manager.getAllowedAdaptiveAmount(
-                        side,
+                        portId,
                         80,
                         remainingBudget,
                         storedEnergy,
@@ -3468,7 +3495,7 @@ class EnergyDistributionManagerTest {
                     );
 
                     manager.recordExtraction(
-                        side,
+                        portId,
                         extracted,
                         tick,
                         tx
@@ -3478,7 +3505,7 @@ class EnergyDistributionManagerTest {
                     remainingBudget -= extracted;
 
                     totalExtracted.merge(
-                        side,
+                        portId,
                         extracted,
                         Integer::sum
                     );
@@ -3494,9 +3521,9 @@ class EnergyDistributionManagerTest {
             );
         }
 
-        int north = totalExtracted.get(Direction.NORTH);
-        int south = totalExtracted.get(Direction.SOUTH);
-        int west = totalExtracted.get(Direction.WEST);
+        int north = totalExtracted.get(PORT_NORTH);
+        int south = totalExtracted.get(PORT_SOUTH);
+        int west = totalExtracted.get(PORT_WEST);
 
         int max = Math.max(
             north,
@@ -3517,5 +3544,1048 @@ class EnergyDistributionManagerTest {
             max - min <= 2,
             "Обнаружен долговременный перекос: " + "N=" + north + " S=" + south + " W=" + west
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // Новые регрессионные сценарии для логических портов и динамического состава.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldCountDifferentLogicalPortsWithSamePhysicalSidePrefixSeparately() {
+        EnergyPortId first = new EnergyPortId("north.output.first");
+        EnergyPortId second = new EnergyPortId("north.output.second");
+        EnergyDistributionManager manager = managerWithPorts(
+            first,
+            second
+        );
+
+        recordCommittedRequest(
+            manager,
+            first,
+            80,
+            100L
+        );
+        recordCommittedRequest(
+            manager,
+            second,
+            80,
+            100L
+        );
+
+        assertEquals(
+            2,
+            manager.countActivePorts(100L)
+        );
+        assertEquals(
+            40,
+            manager.getBaseQuota(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            40,
+            manager.getBaseQuota(
+                second,
+                100L
+            )
+        );
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                first,
+                15,
+                100L,
+                tx
+            );
+            tx.commit();
+        }
+
+        assertEquals(
+            15,
+            manager.getExtractedByPort(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getExtractedByPort(
+                second,
+                100L
+            )
+        );
+        assertEquals(
+            25,
+            manager.getRemainingBaseQuota(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            40,
+            manager.getRemainingBaseQuota(
+                second,
+                100L
+            )
+        );
+    }
+
+    @Test
+    void shouldSupportMoreThanSixIndependentPorts() {
+        List<EnergyPortId> ports = new ArrayList<>();
+        for (int index = 0; index < 8; index++) {
+            ports.add(new EnergyPortId("output." + index));
+        }
+
+        EnergyDistributionManager manager = new EnergyDistributionManager(80);
+        manager.updateAvailablePorts(ports);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            for (EnergyPortId portId : ports) {
+                manager.recordRequest(
+                    portId,
+                    80,
+                    100L,
+                    tx
+                );
+            }
+            tx.commit();
+        }
+
+        assertEquals(
+            8,
+            manager.countActivePorts(100L)
+        );
+        for (EnergyPortId portId : ports) {
+            assertEquals(
+                10,
+                manager.getBaseQuota(
+                    portId,
+                    100L
+                )
+            );
+        }
+    }
+
+    @Test
+    void shouldIgnoreRequestsFromUnavailablePorts() {
+        EnergyPortId allowed = new EnergyPortId("allowed");
+        EnergyPortId unavailable = new EnergyPortId("unavailable");
+        EnergyDistributionManager manager = managerWithPorts(allowed);
+
+        recordCommittedRequest(
+            manager,
+            unavailable,
+            80,
+            100L
+        );
+
+        assertFalse(manager.isActive(
+            unavailable,
+            100L
+        ));
+        assertEquals(
+            0,
+            manager.countActivePorts(100L)
+        );
+        assertEquals(
+            0,
+            manager.getMaxRequestedByPort(
+                unavailable,
+                100L
+            )
+        );
+    }
+
+    @Test
+    void shouldRejectExtractionFromUnavailablePortWithoutModifyingUsage() {
+        EnergyPortId allowed = new EnergyPortId("allowed");
+        EnergyPortId unavailable = new EnergyPortId("unavailable");
+        EnergyDistributionManager manager = managerWithPorts(allowed);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                allowed,
+                20,
+                100L,
+                tx
+            );
+            tx.commit();
+        }
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> {
+                try (Transaction tx = Transaction.openRoot()) {
+                    manager.recordExtraction(
+                        unavailable,
+                        15,
+                        100L,
+                        tx
+                    );
+                    tx.commit();
+                }
+            }
+        );
+
+        assertEquals(
+            20,
+            manager.getExtractedByPort(
+                allowed,
+                100L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getExtractedByPort(
+                unavailable,
+                100L
+            )
+        );
+    }
+
+    @Test
+    void shouldDenyAdaptiveExtractionFromUnavailablePort() {
+        EnergyPortId allowed = new EnergyPortId("allowed");
+        EnergyPortId unavailable = new EnergyPortId("unavailable");
+        EnergyDistributionManager manager = managerWithPorts(allowed);
+
+        recordCommittedRequest(
+            manager,
+            allowed,
+            80,
+            100L
+        );
+        assertEquals(
+            0,
+            getCommittedAdaptiveAmount(
+                manager,
+                unavailable,
+                80,
+                80,
+                80,
+                100L
+            )
+        );
+        assertEquals(
+            1,
+            manager.countActivePorts(100L)
+        );
+    }
+
+    @Test
+    void shouldForgetPortActivityDemandUsageAndPushOnDisableAndReenable() {
+        EnergyPortId first = new EnergyPortId("first");
+        EnergyPortId second = new EnergyPortId("second");
+        EnergyDistributionManager manager = managerWithPorts(
+            first,
+            second
+        );
+
+        recordCommittedRequest(
+            manager,
+            first,
+            80,
+            100L
+        );
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                first,
+                30,
+                100L,
+                tx
+            );
+            tx.commit();
+        }
+        manager.updatePushAvailability(
+            Map.of(
+                first,
+                40,
+                second,
+                20
+            ),
+            100L
+        );
+        assertTrue(manager.isActive(
+            first,
+            100L
+        ));
+
+        manager.updateAvailablePorts(List.of(second));
+        assertFalse(manager.isActive(
+            first,
+            100L
+        ));
+        assertEquals(
+            0,
+            manager.getExtractedByPort(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPushAvailability(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            20,
+            manager.getPushAvailability(
+                second,
+                100L
+            )
+        );
+
+        manager.updateAvailablePorts(List.of(
+            first,
+            second
+        ));
+        assertFalse(manager.isActive(
+            first,
+            101L
+        ));
+        assertEquals(
+            0,
+            manager.getMaxRequestedByPort(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPreviousMaxRequestedByPort(
+                first,
+                101L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPreviousExtractedByPort(
+                first,
+                101L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPreviousPushAvailability(
+                first,
+                101L
+            )
+        );
+
+        recordCommittedRequest(
+            manager,
+            first,
+            40,
+            101L
+        );
+        assertTrue(manager.isActive(
+            first,
+            101L
+        ));
+        assertEquals(
+            40,
+            manager.getMaxRequestedByPort(
+                first,
+                101L
+            )
+        );
+    }
+
+    @Test
+    void shouldKeepRemainingPortHistoryAfterAnotherPortIsRemoved() {
+        EnergyPortId first = new EnergyPortId("first");
+        EnergyPortId second = new EnergyPortId("second");
+        EnergyDistributionManager manager = managerWithPorts(
+            first,
+            second
+        );
+
+        recordCommittedRequest(
+            manager,
+            first,
+            80,
+            100L
+        );
+        recordCommittedRequest(
+            manager,
+            second,
+            40,
+            100L
+        );
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                first,
+                15,
+                100L,
+                tx
+            );
+            manager.recordExtraction(
+                second,
+                25,
+                100L,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.updateAvailablePorts(List.of(second));
+
+        assertFalse(manager.isActive(
+            first,
+            100L
+        ));
+        assertTrue(manager.isActive(
+            second,
+            100L
+        ));
+        assertEquals(
+            40,
+            manager.getMaxRequestedByPort(
+                second,
+                100L
+            )
+        );
+        assertEquals(
+            25,
+            manager.getExtractedByPort(
+                second,
+                100L
+            )
+        );
+        assertEquals(
+            25,
+            manager.getPreviousExtractedByPort(
+                second,
+                101L
+            )
+        );
+    }
+
+    @Test
+    void shouldPreserveStatisticsWhenPortsAreReordered() {
+        EnergyPortId first = new EnergyPortId("first");
+        EnergyPortId second = new EnergyPortId("second");
+        EnergyDistributionManager manager = managerWithPorts(
+            first,
+            second
+        );
+
+        recordCommittedRequest(
+            manager,
+            first,
+            60,
+            100L
+        );
+        recordCommittedRequest(
+            manager,
+            second,
+            40,
+            100L
+        );
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                first,
+                20,
+                100L,
+                tx
+            );
+            tx.commit();
+        }
+
+        manager.updateAvailablePorts(List.of(
+            second,
+            first
+        ));
+
+        assertEquals(
+            2,
+            manager.countActivePorts(100L)
+        );
+        assertEquals(
+            60,
+            manager.getMaxRequestedByPort(
+                first,
+                100L
+            )
+        );
+        assertEquals(
+            40,
+            manager.getMaxRequestedByPort(
+                second,
+                100L
+            )
+        );
+        assertEquals(
+            20,
+            manager.getExtractedByPort(
+                first,
+                100L
+            )
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidPushMapBeforeChangingObservedAvailability() {
+        EnergyPortId portId = new EnergyPortId("output");
+        EnergyDistributionManager manager = managerWithPorts(portId);
+        manager.updatePushAvailability(
+            Map.of(
+                portId,
+                80
+            ),
+            100L
+        );
+
+        Map<EnergyPortId, Integer> invalid = new HashMap<>();
+        invalid.put(
+            portId,
+            null
+        );
+
+        assertThrows(
+            NullPointerException.class,
+            () -> manager.updatePushAvailability(
+                invalid,
+                101L
+            )
+        );
+
+        assertEquals(
+            80,
+            manager.getPushAvailability(
+                portId,
+                100L
+            )
+        );
+        assertEquals(
+            80,
+            manager.getPreviousPushAvailability(
+                portId,
+                101L
+            )
+        );
+    }
+
+    @Test
+    void shouldIgnorePushAvailabilityForUnknownPorts() {
+        EnergyPortId known = new EnergyPortId("known");
+        EnergyPortId unknown = new EnergyPortId("unknown");
+        EnergyDistributionManager manager = managerWithPorts(known);
+
+        manager.updatePushAvailability(
+            Map.of(
+                known,
+                40,
+                unknown,
+                80
+            ),
+            100L
+        );
+
+        assertEquals(
+            40,
+            manager.getPushAvailability(
+                known,
+                100L
+            )
+        );
+        assertEquals(
+            0,
+            manager.getPushAvailability(
+                unknown,
+                100L
+            )
+        );
+        assertEquals(
+            40,
+            manager.getProtectedRemainingQuota(
+                known,
+                40,
+                100L
+            )
+        );
+    }
+
+
+    @Test
+    void shouldNormalizeRemainingFairnessCreditsWhenPortIsRemoved()
+        throws ReflectiveOperationException
+    {
+        EnergyDistributionManager manager = managerWithThreePortCredits();
+
+        Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
+
+        long previousDifference = before.get(PORT_NORTH) - before.get(PORT_SOUTH);
+
+        manager.updateAvailablePorts(List.of(
+            PORT_NORTH,
+            PORT_SOUTH
+        ));
+
+        Map<EnergyPortId, Long> after = fairnessCredits(manager);
+
+        assertFalse(after.containsKey(PORT_EAST));
+
+        assertTrue(after.containsKey(PORT_NORTH));
+        assertTrue(after.containsKey(PORT_SOUTH));
+
+        long sum = after.values()
+            .stream()
+            .mapToLong(Long::longValue)
+            .sum();
+
+        assertEquals(
+            0L,
+            sum,
+            "Сумма кредитов после удаления порта должна быть нулевой"
+        );
+
+        long currentDifference = after.get(PORT_NORTH) - after.get(PORT_SOUTH);
+
+        assertTrue(
+            Math.abs(currentDifference - previousDifference) <= 1,
+            "Нужно сохранить относительный приоритет портов"
+        );
+    }
+
+
+    @Test
+    void shouldNotLoseBudgetOrFairnessAfterPortReconfiguration() throws ReflectiveOperationException
+    {
+        EnergyDistributionManager manager = managerWithPorts(
+            PORT_NORTH,
+            PORT_SOUTH,
+            PORT_EAST
+        );
+
+        for (long tick = 99; tick <= 101; tick++) {
+            recordCommittedRequest(
+                manager,
+                PORT_NORTH,
+                80,
+                tick
+            );
+            recordCommittedRequest(
+                manager,
+                PORT_SOUTH,
+                80,
+                tick
+            );
+            recordCommittedRequest(
+                manager,
+                PORT_EAST,
+                80,
+                tick
+            );
+        }
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordExtraction(
+                PORT_NORTH,
+                40,
+                100,
+                tx
+            );
+            tx.commit();
+        }
+
+        getCommittedAdaptiveAmount(
+            manager,
+            PORT_NORTH,
+            80,
+            80,
+            80,
+            101
+        );
+
+        assertTrue(
+            fairnessCredits(manager).getOrDefault(
+                PORT_EAST,
+                0L
+            ) > 0,
+            "У EAST должен быть положительный кредит"
+        );
+
+        manager.updateAvailablePorts(List.of(
+            PORT_NORTH,
+            PORT_SOUTH
+        ));
+
+        assertFalse(
+            fairnessCredits(manager).containsKey(PORT_EAST),
+            "Кредит отключённого EAST должен удалиться"
+        );
+
+        long northTwoTotal = 0;
+        long southTwoTotal = 0;
+        int underusedTwoTicks = 0;
+
+        for (long tick = 102; tick < 302; tick++) {
+            recordCommittedRequest(
+                manager,
+                PORT_NORTH,
+                80,
+                tick
+            );
+            recordCommittedRequest(
+                manager,
+                PORT_SOUTH,
+                80,
+                tick
+            );
+
+            int north = pullEnergy(
+                manager,
+                PORT_NORTH,
+                80,
+                tick,
+                80,
+                80
+            );
+
+            int remaining = 80 - north;
+
+            int south = pullEnergy(
+                manager,
+                PORT_SOUTH,
+                80,
+                tick,
+                remaining,
+                remaining
+            );
+
+            int total = north + south;
+
+            assertTrue(
+                total <= 80,
+                "Превышен бюджет: тик " + tick
+            );
+
+            if (tick >= 122 && total < 80) {
+                underusedTwoTicks++;
+            }
+
+            northTwoTotal += north;
+            southTwoTotal += south;
+        }
+
+        long twoPortDifference = Math.abs(northTwoTotal - southTwoTotal);
+
+        manager.updateAvailablePorts(List.of(
+            PORT_NORTH,
+            PORT_SOUTH,
+            PORT_EAST
+        ));
+
+        assertFalse(
+            fairnessCredits(manager).containsKey(PORT_EAST),
+            "Старый кредит EAST не должен восстанавливаться"
+        );
+
+        long northThreeTotal = 0;
+        long southThreeTotal = 0;
+        long eastThreeTotal = 0;
+        int underusedThreeTicks = 0;
+
+        for (long tick = 302; tick < 602; tick++) {
+            recordCommittedRequest(
+                manager,
+                PORT_NORTH,
+                80,
+                tick
+            );
+            recordCommittedRequest(
+                manager,
+                PORT_SOUTH,
+                80,
+                tick
+            );
+            recordCommittedRequest(
+                manager,
+                PORT_EAST,
+                80,
+                tick
+            );
+
+            int remaining = 80;
+
+            int north = pullEnergy(
+                manager,
+                PORT_NORTH,
+                80,
+                tick,
+                remaining,
+                remaining
+            );
+            remaining -= north;
+
+            int south = pullEnergy(
+                manager,
+                PORT_SOUTH,
+                80,
+                tick,
+                remaining,
+                remaining
+            );
+            remaining -= south;
+
+            int east = pullEnergy(
+                manager,
+                PORT_EAST,
+                80,
+                tick,
+                remaining,
+                remaining
+            );
+            remaining -= east;
+
+            int total = north + south + east;
+
+            assertTrue(
+                total <= 80,
+                "Превышен бюджет: тик " + tick
+            );
+
+            if (tick >= 322 && total < 80) {
+                underusedThreeTicks++;
+            }
+
+            northThreeTotal += north;
+            southThreeTotal += south;
+            eastThreeTotal += east;
+        }
+
+        long maxThree = Math.max(
+            northThreeTotal,
+            Math.max(
+                southThreeTotal,
+                eastThreeTotal
+            )
+        );
+        long minThree = Math.min(
+            northThreeTotal,
+            Math.min(
+                southThreeTotal,
+                eastThreeTotal
+            )
+        );
+
+        final int missedTwo = underusedTwoTicks;
+        final int missedThree = underusedThreeTicks;
+        final long differenceTwo = twoPortDifference;
+        final long differenceThree = maxThree - minThree;
+
+        assertAll(
+            "Регрессия конфигурации 3 -> 2 -> 3",
+            () -> assertEquals(
+                0,
+                missedTwo,
+                "После отключения порта теряется доступный бюджет"
+            ),
+            () -> assertEquals(
+                0,
+                missedThree,
+                "После возвращения порта теряется доступный бюджет"
+            ),
+            () -> assertTrue(
+                differenceTwo <= 80,
+                "Два потребителя получают систематически разные доли"
+            ),
+            () -> assertTrue(
+                differenceThree <= 80,
+                "Три потребителя получают систематически разные доли"
+            )
+        );
+    }
+
+
+    @Test
+    void shouldNormalizeFairnessCreditsAtBoundaries() throws ReflectiveOperationException
+    {
+        long[][] scenarios = {{80, -80, 60, -60, 50, -80, 30}, {-80, 80, -60, 60, -50, 80, -30}};
+
+        for (long[] scenario : scenarios) {
+            EnergyPortId removedPort = new EnergyPortId("test.removed");
+
+            EnergyDistributionManager manager = managerWithPorts(
+                PORT_NORTH,
+                PORT_SOUTH,
+                PORT_EAST,
+                removedPort
+            );
+
+            Field field = EnergyDistributionManager.class.getDeclaredField("fairnessCredits");
+
+            field.setAccessible(true);
+
+            @SuppressWarnings("unchecked") Map<EnergyPortId, Long> credits =
+                (Map<EnergyPortId, Long>) field.get(manager);
+
+            credits.put(
+                PORT_NORTH,
+                scenario[0]
+            );
+            credits.put(
+                PORT_SOUTH,
+                scenario[1]
+            );
+            credits.put(
+                PORT_EAST,
+                scenario[2]
+            );
+            credits.put(
+                removedPort,
+                scenario[3]
+            );
+
+            assertEquals(
+                0L,
+                credits.values()
+                    .stream()
+                    .mapToLong(Long::longValue)
+                    .sum()
+            );
+
+            manager.updateAvailablePorts(List.of(
+                PORT_NORTH,
+                PORT_SOUTH,
+                PORT_EAST
+            ));
+
+            assertFalse(credits.containsKey(removedPort));
+            assertEquals(
+                3,
+                credits.size()
+            );
+
+            assertEquals(
+                0L,
+                credits.values()
+                    .stream()
+                    .mapToLong(Long::longValue)
+                    .sum()
+            );
+
+            for (long credit : credits.values()) {
+                assertTrue(
+                    credit >= -80 && credit <= 80,
+                    "Кредит вышел за пределы ±80: " + credit
+                );
+            }
+
+            assertEquals(
+                Long.valueOf(scenario[4]),
+                credits.get(PORT_NORTH)
+            );
+            assertEquals(
+                Long.valueOf(scenario[5]),
+                credits.get(PORT_SOUTH)
+            );
+            assertEquals(
+                Long.valueOf(scenario[6]),
+                credits.get(PORT_EAST)
+            );
+
+            Map<EnergyPortId, Long> snapshot = Map.copyOf(credits);
+
+            manager.updateAvailablePorts(List.of(
+                PORT_EAST,
+                PORT_SOUTH,
+                PORT_NORTH
+            ));
+
+            assertEquals(
+                snapshot,
+                credits
+            );
+        }
+    }
+
+
+    @Test
+    void shouldUseAllAvailableEnergyWithThreeConsumers() {
+        EnergyDistributionManager manager = managerWithPorts(
+            PORT_NORTH,
+            PORT_SOUTH,
+            PORT_EAST
+        );
+
+        List<EnergyPortId> ports = List.of(
+            PORT_NORTH,
+            PORT_SOUTH,
+            PORT_EAST
+        );
+
+        Map<EnergyPortId, Integer> availability = Map.of(
+            PORT_NORTH,
+            80,
+            PORT_SOUTH,
+            80,
+            PORT_EAST,
+            80
+        );
+
+        for (long tick = 100; tick < 320; tick++) {
+            int storedEnergy = 40;
+            int remainingBudget = 80;
+
+            int[] extractedByPort = new int[3];
+
+            manager.updatePushAvailability(
+                availability,
+                tick
+            );
+
+            int shift = Math.floorMod(
+                tick,
+                ports.size()
+            );
+
+            for (int i = 0; i < ports.size(); i++) {
+                int index = (i + shift) % ports.size();
+
+                EnergyPortId portId = ports.get(index);
+
+                int extracted = pullEnergy(
+                    manager,
+                    portId,
+                    80,
+                    tick,
+                    storedEnergy,
+                    remainingBudget
+                );
+
+                extractedByPort[index] = extracted;
+
+                storedEnergy -= extracted;
+                remainingBudget -= extracted;
+            }
+
+            int totalExtracted = 40 - storedEnergy;
+
+            assertTrue(
+                totalExtracted <= 40,
+                "Передано больше доступной энергии"
+            );
+
+            assertTrue(
+                remainingBudget >= 0,
+                "Превышен глобальный бюджет 80 FE/t"
+            );
+
+            if (tick >= 120) {
+                assertEquals(
+                    40,
+                    totalExtracted,
+                    "Не вся доступная энергия передана!" + " tick=" + tick + " NORTH=" +
+                        extractedByPort[0] + " SOUTH=" + extractedByPort[1] + " EAST=" +
+                        extractedByPort[2] + " remainingEnergy=" + storedEnergy
+                );
+            }
+        }
     }
 }
