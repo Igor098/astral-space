@@ -78,7 +78,8 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
     public @Nullable BlockEntity newBlockEntity(
         @NonNull BlockPos pos,
         @NonNull BlockState state
-    ) {
+    )
+    {
         return new CoalGeneratorBlockEntity(
             pos,
             state
@@ -93,11 +94,12 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
     @Override
     protected @NonNull InteractionResult useWithoutItem(
         @NonNull BlockState state,
-        Level level,
+        @NonNull Level level,
         @NonNull BlockPos pos,
         @NonNull Player player,
         @NonNull BlockHitResult hitResult
-    ) {
+    )
+    {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
@@ -109,12 +111,12 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
             ));
             return InteractionResult.SUCCESS;
         }
-        
+
         return InteractionResult.PASS;
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.@NonNull Builder<Block, BlockState> builder) {
         builder.add(
             FACING,
             FRONT_STATE,
@@ -127,7 +129,7 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
     }
 
     @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
+    public BlockState getStateForPlacement(@NonNull BlockPlaceContext context) {
         return this.defaultBlockState()
             .setValue(
                 FACING,
@@ -138,9 +140,10 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
 
     @Override
     protected @NonNull BlockState rotate(
-        BlockState state,
-        Rotation rotation
-    ) {
+        @NonNull BlockState state,
+        @NonNull Rotation rotation
+    )
+    {
         return state.setValue(
             FACING,
             rotation.rotate(state.getValue(FACING))
@@ -150,8 +153,9 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
     @Override
     protected @NonNull BlockState mirror(
         @NonNull BlockState state,
-        Mirror mirror
-    ) {
+        @NonNull Mirror mirror
+    )
+    {
         return this.rotate(
             state,
             mirror.getRotation(state.getValue(FACING))
@@ -160,10 +164,11 @@ public class CoalGeneratorBlock extends BaseEntityBlock {
 
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(
-        Level level,
+        @NonNull Level level,
         @NonNull BlockState state,
         @NonNull BlockEntityType<T> blockEntityType
-    ) {
+    )
+    {
         if (level.isClientSide()) return null;
 
         return CoalGeneratorBlock.createTickerHelper(
