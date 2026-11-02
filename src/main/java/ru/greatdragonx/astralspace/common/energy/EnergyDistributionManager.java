@@ -63,26 +63,31 @@ public final class EnergyDistributionManager {
     /**
      * Снимок учёта фактических передач за текущий и предыдущий тики.
      */
-    private record UsageSnapshot(long tick,
+    private record UsageSnapshot(
+        long tick,
         long previousTick,
         Map<EnergyPortId, Integer> extracted,
-        Map<EnergyPortId, Integer> previousExtracted) {}
+        Map<EnergyPortId, Integer> previousExtracted
+    ) {}
 
     /**
      * Снимок Pull-запросов, активности портов и истории максимального спроса.
      */
-    private record DemandSnapshot(long lastDemandTick,
+    private record DemandSnapshot(
+        long lastDemandTick,
         long previousDemandTick,
         Map<EnergyPortId, Long> lastRequestTicks,
         Map<EnergyPortId, Long> activeSinceTicks,
         Map<EnergyPortId, Integer> maxRequestedByPort,
-        Map<EnergyPortId, Integer> previousMaxRequestedByPort) {}
+        Map<EnergyPortId, Integer> previousMaxRequestedByPort
+    ) {}
 
     /**
      * Снимок кредитов справедливости и тика последнего пересчёта.
      */
-    private record FairnessSnapshot(long lastFairnessUpdateTick,
-        Map<EnergyPortId, Long> fairnessCredits) {}
+    private record FairnessSnapshot(
+        long lastFairnessUpdateTick, Map<EnergyPortId, Long> fairnessCredits
+    ) {}
 
     private final SnapshotJournal<UsageSnapshot> journal = new SnapshotJournal<>() {
         /** Сохраняет значения счётчиков и карты фактической передачи для отката. */
@@ -366,7 +371,8 @@ public final class EnergyDistributionManager {
 
         if (!this.isPortAvailable(portId)) {
             throw new IllegalStateException(
-                "Cannot record energy extraction from unavailable port: " + portId);
+                "Cannot record energy extraction from unavailable port: " +
+                    portId);
         }
 
         this.journal.updateSnapshots(transaction);
@@ -929,31 +935,19 @@ public final class EnergyDistributionManager {
             alreadyExtracted + storedEnergy
         );
 
-        int protectedFromOtherPorts = this.getTotalProtectedRemainingForOtherPorts(
-            portId,
-            effectiveSupply,
-            currentTick
-        );
-
-        long availableForPort = (long) effectiveSupply - alreadyExtracted - protectedFromOtherPorts;
-
-        long balance = this.fairnessCredits.getOrDefault(
-            portId,
-            0L
-        );
-
         int maxLimit = Math.min(
             storedEnergy,
             remainingGlobalBudget
         );
 
-        long adjustedAvailable = availableForPort + balance;
-
-        int allowed = Math.clamp(
-            adjustedAvailable,
-            0,
-            maxLimit
+        int protectedFromOtherPorts = this.getAdaptiveProtectedRemainingForOtherPorts(
+            portId,
+            effectiveSupply,
+            maxLimit,
+            currentTick
         );
+
+        int allowed = maxLimit - protectedFromOtherPorts;
 
         return Math.min(
             allowed,
@@ -1051,13 +1045,23 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        return this.isActive(
+        boolean isActive = this.isActive(
             portId,
             currentTick
-        ) || this.getPushAvailability(
+        );
+        int pushAvailability = this.getPushAvailability(
             portId,
             currentTick
-        ) > 0;
+        );
+
+        int previousPushAvailability = this.getPreviousPushAvailability(
+            portId,
+            currentTick
+        );
+
+        return isActive ||
+            pushAvailability > 0 ||
+            (this.lastPushAvailabilityTick != currentTick && previousPushAvailability > 0);
     }
 
     /**
@@ -1425,6 +1429,165 @@ public final class EnergyDistributionManager {
                 sum += updated - current;
             }
         }
+    }
+
+    private int getAdaptiveProtectedRemainingForOtherPorts(
+        EnergyPortId targetPort,
+        int effectiveSupply,
+        int availableNow,
+        long currentTick
+    )
+    {
+        int eligibleCount = this.countEligibleForQuota(currentTick);
+
+        if (availableNow <= 0 || eligibleCount == 0) {
+            return 0;
+        }
+
+        int baseQuota = effectiveSupply / eligibleCount;
+
+        Map<EnergyPortId, Integer> reserves = new LinkedHashMap<>();
+
+        long total = 0;
+        int maximum = 0;
+
+        for (EnergyPortId port : this.availablePorts) {
+            if (!this.isEligibleForQuota(
+                port,
+                currentTick
+            ))
+            {
+                continue;
+            }
+
+            int demand = Math.max(
+                Math.max(
+                    this.getPreviousMaxRequestedByPort(
+                        port,
+                        currentTick
+                    ),
+                    this.getMaxRequestedByPort(
+                        port,
+                        currentTick
+                    )
+                ),
+                Math.max(
+                    this.getPushAvailability(
+                        port,
+                        currentTick
+                    ),
+                    this.getPreviousPushAvailability(
+                        port,
+                        currentTick
+                    )
+                )
+            );
+
+            int target = Math.clamp(
+                (long) baseQuota + this.fairnessCredits.getOrDefault(
+                    port,
+                    0L
+                ),
+                0,
+                demand == 0 ? effectiveSupply : demand
+            );
+
+            int reserve = Math.max(
+                0,
+                target - this.getExtractedByPort(
+                    port,
+                    currentTick
+                )
+            );
+
+            reserves.put(
+                port,
+                reserve
+            );
+            total += reserve;
+            maximum = Math.max(
+                maximum,
+                reserve
+            );
+        }
+
+        if (total > availableNow) {
+            int reduction = this.getReduction(
+                availableNow,
+                maximum,
+                reserves
+            );
+            List<EnergyPortId> remainderPorts = new ArrayList<>();
+
+            total = 0;
+
+            for (var entry : reserves.entrySet()) {
+                int original = entry.getValue();
+
+                if (original >= reduction) {
+                    remainderPorts.add(entry.getKey());
+                }
+
+                int reduced = Math.max(
+                    0,
+                    original - reduction
+                );
+                entry.setValue(reduced);
+                total += reduced;
+            }
+
+            int remainder = (int) (availableNow - total);
+            int shift = Math.floorMod(
+                currentTick,
+                remainderPorts.size()
+            );
+
+            for (int i = 0; i < remainder; i++) {
+                EnergyPortId port = remainderPorts.get((shift + i) % remainderPorts.size());
+
+                reserves.put(
+                    port,
+                    reserves.get(port) + 1
+                );
+            }
+
+            total = availableNow;
+        }
+
+        return (int) total - reserves.getOrDefault(
+            targetPort,
+            0
+        );
+    }
+
+    private int getReduction(
+        int availableNow,
+        int maximum,
+        Map<EnergyPortId, Integer> reserves
+    )
+    {
+        int low = 0;
+        int high = maximum;
+
+        while (low < high) {
+            int reduction = low + (high - low) / 2;
+            long reducedTotal = 0;
+
+            for (int reserve : reserves.values()) {
+                reducedTotal += Math.max(
+                    0,
+                    reserve - reduction
+                );
+            }
+
+            if (reducedTotal > availableNow) {
+                low = reduction + 1;
+            } else {
+                high = reduction;
+            }
+        }
+
+        return low;
     }
 
     public @NonNull @UnmodifiableView Map<EnergyPortId, Long> getFairnessCreditsSnapshot() {

@@ -111,7 +111,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                     };
                 }
                 case DATA_PRODUCTION -> CoalGeneratorBlockEntity.this.getCurrentProductionRate();
-                case DATA_TRANSFER -> CoalGeneratorBlockEntity.this.getAverageTransferRate();
+                case DATA_TRANSFER -> CoalGeneratorBlockEntity.this.getCurrentTransferRate();
                 case DATA_OUTPUT_MASK -> CoalGeneratorBlockEntity.this.getEnergyOutputMask();
                 case DATA_REDSTONE_MODE ->
                     CoalGeneratorBlockEntity.this.redstoneControlMode.ordinal();
@@ -390,8 +390,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         if (AstralSpace.LOGGER.isDebugEnabled()) {
             AstralSpace.LOGGER.debug(
-                "[CoalGenerator][ENERGY_DIAG] tick={} " + "transferPrev={} productionPrev={} " +
-                    "storedBeforePush={} pushedThisTick={} " + "storedAfterPush={}",
+                "[CoalGenerator][ENERGY_DIAG] tick={} " +
+                    "transferPrev={} productionPrev={} " +
+                    "storedBeforePush={} pushedThisTick={} " +
+                    "storedAfterPush={}",
                 tick,
                 previousTransfer,
                 previousProduction,
@@ -446,6 +448,15 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             state,
             true
         );
+
+        if (generatedEnergy > 0 &&
+            blockEntity.extractionBudget.getRemaining(level.getGameTime()) > 0)
+        {
+            blockEntity.pushEnergyToNeighbors(
+                level,
+                pos
+            );
+        }
     }
 
     public int getCurrentTransferRate() {
@@ -880,7 +891,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
     private void syncAvailableEnergyPorts(BlockState state) {
         List<EnergyPortId> portIds = new ArrayList<>();
-        if (this.level != null && !this.level.isClientSide() &&
+        if (this.level != null &&
+            !this.level.isClientSide() &&
             !portIds.equals(this.lastLoggedAvailablePorts))
         {
             AstralSpace.LOGGER.info(

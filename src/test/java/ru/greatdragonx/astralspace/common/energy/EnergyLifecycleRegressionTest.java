@@ -27,7 +27,8 @@ public class EnergyLifecycleRegressionTest {
     static final int LAST_TICK = 900;
     static final int WARM_TICK = 300;
 
-    record Tick(int tick,
+    record Tick(
+        int tick,
         int start,
         int beforePush,
         int push,
@@ -36,7 +37,8 @@ public class EnergyLifecycleRegressionTest {
         int transferred,
         int end,
         List<Integer> received,
-        List<Long> credits) {}
+        List<Long> credits
+    ) {}
 
     static final class Rig {
         final EnergyDistributionManager manager = new EnergyDistributionManager(80);
@@ -234,6 +236,37 @@ public class EnergyLifecycleRegressionTest {
             );
             buffer.set(afterPush + generation);
             generatedTotal += generation;
+
+            if (generation > 0 && budget.getRemaining(t) > 0) {
+                Map<EnergyPortId, Integer> postGenerationAvailability = new LinkedHashMap<>();
+
+                for (int p : order) {
+                    try (Transaction probe = Transaction.openRoot()) {
+                        int accepted = sinks.get(p)
+                            .insert(
+                                80,
+                                probe
+                            );
+
+                        if (accepted > 0) {
+                            postGenerationAvailability.put(
+                                ports.get(p),
+                                accepted
+                            );
+                        }
+                    }
+                }
+
+                manager.updatePushAvailability(
+                    postGenerationAvailability,
+                    t
+                );
+
+                for (int p : order) {
+                    move(p);
+                }
+            }
+
             for (int p : afterOrder) move(p);
             int end = buffer.getAmountAsInt();
             assertEquals(
@@ -574,9 +607,10 @@ public class EnergyLifecycleRegressionTest {
         assertTrue(
             Arrays.stream(totals)
                 .max()
-                .orElseThrow() - Arrays.stream(totals)
-                .min()
-                .orElseThrow() <= 80,
+                .orElseThrow() -
+                Arrays.stream(totals)
+                    .min()
+                    .orElseThrow() <= 80,
             "steady 40 does not imply fairness: " + Arrays.toString(totals)
         );
     }
@@ -629,8 +663,7 @@ public class EnergyLifecycleRegressionTest {
                 }
     }
 
-    static Map<String, Object> distributionState(EnergyDistributionManager manager)
-        throws Exception
+    static Map<String, Object> distributionState(EnergyDistributionManager manager) throws Exception
     {
         Map<String, Object> state = new TreeMap<>();
         for (Field f : EnergyDistributionManager.class.getDeclaredFields()) {
