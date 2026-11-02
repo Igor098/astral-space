@@ -301,8 +301,14 @@ public final class EnergyDistributionManager {
             currentTick
         ))
         {
-            this.fairnessJournal.updateSnapshots(transaction);
-            this.fairnessCredits.remove(portId);
+            if (this.getPreviousPushAvailability(
+                portId,
+                currentTick
+            ) <= 0)
+            {
+                this.fairnessJournal.updateSnapshots(transaction);
+                this.fairnessCredits.remove(portId);
+            }
 
             this.activeSinceTicks.put(
                 portId,
@@ -905,7 +911,10 @@ public final class EnergyDistributionManager {
         this.fairnessJournal.updateSnapshots(transaction);
 
         this.updateFairnessCredits(currentTick);
-        if (this.countActivePorts(currentTick) <= 1) {
+        if (this.countActivePorts(currentTick) <= 1 &&
+            this.countEligibleForQuota(currentTick) <= 1 &&
+            this.countDemandingPortsPreviousTick(currentTick) <= 1)
+        {
             this.fairnessCredits.clear();
         }
 
@@ -926,10 +935,7 @@ public final class EnergyDistributionManager {
             currentTick
         );
 
-        int availableForPort = Math.max(
-            0,
-            effectiveSupply - alreadyExtracted - protectedFromOtherPorts
-        );
+        long availableForPort = (long) effectiveSupply - alreadyExtracted - protectedFromOtherPorts;
 
         long balance = this.fairnessCredits.getOrDefault(
             portId,
