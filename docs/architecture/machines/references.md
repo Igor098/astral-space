@@ -3,8 +3,8 @@
 ## Источники проектных решений
 
 1. Согласованные пользователем принципы AS-MACHINE-001–020 в ходе обсуждения архитектуры Astral Space (2026-11-01). **Это проектный источник истины**, отдельные не решённые детали вынесены в `open-questions.md`.
-2. Предоставленный файл `AstralSpace_Energy_Architecture_Decisions.md`, скопированный в [energy-existing-decisions.md](energy-existing-decisions.md).
-3. Предоставленные исходные файлы Coal Generator Mk I, его экранов, меню, конфигураций, сетевых пакетов и распределителей FE — технический фон для будущей интеграции, **не новый контракт**.
+2. [Канонический энергетический ADR](../energy/AstralSpace_Energy_Architecture_Decisions.md) (`ADR-ENERGY-001/002`, статус `TECH-DEBT-ENERGY-001`); прежний путь [energy-existing-decisions.md](energy-existing-decisions.md) сохранён как указатель, без повторного поддержания дублирующей копии.
+3. Существующие Java-файлы `EnergyComponent`, `EnergyPortId`, политик, конфигурации, `EnergyDistributionManager`, `EnergyExtractionBudget` и Coal Generator Mk I — источник **фактов о текущей реализации**, но **не** автоматическое утверждение нового универсального контракта. Последняя локальная оптимизированная версия менеджера может отличаться от GitHub `main`.
 
 ## Официальная документация NeoForge
 

@@ -1,0 +1,979 @@
+package ru.greatdragonx.astralspace.modules.energy.blockentities;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.FuelValues;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.transfer.TransferPreconditions;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil;
+import net.neoforged.neoforge.transfer.energy.SimpleEnergyHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
+import net.neoforged.neoforge.transfer.transaction.RootCommitJournal;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.common.energy.EnergyDistributionManager;
+import ru.greatdragonx.astralspace.common.energy.EnergyExtractionBudget;
+import ru.greatdragonx.astralspace.common.energy.EnergyTransferTracker;
+import ru.greatdragonx.astralspace.common.energy.port.EnergyPortId;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
+import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
+import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
+import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutputMapper;
+import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;
+
+import java.util.*;
+
+public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvider {
+    public static final int FUEL_SLOT = 0;
+
+    public static final int ENERGY_CAPACITY = 10_000;
+    public static final int MAX_EXTRACT = 80;
+    public static final int ENERGY_GENERATION_PER_TICK = 40;
+
+    public static final int DATA_ENERGY = 0;
+    public static final int DATA_BURN_TIME = 1;
+    public static final int DATA_BURN_DURATION = 2;
+    public static final int DATA_FRONT_STATE = 3;
+    public static final int DATA_PRODUCTION = 4;
+    public static final int DATA_TRANSFER = 5;
+    public static final int DATA_OUTPUT_MASK = 6;
+    public static final int DATA_REDSTONE_MODE = 7;
+    public static final int DATA_REDSTONE_BLOCKED = 8;
+    public static final int DATA_COUNT = 9;
+
+    private static final long LOW_FUEL_THRESHOLD = 8_000L;
+    private static final Map<MachineSide, EnergyPortId> OUTPUT_PORT_IDS = Map.of(
+        MachineSide.BACK,
+        new EnergyPortId("coal_generator.back"),
+        MachineSide.LEFT,
+        new EnergyPortId("coal_generator.left"),
+        MachineSide.RIGHT,
+        new EnergyPortId("coal_generator.right"),
+        MachineSide.TOP,
+        new EnergyPortId("coal_generator.top"),
+        MachineSide.BOTTOM,
+        new EnergyPortId("coal_generator.bottom")
+    );
+
+    private final EnergyTransferTracker transferTracker;
+    private final EnergyExtractionBudget extractionBudget;
+    private final EnergyDistributionManager distributionManager;
+    private final SimpleEnergyHandler energyHandler;
+    private final ItemStacksResourceHandler fuelInventory;
+    private final Map<Direction, OutputEnergyHandler> outputHandlers =
+        new EnumMap<>(Direction.class);
+    private List<EnergyPortId> lastLoggedAvailablePorts;
+
+
+    private int burnTime = 0;
+    private int burnDuration = 0;
+    private int currentProductionRate = 0;
+    private RedstoneControlMode redstoneControlMode = RedstoneControlMode.IGNORE;
+
+    private final ContainerData data = new ContainerData() {
+
+        @Override
+        public int get(int index) {
+            return switch (index) {
+                case DATA_ENERGY -> CoalGeneratorBlockEntity.this.energyHandler.getAmountAsInt();
+                case DATA_BURN_TIME -> CoalGeneratorBlockEntity.this.burnTime;
+                case DATA_BURN_DURATION -> CoalGeneratorBlockEntity.this.burnDuration;
+                case DATA_FRONT_STATE -> {
+                    CoalGeneratorFrontState frontState =
+                        CoalGeneratorBlockEntity.this.getBlockState()
+                            .getValue(CoalGeneratorBlock.FRONT_STATE);
+                    yield switch (frontState) {
+                        case OFF -> 0;
+                        case RUNNING_NORMAL -> 1;
+                        case RUNNING_LOW_FUEL -> 2;
+                    };
+                }
+                case DATA_PRODUCTION -> CoalGeneratorBlockEntity.this.getCurrentProductionRate();
+                case DATA_TRANSFER -> CoalGeneratorBlockEntity.this.getCurrentTransferRate();
+                case DATA_OUTPUT_MASK -> CoalGeneratorBlockEntity.this.getEnergyOutputMask();
+                case DATA_REDSTONE_MODE ->
+                    CoalGeneratorBlockEntity.this.redstoneControlMode.ordinal();
+                case DATA_REDSTONE_BLOCKED -> {
+                    Level level = CoalGeneratorBlockEntity.this.getLevel();
+                    if (level == null) {
+                        yield 0;
+                    }
+
+                    boolean hasSignal = level.hasNeighborSignal(worldPosition);
+                    boolean canOperate = redstoneControlMode.allowsOperation(hasSignal);
+
+                    yield canOperate ? 0 : 1;
+                }
+                default -> 0;
+            };
+        }
+
+        @Override
+        public void set(
+            int index,
+            int value
+        )
+        {
+        }
+
+        @Override
+        public int getCount() {
+            return DATA_COUNT;
+        }
+    };
+
+    private final class OutputEnergyHandler implements EnergyHandler {
+        private final Direction side;
+
+        private OutputEnergyHandler(Direction side) {
+            this.side = side;
+        }
+
+        @Override
+        public long getAmountAsLong() {
+            return CoalGeneratorBlockEntity.this.energyHandler.getAmountAsLong();
+        }
+
+        @Override
+        public long getCapacityAsLong() {
+            return CoalGeneratorBlockEntity.this.energyHandler.getCapacityAsLong();
+        }
+
+        @Override
+        public int insert(
+            int amount,
+            @NonNull TransactionContext transaction
+        )
+        {
+            TransferPreconditions.checkNonNegative(amount);
+
+            return 0;
+        }
+
+        @Override
+        public int extract(
+            int amount,
+            @NonNull TransactionContext transaction
+        )
+        {
+            TransferPreconditions.checkNonNegative(amount);
+
+            boolean isOutputEnabled = CoalGeneratorBlockEntity.this.isEnergyOutputEnabled(side);
+            if (!isOutputEnabled) {
+                return 0;
+            }
+
+            EnergyPortId portId = CoalGeneratorBlockEntity.this.getEnergyPortId(side);
+
+            if (portId == null) {
+                return 0;
+            }
+
+            Level level = CoalGeneratorBlockEntity.this.getLevel();
+            if (level == null) {
+                return 0;
+            }
+
+            long currentTick = level.getGameTime();
+
+            CoalGeneratorBlockEntity.this.distributionManager.recordRequest(
+                portId,
+                amount,
+                currentTick,
+                transaction
+            );
+
+            int budget = CoalGeneratorBlockEntity.this.extractionBudget.getRemaining(currentTick);
+            int storedEnergy = CoalGeneratorBlockEntity.this.energyHandler.getAmountAsInt();
+            int adaptiveLimit =
+                CoalGeneratorBlockEntity.this.distributionManager.getAllowedAdaptiveAmount(
+                    portId,
+                    amount,
+                    budget,
+                    storedEnergy,
+                    currentTick,
+                    transaction
+                );
+            int allowed = CoalGeneratorBlockEntity.this.extractionBudget.getAllowedAmount(
+                adaptiveLimit,
+                currentTick
+            );
+
+            if (allowed == 0) {
+                return 0;
+            }
+
+            int extracted = CoalGeneratorBlockEntity.this.energyHandler.extract(
+                allowed,
+                transaction
+            );
+
+            if (extracted > 0) {
+                CoalGeneratorBlockEntity.this.extractionBudget.recordExtraction(
+                    extracted,
+                    currentTick,
+                    transaction
+                );
+
+                CoalGeneratorBlockEntity.this.distributionManager.recordExtraction(
+                    portId,
+                    extracted,
+                    currentTick,
+                    transaction
+                );
+
+                new RootCommitJournal(() -> {
+                    CoalGeneratorBlockEntity.this.recordEnergyTransfer(extracted);
+
+//                    if (AstralSpace.LOGGER.isDebugEnabled()) {
+//                        AstralSpace.LOGGER.debug(
+//                            "[AstralSpace][CoalGenerator] EXTRACT pos={} port={} side={} amount={} FE tick={} fairness={}",
+//                            CoalGeneratorBlockEntity.this.worldPosition,
+//                            portId.value(),
+//                            side,
+//                            extracted,
+//                            currentTick,
+//                            CoalGeneratorBlockEntity.this.distributionManager.getFairnessCreditsSnapshot()
+//                        );
+//                    }
+                }).updateSnapshots(transaction);
+            }
+
+            return extracted;
+        }
+    }
+
+    public CoalGeneratorBlockEntity(
+        BlockPos pos,
+        BlockState blockState
+    )
+    {
+        super(
+            EnergyBlockEntities.COAL_GENERATOR_BLOCK_ENTITY.get(),
+            pos,
+            blockState
+        );
+
+        this.transferTracker = new EnergyTransferTracker();
+        this.extractionBudget = new EnergyExtractionBudget(MAX_EXTRACT);
+        this.distributionManager = new EnergyDistributionManager(MAX_EXTRACT);
+
+        this.energyHandler = new SimpleEnergyHandler(
+            ENERGY_CAPACITY,
+            0,
+            MAX_EXTRACT
+        )
+        {
+            @Override
+            protected void onEnergyChanged(int previousAmount) {
+                CoalGeneratorBlockEntity.this.setChanged();
+            }
+        };
+
+        this.fuelInventory = new ItemStacksResourceHandler(1) {
+            @Override
+            protected void onContentsChanged(
+                int index,
+                @NonNull ItemStack previousContents
+            )
+            {
+                CoalGeneratorBlockEntity.this.setChanged();
+            }
+
+            @Override
+            public boolean isValid(
+                int index,
+                @NonNull ItemResource resource
+            )
+            {
+                ItemStack stack = resource.toStack();
+                Level level = CoalGeneratorBlockEntity.this.level;
+
+                if (level == null) {
+                    return false;
+                }
+
+                if (!stack.getCraftingRemainder()
+                    .isEmpty())
+                {
+                    return false;
+                }
+
+                FuelValues fuelValues = level.fuelValues();
+                return stack.getBurnTime(
+                    null,
+                    fuelValues
+                ) > 0;
+            }
+        };
+
+        this.syncAvailableEnergyPorts(blockState);
+    }
+
+    public @Nullable EnergyHandler getEnergyHandlerForSide(
+        @Nullable Direction side
+    )
+    {
+        if (side == null) {
+            return null;
+        }
+
+        boolean isOutputEnabled = this.isEnergyOutputEnabled(side);
+        if (!isOutputEnabled) {
+            return null;
+        }
+
+        return outputHandlers.computeIfAbsent(
+            side,
+            OutputEnergyHandler::new
+        );
+    }
+
+    public static void serverTick(
+        Level level,
+        BlockPos pos,
+        BlockState state,
+        @NonNull CoalGeneratorBlockEntity blockEntity
+    )
+    {
+//        blockEntity.currentProductionRate = 0;
+
+        blockEntity.syncAvailableEnergyPorts(state);
+
+//        blockEntity.pushEnergyToNeighbors(
+//            level,
+//            pos
+//        );
+
+        long tick = level.getGameTime();
+
+// Статистика предыдущего завершённого тика.
+        int previousTransfer = blockEntity.getCurrentTransferRate();
+        int previousProduction = blockEntity.currentProductionRate;
+
+// Энергия перед Push-передачей.
+        int storedBeforePush = blockEntity.energyHandler.getAmountAsInt();
+
+        blockEntity.currentProductionRate = 0;
+
+        blockEntity.pushEnergyToNeighbors(
+            level,
+            pos
+        );
+
+// Энергия после Push-передачи.
+        int storedAfterPush = blockEntity.energyHandler.getAmountAsInt();
+
+        int pushedThisTick = storedBeforePush - storedAfterPush;
+
+        if (AstralSpace.LOGGER.isDebugEnabled()) {
+            AstralSpace.LOGGER.debug(
+                "[CoalGenerator][ENERGY_DIAG] tick={} " +
+                    "transferPrev={} productionPrev={} " +
+                    "storedBeforePush={} pushedThisTick={} " +
+                    "storedAfterPush={}",
+                tick,
+                previousTransfer,
+                previousProduction,
+                storedBeforePush,
+                pushedThisTick,
+                storedAfterPush
+            );
+        }
+
+        if (blockEntity.energyHandler.getAmountAsInt() >= ENERGY_CAPACITY) {
+            blockEntity.updateFrontState(
+                state,
+                false
+            );
+            return;
+        }
+
+        boolean hasSignal = level.hasNeighborSignal(pos);
+        boolean canOperate = blockEntity.redstoneControlMode.allowsOperation(hasSignal);
+
+        if (!canOperate) {
+            blockEntity.updateFrontState(
+                state,
+                false
+            );
+            return;
+        }
+
+        if (blockEntity.burnTime <= 0) {
+            boolean isBurningStarted = blockEntity.tryStartBurning();
+
+            if (!isBurningStarted || blockEntity.burnTime <= 0) {
+                blockEntity.updateFrontState(
+                    state,
+                    false
+                );
+                return;
+            }
+        }
+
+        int currentEnergy = blockEntity.energyHandler.getAmountAsInt();
+        int generatedEnergy = Math.min(
+            ENERGY_GENERATION_PER_TICK,
+            ENERGY_CAPACITY - currentEnergy
+        );
+
+        blockEntity.energyHandler.set(currentEnergy + generatedEnergy);
+        blockEntity.currentProductionRate = generatedEnergy;
+        blockEntity.burnTime -= 1;
+        blockEntity.setChanged();
+        blockEntity.updateFrontState(
+            state,
+            true
+        );
+
+        if (generatedEnergy > 0 &&
+            blockEntity.extractionBudget.getRemaining(level.getGameTime()) > 0)
+        {
+            blockEntity.pushEnergyToNeighbors(
+                level,
+                pos
+            );
+        }
+    }
+
+    public int getCurrentTransferRate() {
+        if (this.level == null) {
+            return 0;
+        }
+
+        long currentTick = this.level.getGameTime();
+
+        return this.transferTracker.getCurrentTransferRate(currentTick);
+    }
+
+    public int getCurrentProductionRate() {
+        return this.currentProductionRate;
+    }
+
+    public int getAverageTransferRate() {
+        if (this.level == null) {
+            return 0;
+        }
+
+        return this.transferTracker.getAverageTransferRate(this.level.getGameTime());
+    }
+
+    @Override
+    public @NonNull Component getDisplayName() {
+        return Component.translatable("block.astralspace.coal_generator");
+    }
+
+    @Override
+    public @Nullable AbstractContainerMenu createMenu(
+        int containerId,
+        @NonNull Inventory playerInventory,
+        @NonNull Player player
+    )
+    {
+        if (this.level == null) {
+            return null;
+        }
+
+        return new CoalGeneratorMenu(
+            containerId,
+            playerInventory,
+            this.fuelInventory,
+            ContainerLevelAccess.create(
+                this.level,
+                this.worldPosition
+            ),
+            this.data
+        );
+    }
+
+    public void toggleEnergyOutput(MachineSide side) {
+        if (this.level == null) {
+            return;
+        }
+
+        if (this.level.isClientSide()) {
+            return;
+        }
+
+        BlockState currentState = this.getBlockState();
+        BlockState newState = CoalGeneratorEnergyOutputMapper.toggleOutput(
+            currentState,
+            side
+        );
+
+        if (currentState == newState) {
+            return;
+        }
+
+        boolean isSuccess = this.level.setBlock(
+            this.getBlockPos(),
+            newState,
+            Block.UPDATE_ALL
+        );
+
+        if (isSuccess) {
+            this.level.invalidateCapabilities(this.worldPosition);
+            this.syncAvailableEnergyPorts(newState);
+        }
+    }
+
+    public void setRedstoneControlMode(RedstoneControlMode mode) {
+        if (this.level == null) {
+            return;
+        }
+
+        if (this.level.isClientSide()) {
+            return;
+        }
+
+        Objects.requireNonNull(
+            mode,
+            "Redstone control mode cannot be null"
+        );
+
+        if (this.redstoneControlMode == mode) {
+            return;
+        }
+
+        this.redstoneControlMode = mode;
+        this.setChanged();
+    }
+
+    @Override
+    protected void loadAdditional(@NonNull ValueInput input) {
+        super.loadAdditional(input);
+        this.energyHandler.set(input.getIntOr(
+            "energyStored",
+            0
+        ));
+        this.burnTime = Math.max(
+            0,
+            input.getIntOr(
+                "burnTime",
+                0
+            )
+        );
+        this.burnDuration = Math.max(
+            0,
+            input.getIntOr(
+                "burnDuration",
+                0
+            )
+        );
+        this.fuelInventory.deserialize(input.childOrEmpty("fuelInventory"));
+        String savedMode = input.getStringOr(
+            "redstoneControlMode",
+            RedstoneControlMode.IGNORE.name()
+        );
+        try {
+            this.redstoneControlMode = RedstoneControlMode.valueOf(savedMode);
+        } catch (IllegalArgumentException e) {
+            this.redstoneControlMode = RedstoneControlMode.IGNORE;
+        }
+    }
+
+    @Override
+    protected void saveAdditional(@NonNull ValueOutput output) {
+        super.saveAdditional(output);
+        ValueOutput fuelOutput = output.child("fuelInventory");
+        output.putInt(
+            "energyStored",
+            this.energyHandler.getAmountAsInt()
+        );
+        output.putInt(
+            "burnTime",
+            this.burnTime
+        );
+        output.putInt(
+            "burnDuration",
+            this.burnDuration
+        );
+        output.putString(
+            "redstoneControlMode",
+            this.redstoneControlMode.name()
+        );
+        this.fuelInventory.serialize(fuelOutput);
+    }
+
+    private void recordEnergyTransfer(int amount) {
+        if (this.level == null || amount <= 0) {
+            return;
+        }
+
+        long currentTick = this.level.getGameTime();
+
+        this.transferTracker.recordTransfer(
+            amount,
+            currentTick
+        );
+    }
+
+    private boolean consumeFuel() {
+        int amount = fuelInventory.getAmountAsInt(FUEL_SLOT);
+        if (amount == 0) {
+            return false;
+        }
+
+        ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            int extracted = fuelInventory.extract(
+                FUEL_SLOT,
+                resource,
+                1,
+                tx
+            );
+            if (extracted == 1) {
+                tx.commit();
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    private boolean tryStartBurning() {
+        if (burnTime > 0) {
+            return false;
+        }
+
+        int amount = energyHandler.getAmountAsInt();
+        int capacity = energyHandler.getCapacityAsInt();
+        if (amount >= capacity) {
+            return false;
+        }
+
+        if (this.level == null) {
+            return false;
+        }
+        FuelValues fuelValues = this.level.fuelValues();
+
+        if (fuelInventory.getAmountAsInt(FUEL_SLOT) == 0) {
+            return false;
+        }
+        ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
+        ItemStack stack = resource.toStack();
+
+        if (!stack.getCraftingRemainder()
+            .isEmpty())
+        {
+            return false;
+        }
+
+        int burningTime = stack.getBurnTime(
+            null,
+            fuelValues
+        );
+
+        if (burningTime <= 0) {
+            return false;
+        }
+
+        boolean fuelConsumed = this.consumeFuel();
+        if (fuelConsumed) {
+            this.burnDuration = burningTime;
+            this.burnTime = burningTime;
+            this.setChanged();
+
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isEnergyOutputEnabled(Direction side) {
+        if (side == null) {
+            return false;
+        }
+
+        BlockState state = this.getBlockState();
+
+        Direction facing = state.getValue(CoalGeneratorBlock.FACING);
+
+        MachineSide machineSide = MachineSideDirections.fromWorld(
+            side,
+            facing
+        );
+
+        return CoalGeneratorEnergyOutputMapper.isOutputEnabled(
+            state,
+            machineSide
+        );
+    }
+
+    private long calculateTotalBurnTime() {
+        long totalBurnTime = Math.max(
+            0,
+            this.burnTime
+        );
+        if (fuelInventory.getAmountAsInt(FUEL_SLOT) == 0) {
+            return totalBurnTime;
+        }
+
+        if (this.level == null) {
+            return totalBurnTime;
+        }
+        FuelValues fuelValues = this.level.fuelValues();
+
+        ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
+        ItemStack stack = resource.toStack();
+        int burningTime = stack.getBurnTime(
+            null,
+            fuelValues
+        );
+
+        long fuelCount = fuelInventory.getAmountAsLong(FUEL_SLOT);
+
+        return totalBurnTime + fuelCount * burningTime;
+    }
+
+    private int getEnergyOutputMask() {
+        BlockState state = this.getBlockState();
+
+        return CoalGeneratorEnergyOutputMapper.toMask(state);
+    }
+
+    private CoalGeneratorFrontState determineFrontState(boolean isRunning) {
+        if (!isRunning) {
+            return CoalGeneratorFrontState.OFF;
+        }
+
+        long totalBurnTime = calculateTotalBurnTime();
+        if (totalBurnTime >= LOW_FUEL_THRESHOLD) {
+            return CoalGeneratorFrontState.RUNNING_NORMAL;
+        }
+
+        return CoalGeneratorFrontState.RUNNING_LOW_FUEL;
+    }
+
+    private void updateFrontState(
+        BlockState state,
+        boolean isRunning
+    )
+    {
+        if (level == null) {
+            return;
+        }
+        CoalGeneratorFrontState desiredState = determineFrontState(isRunning);
+        CoalGeneratorFrontState currentState = state.getValue(CoalGeneratorBlock.FRONT_STATE);
+
+        if (currentState == desiredState) {
+            return;
+        }
+
+        level.setBlock(
+            worldPosition,
+            state.setValue(
+                CoalGeneratorBlock.FRONT_STATE,
+                desiredState
+            ),
+            Block.UPDATE_CLIENTS
+        );
+    }
+
+    private @NonNull List<Direction> getRotatedOutputSides(long currentTick) {
+        List<Direction> sides = new ArrayList<>();
+
+        for (Direction side : Direction.values()) {
+            if (this.isEnergyOutputEnabled(side)) {
+                sides.add(side);
+            }
+        }
+
+        if (sides.isEmpty()) {
+            return sides;
+        }
+
+        int distance = Math.floorMod(
+            currentTick,
+            sides.size()
+        );
+
+        Collections.rotate(
+            sides,
+            -distance
+        );
+
+        return sides;
+    }
+
+    private void pushEnergyToNeighbors(
+        @NonNull Level level,
+        BlockPos pos
+    )
+    {
+        Map<EnergyPortId, Integer> discoveryNeighbours = new LinkedHashMap<>();
+
+        List<Direction> rotatedEnergyOutputSides = this.getRotatedOutputSides(level.getGameTime());
+        for (Direction side : rotatedEnergyOutputSides) {
+            EnergyPortId portId = this.getEnergyPortId(side);
+
+            if (portId == null) {
+                continue;
+            }
+
+            EnergyHandler target = this.getNeighborEnergyHandler(
+                level,
+                pos,
+                side
+            );
+            if (target == null) {
+                continue;
+            }
+
+            int probeResult = this.probeEnergyAcceptance(target);
+            if (probeResult > 0) {
+                discoveryNeighbours.put(
+                    portId,
+                    probeResult
+                );
+            }
+        }
+
+        this.distributionManager.updatePushAvailability(
+            discoveryNeighbours,
+            level.getGameTime()
+        );
+
+        for (Direction side : rotatedEnergyOutputSides) {
+            EnergyHandler target = this.getNeighborEnergyHandler(
+                level,
+                pos,
+                side
+            );
+
+            if (target == null) {
+                continue;
+            }
+
+            EnergyHandler source = this.getEnergyHandlerForSide(side);
+
+            if (source == null) {
+                continue;
+            }
+
+            try (Transaction tx = Transaction.openRoot()) {
+                int transferred = EnergyHandlerUtil.move(
+                    source,
+                    target,
+                    MAX_EXTRACT,
+                    tx
+                );
+
+                if (transferred > 0) {
+                    tx.commit();
+                }
+            }
+        }
+    }
+
+    private void syncAvailableEnergyPorts(BlockState state) {
+        List<EnergyPortId> portIds = new ArrayList<>();
+        if (this.level != null &&
+            !this.level.isClientSide() &&
+            !portIds.equals(this.lastLoggedAvailablePorts))
+        {
+            AstralSpace.LOGGER.info(
+                "[AstralSpace][CoalGenerator] pos={} facing={} ports: {} -> {}",
+                this.worldPosition,
+                state.getValue(CoalGeneratorBlock.FACING),
+                this.lastLoggedAvailablePorts == null ? "<initial>" : this.lastLoggedAvailablePorts,
+                portIds
+            );
+
+            this.lastLoggedAvailablePorts = List.copyOf(portIds);
+        }
+
+        for (MachineSide machineSide : MachineSide.values()) {
+            EnergyPortId portId = OUTPUT_PORT_IDS.get(machineSide);
+            if (portId == null) {
+                continue;
+            }
+
+            boolean isOutputEnabled = CoalGeneratorEnergyOutputMapper.isOutputEnabled(
+                state,
+                machineSide
+            );
+            if (isOutputEnabled) {
+                portIds.add(portId);
+            }
+        }
+
+        this.distributionManager.updateAvailablePorts(portIds);
+    }
+
+    private int probeEnergyAcceptance(
+        @NonNull EnergyHandler target
+    )
+    {
+        int accepted;
+
+        try (Transaction tx = Transaction.openRoot()) {
+            accepted = target.insert(
+                CoalGeneratorBlockEntity.MAX_EXTRACT,
+                tx
+            );
+        }
+
+        return accepted;
+    }
+
+    private @Nullable EnergyHandler getNeighborEnergyHandler(
+        @NonNull Level level,
+        @NonNull BlockPos pos,
+        Direction side
+    )
+    {
+        BlockPos neighborPos = pos.relative(side);
+
+        if (!level.getChunkSource()
+            .hasChunk(
+                neighborPos.getX() >> 4,
+                neighborPos.getZ() >> 4
+            ))
+        {
+            return null;
+        }
+
+        return level.getCapability(
+            Capabilities.Energy.BLOCK,
+            neighborPos,
+            side.getOpposite()
+        );
+    }
+
+    private @Nullable EnergyPortId getEnergyPortId(Direction worldSide) {
+        BlockState state = this.getBlockState();
+
+        Direction facing = state.getValue(CoalGeneratorBlock.FACING);
+
+        MachineSide machineSide = MachineSideDirections.fromWorld(
+            worldSide,
+            facing
+        );
+
+        return OUTPUT_PORT_IDS.get(machineSide);
+    }
+}
