@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "facing=north": {
+      "type": "astralspace:lava_generator_dynamic",
+      "body": "astralspace:block/lava_generator/body",
+      "front_off": "astralspace:block/lava_generator/front_off",
+      "front_running": "astralspace:block/lava_generator/front_running",
+      "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
+      "rotation_y": 0
+    },
+    "facing=east": {
+      "type": "astralspace:lava_generator_dynamic",
+      "body": "astralspace:block/lava_generator/body",
+      "front_off": "astralspace:block/lava_generator/front_off",
+      "front_running": "astralspace:block/lava_generator/front_running",
+      "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
+      "rotation_y": 90
+    },
+    "facing=south": {
+      "type": "astralspace:lava_generator_dynamic",
+      "body": "astralspace:block/lava_generator/body",
+      "front_off": "astralspace:block/lava_generator/front_off",
+      "front_running": "astralspace:block/lava_generator/front_running",
+      "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
+      "rotation_y": 180
+    },
+    "facing=west": {
+      "type": "astralspace:lava_generator_dynamic",
+      "body": "astralspace:block/lava_generator/body",
+      "front_off": "astralspace:block/lava_generator/front_off",
+      "front_running": "astralspace:block/lava_generator/front_running",
+      "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
+      "rotation_y": 270
+    }
+  }
+}

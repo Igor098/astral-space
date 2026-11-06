@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "astralspace:block/lava_generator/front_off",
+    "side": "astralspace:block/common/machine/machine_body",
+    "top": "astralspace:block/common/machine/machine_body",
+    "particle": "astralspace:block/common/machine/machine_body"
+  }
+}
