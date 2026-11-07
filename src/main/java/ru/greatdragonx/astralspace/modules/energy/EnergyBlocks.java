@@ -6,6 +6,7 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
+import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 
 public final class EnergyBlocks {
     public static final DeferredRegister.Blocks BLOCKS =
@@ -19,7 +20,15 @@ public final class EnergyBlocks {
             .sound(SoundType.METAL)
             .requiresCorrectToolForDrops()
     );
-
+    public static final DeferredBlock<LavaGeneratorBlock> LAVA_GENERATOR = BLOCKS.registerBlock(
+        "lava_generator",
+        LavaGeneratorBlock::new,
+        () -> BlockBehaviour.Properties.of()
+            .destroyTime(5.0f)
+            .explosionResistance(6.0f)
+            .sound(SoundType.METAL)
+            .requiresCorrectToolForDrops()
+    );
 
     private EnergyBlocks() {
     }

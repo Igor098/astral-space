@@ -1,0 +1,15 @@
+{
+  "loader": "neoforge:obj",
+  "model": "astralspace:models/block/common/port/port.obj",
+  "transform": {
+    "origin": "corner"
+  },
+  "textures": {
+    "texture0": "astralspace:block/common/machine/item_port_atlas",
+    "particle": "astralspace:block/common/machine/item_port_atlas"
+  },
+  "automatic_culling": false,
+  "flip_v": true,
+  "shade_quads": true,
+  "render_type": "minecraft:cutout"
+}
