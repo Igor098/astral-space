@@ -1,6 +1,7 @@
 package ru.greatdragonx.astralspace.modules.energy.client.model;
 
 import com.mojang.math.Quadrant;
+import com.mojang.math.Transformation;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.client.renderer.block.model.BlockModelPart;
@@ -15,23 +16,32 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.model.ComposedModelState;
 import net.neoforged.neoforge.client.model.DynamicBlockStateModel;
 import net.neoforged.neoforge.client.model.block.CustomUnbakedBlockStateModel;
+import org.jetbrains.annotations.Unmodifiable;
+import org.joml.Matrix4f;
 import org.jspecify.annotations.NonNull;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
+import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
 
-import java.util.List;
+import java.util.*;
 
 public record LavaGeneratorBlockStateModel(
     BlockModelPart body,
     BlockModelPart frontOff,
     BlockModelPart frontRunning,
     BlockModelPart frontLowLava,
-    BlockModelPart energyPort
+    Map<MachineSide, BlockModelPart> energyPorts
 ) implements DynamicBlockStateModel
 {
     private record GeometryKey(
-        LavaGeneratorBlockStateModel model, BlockState state, LavaGeneratorFrontState frontState
+        LavaGeneratorBlockStateModel model,
+        BlockState state,
+        LavaGeneratorFrontState frontState,
+        Set<MachineSide> activeEnergySides
     ) {}
 
     public BlockModelPart selectFrontPart(
@@ -63,7 +73,19 @@ public record LavaGeneratorBlockStateModel(
         BlockModelPart frontPart = this.selectFrontPart(frontState);
         parts.add(frontPart);
 
-        parts.add(energyPort);
+        List<VisualPort> ports = LavaGeneratorModelDataReader.readVisualPorts(
+            level,
+            pos
+        );
+        for (VisualPort port : ports) {
+            if (port.type() != VisualPortType.ENERGY) {
+                continue;
+            }
+            BlockModelPart part = energyPorts.get(port.side());
+            if (part != null) {
+                parts.add(part);
+            }
+        }
     }
 
     @Override
@@ -83,11 +105,24 @@ public record LavaGeneratorBlockStateModel(
             level,
             pos
         );
+        List<VisualPort> ports = LavaGeneratorModelDataReader.readVisualPorts(
+            level,
+            pos
+        );
+
+        Set<MachineSide> activeSides = new HashSet<>();
+
+        for (VisualPort port : ports) {
+            if (port.type() == VisualPortType.ENERGY && energyPorts.containsKey(port.side())) {
+                activeSides.add(port.side());
+            }
+        }
 
         return new GeometryKey(
             this,
             state,
-            frontState
+            frontState,
+            Set.copyOf(activeSides)
         );
     }
 
@@ -175,11 +210,7 @@ public record LavaGeneratorBlockStateModel(
                     frontLowLava,
                     modelState
                 ),
-                bakePart(
-                    baker,
-                    energyPort,
-                    modelState
-                )
+                this.bakeEnergyPorts(baker)
             );
         }
 
@@ -198,6 +229,55 @@ public record LavaGeneratorBlockStateModel(
 
         private @NonNull ModelState createModelState() {
             return BlockModelRotation.get(rotationY.rotationY);
+        }
+
+        private @NonNull ModelState createPortModelState(@NonNull MachineSide side) {
+            Matrix4f matrix = new Matrix4f();
+
+            switch (side) {
+                case BACK -> {}
+                case LEFT -> matrix.rotateY((float) Math.toRadians(90));
+                case RIGHT -> matrix.rotateY((float) Math.toRadians(-90));
+                case TOP -> matrix.rotateX((float) Math.toRadians(-90));
+                case BOTTOM -> matrix.rotateX((float) Math.toRadians(90));
+                default -> throw new IllegalArgumentException("Unsupported machine side: " + side);
+            }
+
+            matrix.translate(
+                0.0f,
+                0.0f,
+                1.0f
+            );
+
+            Transformation transformation = new Transformation(matrix);
+            return new ComposedModelState(
+                this.createModelState(),
+                transformation
+            );
+        }
+
+        private @NonNull @Unmodifiable Map<MachineSide, BlockModelPart> bakeEnergyPorts(
+            @NonNull ModelBaker baker
+        )
+        {
+            Map<MachineSide, BlockModelPart> ports = new EnumMap<>(MachineSide.class);
+
+            for (MachineSide side : MachineSide.values()) {
+                if (side == MachineSide.FRONT) {
+                    continue;
+                }
+
+                ports.put(
+                    side,
+                    bakePart(
+                        baker,
+                        energyPort,
+                        createPortModelState(side)
+                    )
+                );
+            }
+
+            return Map.copyOf(ports);
         }
     }
 }

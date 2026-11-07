@@ -6,7 +6,7 @@
       "front_off": "astralspace:block/lava_generator/front_off",
       "front_running": "astralspace:block/lava_generator/front_running",
       "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
-      "energy_port": "astralspace:block/lava_generator/energy_port",
+      "energy_port": "astralspace:block/common/energy_port/model",
       "rotation_y": 0
     },
     "facing=east": {
@@ -15,7 +15,7 @@
       "front_off": "astralspace:block/lava_generator/front_off",
       "front_running": "astralspace:block/lava_generator/front_running",
       "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
-      "energy_port": "astralspace:block/lava_generator/energy_port",
+      "energy_port": "astralspace:block/common/energy_port/model",
       "rotation_y": 90
     },
     "facing=south": {
@@ -24,7 +24,7 @@
       "front_off": "astralspace:block/lava_generator/front_off",
       "front_running": "astralspace:block/lava_generator/front_running",
       "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
-      "energy_port": "astralspace:block/lava_generator/energy_port",
+      "energy_port": "astralspace:block/common/energy_port/model",
       "rotation_y": 180
     },
     "facing=west": {
@@ -33,7 +33,7 @@
       "front_off": "astralspace:block/lava_generator/front_off",
       "front_running": "astralspace:block/lava_generator/front_running",
       "front_low_lava": "astralspace:block/lava_generator/front_low_lava",
-      "energy_port": "astralspace:block/lava_generator/energy_port",
+      "energy_port": "astralspace:block/common/energy_port/model",
       "rotation_y": 270
     }
   }

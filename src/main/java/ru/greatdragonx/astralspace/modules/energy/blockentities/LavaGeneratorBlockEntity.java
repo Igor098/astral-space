@@ -15,22 +15,24 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.model.data.ModelData;
 import net.neoforged.neoforge.model.data.ModelProperty;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.energy.port.*;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
+import ru.greatdragonx.astralspace.common.machine.visual.VisualPortId;
+import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class LavaGeneratorBlockEntity extends BlockEntity {
     private int lavaAmount;
     private boolean generating;
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
+    public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
     private static final Map<MachineSide, EnergyPortId> ENERGY_PORT_IDS = Map.of(
         MachineSide.BACK,
         new EnergyPortId("lava_generator.back"),
@@ -76,7 +78,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
 
         this.energyPortConfiguration = new EnergyPortConfiguration(
             initialModes,
-            this::setChanged
+            this::onEnergyPortConfigurationChanged
         );
 
         this.energyPortPolicy = new ConfigurableEnergyPortPolicy(
@@ -93,6 +95,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
                 FRONT_STATE,
                 this.getFrontState()
             )
+            .with(
+                VISUAL_PORTS,
+                this.createVisualPortsSnapshot()
+            )
             .build();
     }
 
@@ -108,6 +114,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             "generating",
             this.generating
         );
+
+        this.saveEnergyPorts(output);
     }
 
     @Override
@@ -147,13 +155,18 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
     )
     {
         LavaGeneratorFrontState previousState = this.getFrontState();
+        Set<VisualPort> previousPortsState = Set.copyOf(this.createVisualPortsSnapshot());
         super.onDataPacket(
             connection,
             input
         );
         LavaGeneratorFrontState currentState = this.getFrontState();
+        Set<VisualPort> currentPortsState = Set.copyOf(this.createVisualPortsSnapshot());
 
-        if (previousState != currentState) {
+        boolean hasChanged =
+            !previousPortsState.equals(currentPortsState) || previousState != currentState;
+
+        if (hasChanged) {
             this.requestModelDataUpdate();
 
             Level level = this.getLevel();
@@ -292,5 +305,42 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             restoredModes,
             this.energyPortPolicy
         );
+    }
+
+    private void onEnergyPortConfigurationChanged() {
+        this.setChanged();
+
+        if (this.level != null && !this.level.isClientSide()) {
+            this.level.sendBlockUpdated(
+                this.worldPosition,
+                this.getBlockState(),
+                this.getBlockState(),
+                Block.UPDATE_CLIENTS
+            );
+        }
+    }
+
+    private @NonNull @Unmodifiable List<VisualPort> createVisualPortsSnapshot() {
+        List<VisualPort> visualPorts = new ArrayList<>();
+
+        for (Map.Entry<MachineSide, EnergyPortId> entry : ENERGY_PORT_IDS.entrySet()) {
+            MachineSide side = entry.getKey();
+            EnergyPortId portId = entry.getValue();
+
+            EnergyPortMode mode = this.getEnergyPortMode(side);
+            if (mode == EnergyPortMode.DISABLED) {
+                continue;
+            }
+
+            VisualPortId visualPortId = new VisualPortId("energy." + portId.value());
+
+            visualPorts.add(new VisualPort(
+                visualPortId,
+                VisualPortType.ENERGY,
+                side
+            ));
+        }
+
+        return List.copyOf(visualPorts);
     }
 }

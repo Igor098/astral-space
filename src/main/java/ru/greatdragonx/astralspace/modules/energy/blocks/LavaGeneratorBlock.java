@@ -22,6 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockTypes;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 
@@ -116,18 +117,33 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof LavaGeneratorBlockEntity entity) {
             if (player.isShiftKeyDown()) {
-                EnergyPortMode currentMode = entity.getEnergyPortMode(MachineSide.BACK);
+                Direction direction = hitResult.getDirection();
+                Direction facing = state.getValue(FACING);
+                MachineSide side = MachineSideDirections.fromWorld(
+                    direction,
+                    facing
+                );
+                if (side == MachineSide.FRONT) {
+                    return InteractionResult.SUCCESS;
+                }
+
+                EnergyPortMode currentMode = entity.getEnergyPortMode(side);
                 EnergyPortMode mode =
                     currentMode == EnergyPortMode.DISABLED ? EnergyPortMode.OUTPUT :
                         EnergyPortMode.DISABLED;
+                
                 boolean changed = entity.changeEnergyPortMode(
-                    MachineSide.BACK,
+                    side,
                     mode
                 );
 
                 if (changed) {
+                    String text = "Энергетический порт %s: %s".formatted(
+                        side,
+                        mode.name()
+                    );
                     player.displayClientMessage(
-                        Component.literal("Энергетический порт BACK: " + mode.name()),
+                        Component.literal(text),
                         false
                     );
                 } else {
