@@ -3,6 +3,7 @@ package ru.greatdragonx.astralspace.modules.energy.blocks;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -19,6 +20,8 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.NonNull;
+import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockTypes;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 
@@ -112,6 +115,30 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof LavaGeneratorBlockEntity entity) {
+            if (player.isShiftKeyDown()) {
+                EnergyPortMode currentMode = entity.getEnergyPortMode(MachineSide.BACK);
+                EnergyPortMode mode =
+                    currentMode == EnergyPortMode.DISABLED ? EnergyPortMode.OUTPUT :
+                        EnergyPortMode.DISABLED;
+                boolean changed = entity.changeEnergyPortMode(
+                    MachineSide.BACK,
+                    mode
+                );
+
+                if (changed) {
+                    player.displayClientMessage(
+                        Component.literal("Энергетический порт BACK: " + mode.name()),
+                        false
+                    );
+                } else {
+                    player.displayClientMessage(
+                        Component.literal("Не удалось изменить режим порта"),
+                        false
+                    );
+                }
+
+                return InteractionResult.SUCCESS;
+            }
             entity.cycleDebugState();
             level.sendBlockUpdated(
                 pos,

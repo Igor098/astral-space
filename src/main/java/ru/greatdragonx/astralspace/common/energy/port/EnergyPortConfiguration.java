@@ -62,7 +62,6 @@ public final class EnergyPortConfiguration {
         );
     }
 
-
     /**
      * Возвращает текущий сохранённый режим энергетического порта.
      *
@@ -95,8 +94,7 @@ public final class EnergyPortConfiguration {
             EnergyPortMode.DISABLED
         );
     }
-
-
+    
     /**
      * Создаёт неизменяемый снимок текущей конфигурации
      * энергетических портов.

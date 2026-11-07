@@ -1,0 +1,20 @@
+{
+  "loader": "neoforge:obj",
+  "model": "astralspace:models/block/common/energy_port/energy_port.obj",
+  "transform": {
+    "origin": "corner",
+    "translation": [
+      0,
+      0,
+      1
+    ]
+  },
+  "textures": {
+    "texture0": "astralspace:block/common/machine/energy_port_atlas",
+    "particle": "astralspace:block/common/machine/energy_port_atlas"
+  },
+  "automatic_culling": false,
+  "flip_v": true,
+  "shade_quads": true,
+  "render_type": "minecraft:cutout"
+}

@@ -26,7 +26,8 @@ public record LavaGeneratorBlockStateModel(
     BlockModelPart body,
     BlockModelPart frontOff,
     BlockModelPart frontRunning,
-    BlockModelPart frontLowLava
+    BlockModelPart frontLowLava,
+    BlockModelPart energyPort
 ) implements DynamicBlockStateModel
 {
     private record GeometryKey(
@@ -61,6 +62,8 @@ public record LavaGeneratorBlockStateModel(
         );
         BlockModelPart frontPart = this.selectFrontPart(frontState);
         parts.add(frontPart);
+
+        parts.add(energyPort);
     }
 
     @Override
@@ -93,6 +96,7 @@ public record LavaGeneratorBlockStateModel(
         Identifier frontOff,
         Identifier frontRunning,
         Identifier frontLowLava,
+        Identifier energyPort,
         Quadrant rotationY
     ) implements CustomUnbakedBlockStateModel
     {
@@ -114,6 +118,9 @@ public record LavaGeneratorBlockStateModel(
 
                     Identifier.CODEC.fieldOf("front_low_lava")
                         .forGetter(Unbaked::frontLowLava),
+
+                    Identifier.CODEC.fieldOf("energy_port")
+                        .forGetter(Unbaked::energyPort),
 
                     Quadrant.CODEC.fieldOf("rotation_y")
                         .forGetter(Unbaked::rotationY)
@@ -137,6 +144,7 @@ public record LavaGeneratorBlockStateModel(
             resolver.markDependency(frontOff);
             resolver.markDependency(frontRunning);
             resolver.markDependency(frontLowLava);
+            resolver.markDependency(energyPort);
         }
 
         @Override
@@ -165,6 +173,11 @@ public record LavaGeneratorBlockStateModel(
                 bakePart(
                     baker,
                     frontLowLava,
+                    modelState
+                ),
+                bakePart(
+                    baker,
+                    energyPort,
                     modelState
                 )
             );
