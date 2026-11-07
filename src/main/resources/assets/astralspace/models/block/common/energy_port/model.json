@@ -1,6 +1,6 @@
 {
   "loader": "neoforge:obj",
-  "model": "astralspace:models/block/common/energy_port/energy_port.obj",
+  "model": "astralspace:models/block/common/port/port.obj",
   "transform": {
     "origin": "corner"
   },

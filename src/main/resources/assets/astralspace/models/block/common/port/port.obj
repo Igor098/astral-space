@@ -1,5 +1,5 @@
 # Astral Space - reusable energy port, centered (+Z-facing), dimensions in blocks
-mtllib energy_port.mtl
+mtllib port.mtl
 o energy_port_shell
 v 0.35267856 0.31250000 0.03125000
 v 0.64732144 0.31250000 0.03125000
