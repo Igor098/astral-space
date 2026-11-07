@@ -25,6 +25,9 @@ import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
+import ru.greatdragonx.astralspace.common.machine.visual.layout.PortLayout;
+import ru.greatdragonx.astralspace.common.machine.visual.layout.PortLayoutPreset;
+import ru.greatdragonx.astralspace.common.machine.visual.layout.PortPlacement;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
 
 import java.util.*;
@@ -34,14 +37,20 @@ public record LavaGeneratorBlockStateModel(
     BlockModelPart frontOff,
     BlockModelPart frontRunning,
     BlockModelPart frontLowLava,
-    Map<MachineSide, BlockModelPart> energyPorts
+    Map<PortModelKey, BlockModelPart> portModels
 ) implements DynamicBlockStateModel
 {
+    private static final PortLayout PORT_LAYOUT = new PortLayout();
+
     private record GeometryKey(
         LavaGeneratorBlockStateModel model,
         BlockState state,
         LavaGeneratorFrontState frontState,
-        Set<MachineSide> activeEnergySides
+        Set<PortModelKey> activePortModels
+    ) {}
+
+    private record PortModelKey(
+        VisualPortType type, MachineSide side, float offsetU, float offsetV, float scale
     ) {}
 
     public BlockModelPart selectFrontPart(
@@ -77,11 +86,10 @@ public record LavaGeneratorBlockStateModel(
             level,
             pos
         );
-        for (VisualPort port : ports) {
-            if (port.type() != VisualPortType.ENERGY) {
-                continue;
-            }
-            BlockModelPart part = energyPorts.get(port.side());
+        List<PortPlacement> placements = calculatePortPlacements(ports);
+        for (PortPlacement placement : placements) {
+            PortModelKey key = toPortModelKey(placement);
+            BlockModelPart part = portModels.get(key);
             if (part != null) {
                 parts.add(part);
             }
@@ -110,11 +118,13 @@ public record LavaGeneratorBlockStateModel(
             pos
         );
 
-        Set<MachineSide> activeSides = new HashSet<>();
+        Set<PortModelKey> activeKeys = new HashSet<>();
 
-        for (VisualPort port : ports) {
-            if (port.type() == VisualPortType.ENERGY && energyPorts.containsKey(port.side())) {
-                activeSides.add(port.side());
+        for (PortPlacement placement : calculatePortPlacements(ports)) {
+            PortModelKey key = toPortModelKey(placement);
+
+            if (portModels.containsKey(key)) {
+                activeKeys.add(key);
             }
         }
 
@@ -122,7 +132,7 @@ public record LavaGeneratorBlockStateModel(
             this,
             state,
             frontState,
-            Set.copyOf(activeSides)
+            Set.copyOf(activeKeys)
         );
     }
 
@@ -132,6 +142,7 @@ public record LavaGeneratorBlockStateModel(
         Identifier frontRunning,
         Identifier frontLowLava,
         Identifier energyPort,
+        Identifier fluidPort,
         Quadrant rotationY
     ) implements CustomUnbakedBlockStateModel
     {
@@ -157,6 +168,9 @@ public record LavaGeneratorBlockStateModel(
                     Identifier.CODEC.fieldOf("energy_port")
                         .forGetter(Unbaked::energyPort),
 
+                    Identifier.CODEC.fieldOf("fluid_port")
+                        .forGetter(Unbaked::fluidPort),
+
                     Quadrant.CODEC.fieldOf("rotation_y")
                         .forGetter(Unbaked::rotationY)
                 )
@@ -180,6 +194,7 @@ public record LavaGeneratorBlockStateModel(
             resolver.markDependency(frontRunning);
             resolver.markDependency(frontLowLava);
             resolver.markDependency(energyPort);
+            resolver.markDependency(fluidPort);
         }
 
         @Override
@@ -210,7 +225,7 @@ public record LavaGeneratorBlockStateModel(
                     frontLowLava,
                     modelState
                 ),
-                this.bakeEnergyPorts(baker)
+                this.bakePortModels(baker)
             );
         }
 
@@ -227,25 +242,113 @@ public record LavaGeneratorBlockStateModel(
             );
         }
 
+        private static @NonNull @Unmodifiable List<PortModelKey> createPortModelKeys(
+            VisualPortType type,
+            MachineSide side
+        )
+        {
+            Objects.requireNonNull(
+                type,
+                "type cannot be null"
+            );
+            Objects.requireNonNull(
+                side,
+                "side cannot be null"
+            );
+
+            List<PortLayoutPreset> presets = PORT_LAYOUT.supportedPresets();
+            List<PortModelKey> keys = new ArrayList<>();
+
+            for (PortLayoutPreset preset : presets) {
+                keys.add(new PortModelKey(
+                    type,
+                    side,
+                    preset.offsetU(),
+                    preset.offsetV(),
+                    preset.scale()
+                ));
+            }
+
+            return List.copyOf(keys);
+        }
+
+        private @NonNull @Unmodifiable Map<PortModelKey, BlockModelPart> bakePortModels(
+            @NonNull ModelBaker baker
+        )
+        {
+            Map<PortModelKey, BlockModelPart> models = new HashMap<>();
+
+            for (VisualPortType type : List.of(
+                VisualPortType.ENERGY,
+                VisualPortType.FLUID
+            )) {
+                for (MachineSide side : MachineSide.values()) {
+                    if (side == MachineSide.FRONT) {
+                        continue;
+                    }
+
+                    List<PortModelKey> keys = createPortModelKeys(
+                        type,
+                        side
+                    );
+                    for (PortModelKey key : keys) {
+                        models.put(
+                            key,
+                            bakePortModel(
+                                baker,
+                                key
+                            )
+                        );
+                    }
+                }
+            }
+
+            return Map.copyOf(models);
+        }
+
+        private @NonNull BlockModelPart bakePortModel(
+            @NonNull ModelBaker baker,
+            @NonNull PortModelKey key
+        )
+        {
+            Identifier modelId = this.resolvePortModelId(key.type());
+            ModelState modelState = this.createPortModelState(key);
+            return bakePart(
+                baker,
+                modelId,
+                modelState
+            );
+        }
+
         private @NonNull ModelState createModelState() {
             return BlockModelRotation.get(rotationY.rotationY);
         }
 
-        private @NonNull ModelState createPortModelState(@NonNull MachineSide side) {
+        private @NonNull ModelState createPortModelState(
+            @NonNull PortModelKey key
+        )
+        {
             Matrix4f matrix = new Matrix4f();
 
-            switch (side) {
+            switch (key.side()) {
                 case BACK -> {}
                 case LEFT -> matrix.rotateY((float) Math.toRadians(90));
                 case RIGHT -> matrix.rotateY((float) Math.toRadians(-90));
                 case TOP -> matrix.rotateX((float) Math.toRadians(-90));
                 case BOTTOM -> matrix.rotateX((float) Math.toRadians(90));
-                default -> throw new IllegalArgumentException("Unsupported machine side: " + side);
+                default -> throw new IllegalArgumentException(
+                    "Unsupported machine side: " + key.side());
             }
 
             matrix.translate(
-                0.0f,
-                0.0f,
+                key.offsetU(),
+                key.offsetV(),
+                1.0f
+            );
+
+            matrix.scale(
+                key.scale(),
+                key.scale(),
                 1.0f
             );
 
@@ -256,29 +359,79 @@ public record LavaGeneratorBlockStateModel(
             );
         }
 
-        private @NonNull @Unmodifiable Map<MachineSide, BlockModelPart> bakeEnergyPorts(
-            @NonNull ModelBaker baker
+        private @NonNull Identifier resolvePortModelId(
+            @NonNull VisualPortType type
         )
         {
-            Map<MachineSide, BlockModelPart> ports = new EnumMap<>(MachineSide.class);
-
-            for (MachineSide side : MachineSide.values()) {
-                if (side == MachineSide.FRONT) {
-                    continue;
-                }
-
-                ports.put(
-                    side,
-                    bakePart(
-                        baker,
-                        energyPort,
-                        createPortModelState(side)
-                    )
-                );
-            }
-
-            return Map.copyOf(ports);
+            return switch (type) {
+                case ENERGY -> energyPort;
+                case FLUID -> fluidPort;
+                default -> throw new IllegalArgumentException(
+                    "Unsupported visual port type: " + type);
+            };
         }
+    }
+
+    private static @NonNull @Unmodifiable Map<MachineSide, List<VisualPort>> groupPortsBySide(
+        @NonNull List<VisualPort> ports
+    )
+    {
+        Objects.requireNonNull(
+            ports,
+            "Visual ports cannot be null"
+        );
+
+        Map<MachineSide, List<VisualPort>> portsBySide = new EnumMap<>(MachineSide.class);
+        for (VisualPort port : ports) {
+            Objects.requireNonNull(
+                port,
+                "Visual port cannot be null"
+            );
+
+            portsBySide.computeIfAbsent(
+                    port.side(),
+                    s -> new ArrayList<>()
+                )
+                .add(port);
+        }
+
+        portsBySide.replaceAll((side, sidePorts) -> List.copyOf(sidePorts));
+
+        return Map.copyOf(portsBySide);
+    }
+
+    private static @NonNull @Unmodifiable List<PortPlacement> calculatePortPlacements(
+        @NonNull List<VisualPort> ports
+    )
+    {
+        Map<MachineSide, List<VisualPort>> portsBySide = groupPortsBySide(ports);
+        List<PortPlacement> portPlacements = new ArrayList<>();
+
+        for (MachineSide side : MachineSide.values()) {
+            List<VisualPort> sidePorts = portsBySide.getOrDefault(
+                side,
+                Collections.emptyList()
+            );
+
+            portPlacements.addAll(PORT_LAYOUT.arrange(sidePorts));
+        }
+
+        return List.copyOf(portPlacements);
+    }
+
+    private static @NonNull PortModelKey toPortModelKey(
+        @NonNull PortPlacement placement
+    )
+    {
+        return new PortModelKey(
+            placement.port()
+                .type(),
+            placement.port()
+                .side(),
+            placement.offsetU(),
+            placement.offsetV(),
+            placement.scale()
+        );
     }
 }
 

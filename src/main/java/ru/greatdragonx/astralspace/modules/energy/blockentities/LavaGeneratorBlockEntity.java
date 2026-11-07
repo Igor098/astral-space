@@ -341,6 +341,12 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             ));
         }
 
+        visualPorts.add(new VisualPort(
+            new VisualPortId("fluid.lava_generator.back"),
+            VisualPortType.FLUID,
+            MachineSide.BACK
+        ));
+
         return List.copyOf(visualPorts);
     }
 }
