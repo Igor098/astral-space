@@ -269,7 +269,7 @@ class PortLayoutTest {
         );
 
         assertEquals(
-            "ports must not be null",
+            "Visual ports must not be null",
             exception.getMessage()
         );
     }
@@ -291,7 +291,7 @@ class PortLayoutTest {
         );
 
         assertEquals(
-            "port must not be null",
+            "Visual port must not be null",
             exception.getMessage()
         );
     }
@@ -313,7 +313,7 @@ class PortLayoutTest {
         );
 
         assertEquals(
-            "port must not be null",
+            "Visual port must not be null",
             exception.getMessage()
         );
     }
