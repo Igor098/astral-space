@@ -1,6 +1,7 @@
 package ru.greatdragonx.astralspace.modules.energy.blockentities;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
@@ -11,18 +12,28 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.model.data.ModelData;
 import net.neoforged.neoforge.model.data.ModelProperty;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.energy.port.*;
+import ru.greatdragonx.astralspace.common.fluid.port.*;
+import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankDefinition;
+import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankId;
+import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankRole;
+import ru.greatdragonx.astralspace.common.fluid.storage.MachineFluidStorage;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortId;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
+import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
 
 import java.util.*;
@@ -33,6 +44,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
     public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
+    private static final FluidTankId LAVA_TANK_ID = new FluidTankId("lava_input");
     private static final Map<MachineSide, EnergyPortId> ENERGY_PORT_IDS = Map.of(
         MachineSide.BACK,
         new EnergyPortId("lava_generator.back"),
@@ -45,11 +57,53 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         MachineSide.BOTTOM,
         new EnergyPortId("lava_generator.bottom")
     );
-
+    private static final Map<MachineSide, FluidPortId> FLUID_PORT_IDS = Map.of(
+        MachineSide.BACK,
+        new FluidPortId("lava_generator.back"),
+        MachineSide.LEFT,
+        new FluidPortId("lava_generator.left"),
+        MachineSide.RIGHT,
+        new FluidPortId("lava_generator.right"),
+        MachineSide.TOP,
+        new FluidPortId("lava_generator.top"),
+        MachineSide.BOTTOM,
+        new FluidPortId("lava_generator.bottom")
+    );
+    private static final List<FluidTankDefinition> FLUID_TANK_DEFINITIONS =
+        List.of(new FluidTankDefinition(
+            LAVA_TANK_ID,
+            FluidTankRole.INPUT,
+            8_000,
+            resource -> resource.equals(FluidResource.of(Fluids.LAVA))
+        ));
+    private static final FluidPortRoute ROUTE = new FluidPortRoute(
+        List.of(LAVA_TANK_ID),
+        List.of(),
+        List.of(LAVA_TANK_ID)
+    );
+    private static final FluidPortRouting FLUID_PORT_ROUTING = new FluidPortRouting(
+        Map.of(
+            FLUID_PORT_IDS.get(MachineSide.BACK),
+            ROUTE,
+            FLUID_PORT_IDS.get(MachineSide.LEFT),
+            ROUTE,
+            FLUID_PORT_IDS.get(MachineSide.RIGHT),
+            ROUTE,
+            FLUID_PORT_IDS.get(MachineSide.TOP),
+            ROUTE,
+            FLUID_PORT_IDS.get(MachineSide.BOTTOM),
+            ROUTE
+        ),
+        FLUID_TANK_DEFINITIONS
+    );
     private static final int LOW_LAVA_THRESHOLD = 1_000;
 
     private final EnergyPortConfiguration energyPortConfiguration;
     private final EnergyPortPolicy energyPortPolicy;
+    private final MachineFluidStorage fluidStorage;
+    private final FluidPortPolicy fluidPortPolicy;
+    private final FluidPortConfiguration fluidPortConfiguration;
+    private final Map<MachineSide, FluidPortHandler> fluidPortHandlers;
 
     public LavaGeneratorBlockEntity(
         BlockPos pos,
@@ -62,7 +116,58 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             state
         );
 
-        Map<EnergyPortId, EnergyPortMode> initialModes = new HashMap<>();
+        this.fluidStorage = new MachineFluidStorage(
+            FLUID_TANK_DEFINITIONS,
+            this::setChanged
+        );
+
+        Map<FluidPortId, FluidPortMode> initialFluidModes = new HashMap<>();
+        for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
+            MachineSide side = entry.getKey();
+            FluidPortId portId = entry.getValue();
+
+            FluidPortMode mode =
+                side == MachineSide.RIGHT ? FluidPortMode.INPUT : FluidPortMode.DISABLED;
+
+            initialFluidModes.put(
+                portId,
+                mode
+            );
+        }
+
+        this.fluidPortConfiguration = new FluidPortConfiguration(
+            initialFluidModes,
+            this::onPortConfigurationChanged
+        );
+
+        this.fluidPortPolicy = new ConfigurableFluidPortPolicy(
+            createAllowedFluidModes(),
+            this.fluidPortConfiguration::getMode,
+            portId -> true
+        );
+
+        Map<MachineSide, FluidPortHandler> handlers =
+            new EnumMap<MachineSide, FluidPortHandler>(MachineSide.class);
+        for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
+            MachineSide side = entry.getKey();
+            FluidPortId portId = entry.getValue();
+
+            FluidPortHandler handler = new FluidPortHandler(
+                portId,
+                this.fluidPortPolicy,
+                FLUID_PORT_ROUTING,
+                this.fluidStorage
+            );
+
+            handlers.put(
+                side,
+                handler
+            );
+        }
+
+        this.fluidPortHandlers = Map.copyOf(handlers);
+
+        Map<EnergyPortId, EnergyPortMode> initialEnergyModes = new HashMap<>();
         for (Map.Entry<MachineSide, EnergyPortId> entry : ENERGY_PORT_IDS.entrySet()) {
             MachineSide side = entry.getKey();
             EnergyPortId portId = entry.getValue();
@@ -70,19 +175,19 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             EnergyPortMode mode =
                 side == MachineSide.BACK ? EnergyPortMode.OUTPUT : EnergyPortMode.DISABLED;
 
-            initialModes.put(
+            initialEnergyModes.put(
                 portId,
                 mode
             );
         }
 
         this.energyPortConfiguration = new EnergyPortConfiguration(
-            initialModes,
-            this::onEnergyPortConfigurationChanged
+            initialEnergyModes,
+            this::onPortConfigurationChanged
         );
 
         this.energyPortPolicy = new ConfigurableEnergyPortPolicy(
-            createAllowedModes(),
+            createAllowedEnergyModes(),
             this.energyPortConfiguration::getMode,
             portId -> true
         );
@@ -116,6 +221,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         );
 
         this.saveEnergyPorts(output);
+        this.saveFluidPorts(output);
+        this.fluidStorage.serialize(output.child("fluid_storage"));
     }
 
     @Override
@@ -133,6 +240,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         );
 
         this.loadEnergyPorts(input);
+        this.loadFluidPorts(input);
+        this.fluidStorage.deserialize(input.childOrEmpty("fluid_storage"));
     }
 
     @Override
@@ -201,6 +310,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
     }
 
     public EnergyPortMode getEnergyPortMode(@NonNull MachineSide side) {
+        Objects.requireNonNull(
+            side,
+            "side cannot be null"
+        );
+
         EnergyPortId portId = ENERGY_PORT_IDS.get(side);
         if (portId == null) {
             return EnergyPortMode.DISABLED;
@@ -209,11 +323,37 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         return this.energyPortConfiguration.getMode(portId);
     }
 
+    public FluidPortMode getFluidPortMode(
+        @NonNull MachineSide side
+    )
+    {
+        Objects.requireNonNull(
+            side,
+            "side cannot be null"
+        );
+        FluidPortId portId = FLUID_PORT_IDS.get(side);
+        if (portId == null) {
+            return FluidPortMode.DISABLED;
+        }
+
+        return this.fluidPortConfiguration.getMode(portId);
+    }
+
     public boolean changeEnergyPortMode(
         @NonNull MachineSide side,
         @NonNull EnergyPortMode newMode
     )
     {
+        Objects.requireNonNull(
+            side,
+            "side cannot be null"
+        );
+
+        Objects.requireNonNull(
+            newMode,
+            "newMode cannot be null"
+        );
+
         if (this.level == null || this.level.isClientSide()) {
             return false;
         }
@@ -228,6 +368,57 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             newMode,
             this.energyPortPolicy
         );
+    }
+
+    public boolean changeFluidPortMode(
+        @NonNull MachineSide side,
+        @NonNull FluidPortMode newMode
+    )
+    {
+        Objects.requireNonNull(
+            side,
+            "side cannot be null"
+        );
+
+        Objects.requireNonNull(
+            newMode,
+            "newMode cannot be null"
+        );
+
+        if (this.level == null || this.level.isClientSide()) {
+            return false;
+        }
+
+        FluidPortId portId = FLUID_PORT_IDS.get(side);
+        if (portId == null) {
+            return false;
+        }
+
+        return this.fluidPortConfiguration.changeMode(
+            portId,
+            newMode,
+            this.fluidPortPolicy
+        );
+    }
+
+    public @Nullable FluidPortHandler getFluidPortHandlerForWorldSide(
+        @Nullable Direction worldSide
+    )
+    {
+        if (worldSide == null) {
+            return null;
+        }
+
+        Direction facing = this.getBlockState()
+            .getValue(LavaGeneratorBlock.FACING);
+
+        MachineSide side = MachineSideDirections.fromWorld(
+            worldSide,
+            facing
+        );
+        
+        return this.getFluidPortHandler(side)
+            .orElse(null);
     }
 
     public void cycleDebugState() {
@@ -247,7 +438,19 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         this.setChanged();
     }
 
-    private static @NonNull Map<EnergyPortId, Set<EnergyPortMode>> createAllowedModes() {
+    public Optional<FluidPortHandler> getFluidPortHandler(
+        @NonNull MachineSide side
+    )
+    {
+        Objects.requireNonNull(
+            side,
+            "side cannot be null"
+        );
+
+        return Optional.ofNullable(this.fluidPortHandlers.get(side));
+    }
+
+    private static @NonNull Map<EnergyPortId, Set<EnergyPortMode>> createAllowedEnergyModes() {
         Map<EnergyPortId, Set<EnergyPortMode>> allowedModes = new HashMap<>();
 
         Set<EnergyPortMode> modes = Set.of(
@@ -265,11 +468,48 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         return allowedModes;
     }
 
+    private static @NonNull Map<FluidPortId, Set<FluidPortMode>> createAllowedFluidModes()
+    {
+        Map<FluidPortId, Set<FluidPortMode>> allowedModes = new HashMap<>();
+
+        Set<FluidPortMode> modes = Set.of(
+            FluidPortMode.INPUT,
+            FluidPortMode.SERVICE,
+            FluidPortMode.DISABLED
+        );
+
+        for (FluidPortId portId : FLUID_PORT_IDS.values()) {
+            allowedModes.put(
+                portId,
+                modes
+            );
+        }
+
+        return allowedModes;
+    }
+
     private void saveEnergyPorts(@NonNull ValueOutput output) {
         ValueOutput portsOutput = output.child("energy_ports");
 
         Map<EnergyPortId, EnergyPortMode> snapshot = this.energyPortConfiguration.snapshot();
         for (Map.Entry<EnergyPortId, EnergyPortMode> entry : snapshot.entrySet()) {
+            portsOutput.putString(
+                entry.getKey()
+                    .value(),
+                entry.getValue()
+                    .name()
+            );
+        }
+    }
+
+    private void saveFluidPorts(
+        @NonNull ValueOutput output
+    )
+    {
+        ValueOutput portsOutput = output.child("fluid_ports");
+
+        Map<FluidPortId, FluidPortMode> snapshot = this.fluidPortConfiguration.snapshot();
+        for (Map.Entry<FluidPortId, FluidPortMode> entry : snapshot.entrySet()) {
             portsOutput.putString(
                 entry.getKey()
                     .value(),
@@ -307,7 +547,38 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         );
     }
 
-    private void onEnergyPortConfigurationChanged() {
+    private void loadFluidPorts(
+        @NonNull ValueInput input
+    )
+    {
+        ValueInput portsInput = input.childOrEmpty("fluid_ports");
+        Map<FluidPortId, FluidPortMode> restoredModes = new HashMap<>();
+
+        for (FluidPortId portId : FLUID_PORT_IDS.values()) {
+            Optional<String> savedMode = portsInput.getString(portId.value());
+
+            if (savedMode.isEmpty()) {
+                continue;
+            }
+
+            try {
+                FluidPortMode mode = FluidPortMode.valueOf(savedMode.get());
+
+                restoredModes.put(
+                    portId,
+                    mode
+                );
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        this.fluidPortConfiguration.restoreModes(
+            restoredModes,
+            this.fluidPortPolicy
+        );
+    }
+
+    private void onPortConfigurationChanged() {
         this.setChanged();
 
         if (this.level != null && !this.level.isClientSide()) {
@@ -341,11 +612,22 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             ));
         }
 
-        visualPorts.add(new VisualPort(
-            new VisualPortId("fluid.lava_generator.back"),
-            VisualPortType.FLUID,
-            MachineSide.BACK
-        ));
+        for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
+            MachineSide side = entry.getKey();
+            FluidPortId portId = entry.getValue();
+
+            FluidPortMode mode = this.getFluidPortMode(side);
+            if (mode == FluidPortMode.DISABLED) {
+                continue;
+            }
+
+            VisualPortId visualPortId = new VisualPortId("fluid." + portId.value());
+            visualPorts.add(new VisualPort(
+                visualPortId,
+                VisualPortType.FLUID,
+                side
+            ));
+        }
 
         return List.copyOf(visualPorts);
     }
