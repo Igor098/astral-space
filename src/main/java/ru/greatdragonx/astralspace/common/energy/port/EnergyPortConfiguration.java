@@ -62,7 +62,6 @@ public final class EnergyPortConfiguration {
         );
     }
 
-
     /**
      * Возвращает текущий сохранённый режим энергетического порта.
      *
@@ -90,12 +89,11 @@ public final class EnergyPortConfiguration {
             "portId cannot be null"
         );
 
-        return currentModes.getOrDefault(
+        return this.currentModes.getOrDefault(
             portId,
             EnergyPortMode.DISABLED
         );
     }
-
 
     /**
      * Создаёт неизменяемый снимок текущей конфигурации
@@ -157,8 +155,8 @@ public final class EnergyPortConfiguration {
      *                              {@code null}
      */
     public boolean changeMode(
-        EnergyPortId portId,
-        EnergyPortMode newMode,
+        @NonNull EnergyPortId portId,
+        @NonNull EnergyPortMode newMode,
         @NonNull EnergyPortPolicy policy
     )
     {
@@ -221,8 +219,8 @@ public final class EnergyPortConfiguration {
      *                              или значениях
      */
     public void restoreModes(
-        Map<EnergyPortId, EnergyPortMode> restoredModes,
-        EnergyPortPolicy policy
+        @NonNull Map<EnergyPortId, EnergyPortMode> restoredModes,
+        @NonNull EnergyPortPolicy policy
     )
     {
         Objects.requireNonNull(
@@ -236,11 +234,6 @@ public final class EnergyPortConfiguration {
         ));
 
         for (Map.Entry<EnergyPortId, EnergyPortMode> entry : validatedModes.entrySet()) {
-            Objects.requireNonNull(
-                entry.getValue(),
-                "restoredMode cannot be null"
-            );
-
             if (!policy.canChangeMode(
                 entry.getKey(),
                 entry.getValue()

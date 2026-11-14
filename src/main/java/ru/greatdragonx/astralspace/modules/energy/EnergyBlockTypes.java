@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
+import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 
 import java.util.function.Supplier;
 
@@ -20,6 +21,11 @@ public final class EnergyBlockTypes {
         BLOCK_TYPES.register(
             "coal_generator",
             () -> BlockBehaviour.simpleCodec(CoalGeneratorBlock::new)
+        );
+    public static final Supplier<MapCodec<LavaGeneratorBlock>> LAVA_GENERATOR =
+        BLOCK_TYPES.register(
+            "lava_generator",
+            () -> BlockBehaviour.simpleCodec(LavaGeneratorBlock::new)
         );
 
     private EnergyBlockTypes() {
