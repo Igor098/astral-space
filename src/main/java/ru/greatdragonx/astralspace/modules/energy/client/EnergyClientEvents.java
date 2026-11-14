@@ -9,6 +9,7 @@ import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.modules.energy.client.model.LavaGeneratorBlockStateModel;
 import ru.greatdragonx.astralspace.modules.energy.client.screens.CoalGeneratorScreen;
+import ru.greatdragonx.astralspace.modules.energy.client.screens.LavaGeneratorScreen;
 import ru.greatdragonx.astralspace.modules.energy.menus.EnergyMenus;
 
 @EventBusSubscriber(modid = AstralSpace.MOD_ID, value = Dist.CLIENT)
@@ -25,6 +26,11 @@ public final class EnergyClientEvents {
         event.register(
             EnergyMenus.COAL_GENERATOR_MENU.get(),
             CoalGeneratorScreen::new
+        );
+
+        event.register(
+            EnergyMenus.LAVA_GENERATOR_MENU.get(),
+            LavaGeneratorScreen::new
         );
     }
 

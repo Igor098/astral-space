@@ -5,9 +5,16 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -18,9 +25,11 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.model.data.ModelData;
 import net.neoforged.neoforge.model.data.ModelProperty;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import ru.greatdragonx.astralspace.common.energy.component.EnergyComponent;
 import ru.greatdragonx.astralspace.common.energy.port.*;
 import ru.greatdragonx.astralspace.common.fluid.port.*;
 import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankDefinition;
@@ -35,12 +44,29 @@ import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
+import ru.greatdragonx.astralspace.modules.energy.menus.LavaGeneratorMenu;
 
 import java.util.*;
 
-public class LavaGeneratorBlockEntity extends BlockEntity {
-    private int lavaAmount;
-    private boolean generating;
+public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvider {
+    private static final int LOW_LAVA_THRESHOLD = 1_000;
+    public static final int LAVA_CAPACITY = 8_000;
+    public static final int ENERGY_CAPACITY = 120_000;
+    public static final int ENERGY_GENERATION_PER_TICK = 60;
+    public static final int MAX_EXTRACT = 120;
+
+    public static final int LAVA_PER_CYCLE = 100;
+    public static final int BURN_DURATION_TICKS = 500;
+
+    public static final int LAVA_TANK_INDEX = 0;
+
+    public static final int DATA_LAVA_STORED = 0;
+    public static final int DATA_ENERGY_LOW = 1;
+    public static final int DATA_ENERGY_HIGH = 2;
+    public static final int DATA_BURN_TIME = 3;
+    public static final int DATA_BURN_DURATION = 4;
+    public static final int DATA_FRONT_STATE = 5;
+    public static final int DATA_COUNT = 6;
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
     public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
@@ -73,7 +99,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         List.of(new FluidTankDefinition(
             LAVA_TANK_ID,
             FluidTankRole.INPUT,
-            8_000,
+            LAVA_CAPACITY,
             resource -> resource.equals(FluidResource.of(Fluids.LAVA))
         ));
     private static final FluidPortRoute ROUTE = new FluidPortRoute(
@@ -96,7 +122,6 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         ),
         FLUID_TANK_DEFINITIONS
     );
-    private static final int LOW_LAVA_THRESHOLD = 1_000;
 
     private final EnergyPortConfiguration energyPortConfiguration;
     private final EnergyPortPolicy energyPortPolicy;
@@ -104,6 +129,45 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
     private final FluidPortPolicy fluidPortPolicy;
     private final FluidPortConfiguration fluidPortConfiguration;
     private final Map<MachineSide, FluidPortHandler> fluidPortHandlers;
+    private final EnergyComponent energyComponent;
+
+    private int burnTime;
+    private int burnDuration;
+    private LavaGeneratorFrontState frontState = LavaGeneratorFrontState.OFF;
+
+    private final ContainerData data = new ContainerData() {
+        @Override
+        public int get(int index) {
+            return switch (index) {
+                case DATA_LAVA_STORED -> LavaGeneratorBlockEntity.this.getLavaStored();
+                case DATA_ENERGY_LOW -> (int) (
+                    LavaGeneratorBlockEntity.this.energyComponent.getStoredEnergy() & 0xFFFFL
+                );
+                case DATA_ENERGY_HIGH -> (int) (
+                    (LavaGeneratorBlockEntity.this.energyComponent.getStoredEnergy() >>> 16) &
+                        0xFFFFL
+                );
+                case DATA_BURN_TIME -> LavaGeneratorBlockEntity.this.burnTime;
+                case DATA_BURN_DURATION -> LavaGeneratorBlockEntity.this.burnDuration;
+                case DATA_FRONT_STATE -> LavaGeneratorBlockEntity.this.frontState.ordinal();
+                default -> 0;
+            };
+        }
+
+        @Override
+        public void set(
+            int index,
+            int value
+        )
+        {
+            // Изменение данных через GUI не предусмотрено.
+        }
+
+        @Override
+        public int getCount() {
+            return DATA_COUNT;
+        }
+    };
 
     public LavaGeneratorBlockEntity(
         BlockPos pos,
@@ -114,6 +178,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
             pos,
             state
+        );
+
+        this.energyComponent = new EnergyComponent(
+            ENERGY_CAPACITY,
+            this::setChanged
         );
 
         this.fluidStorage = new MachineFluidStorage(
@@ -212,12 +281,23 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         super.saveAdditional(output);
 
         output.putInt(
-            "lava_amount",
-            this.lavaAmount
+            "burn_time",
+            this.burnTime
         );
-        output.putBoolean(
-            "generating",
-            this.generating
+
+        output.putInt(
+            "burn_duration",
+            this.burnDuration
+        );
+
+        output.putLong(
+            "energy_stored",
+            this.energyComponent.getStoredEnergy()
+        );
+
+        output.putString(
+            "front_state",
+            this.frontState.name()
         );
 
         this.saveEnergyPorts(output);
@@ -229,15 +309,39 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
     protected void loadAdditional(@NonNull ValueInput input) {
         super.loadAdditional(input);
 
-        this.generating = input.getBooleanOr(
-            "generating",
-            false
+        this.burnDuration = Math.clamp(
+            input.getIntOr(
+                "burn_duration",
+                0
+            ),
+            0,
+            BURN_DURATION_TICKS
         );
 
-        this.lavaAmount = input.getIntOr(
-            "lava_amount",
-            0
+        this.burnTime = Math.clamp(
+            input.getIntOr(
+                "burn_time",
+                0
+            ),
+            0,
+            this.burnDuration
         );
+
+        this.energyComponent.restoreStoredEnergy(input.getLongOr(
+            "energy_stored",
+            0L
+        ));
+
+        String savedState = input.getStringOr(
+            "front_state",
+            "OFF"
+        );
+
+        this.frontState = switch (savedState) {
+            case "RUNNING" -> LavaGeneratorFrontState.RUNNING;
+            case "LOW_LAVA" -> LavaGeneratorFrontState.LOW_LAVA;
+            default -> LavaGeneratorFrontState.OFF;
+        };
 
         this.loadEnergyPorts(input);
         this.loadFluidPorts(input);
@@ -298,15 +402,72 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
     }
 
     public LavaGeneratorFrontState getFrontState() {
-        if (!this.generating) {
-            return LavaGeneratorFrontState.OFF;
+        return this.frontState;
+    }
+
+    @Override
+    public @NonNull Component getDisplayName() {
+        return Component.translatable("block.astralspace.lava_generator");
+    }
+
+    @Override
+    public @Nullable AbstractContainerMenu createMenu(
+        int containerId,
+        @NonNull Inventory playerInventory,
+        @NonNull Player player
+    )
+    {
+        if (this.level == null) {
+            return null;
         }
 
-        if (this.lavaAmount <= LOW_LAVA_THRESHOLD) {
-            return LavaGeneratorFrontState.LOW_LAVA;
+        return new LavaGeneratorMenu(
+            containerId,
+            playerInventory,
+            ContainerLevelAccess.create(
+                this.level,
+                this.worldPosition
+            ),
+            this.data
+        );
+    }
+
+    public static void serverTick(
+        @NonNull Level level,
+        @NonNull BlockPos pos,
+        @NonNull BlockState state,
+        @NonNull LavaGeneratorBlockEntity blockEntity
+    )
+    {
+        long freeSpace = ENERGY_CAPACITY - blockEntity.getEnergyStored();
+
+        if (freeSpace < ENERGY_GENERATION_PER_TICK) {
+            blockEntity.updateFrontState(false);
+            return;
         }
 
-        return LavaGeneratorFrontState.RUNNING;
+
+        if (blockEntity.burnTime <= 0) {
+            boolean isBurningStarted = blockEntity.tryStartBurning();
+            if (!isBurningStarted || blockEntity.burnTime <= 0) {
+                blockEntity.updateFrontState(false);
+                return;
+            }
+        }
+
+        int generatedEnergy =
+            blockEntity.energyComponent.storeProducedEnergy(ENERGY_GENERATION_PER_TICK);
+        blockEntity.burnTime -= 1;
+        blockEntity.setChanged();
+        blockEntity.updateFrontState(generatedEnergy > 0);
+    }
+
+    public int getLavaStored() {
+        return this.fluidStorage.getAmountAsInt(LAVA_TANK_INDEX);
+    }
+
+    public long getEnergyStored() {
+        return this.energyComponent.getStoredEnergy();
     }
 
     public EnergyPortMode getEnergyPortMode(@NonNull MachineSide side) {
@@ -416,26 +577,34 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
             worldSide,
             facing
         );
-        
+
         return this.getFluidPortHandler(side)
             .orElse(null);
     }
 
-    public void cycleDebugState() {
-        switch (this.getFrontState()) {
-            case OFF:
-                this.generating = true;
-                this.lavaAmount = 3000;
-                break;
-            case RUNNING:
-                this.lavaAmount = 500;
-                break;
-            case LOW_LAVA:
-                this.generating = false;
-                break;
+    private void updateFrontState(
+        boolean isRunning
+    )
+    {
+        LavaGeneratorFrontState desiredState = this.determineFrontState(isRunning);
+
+        if (this.frontState == desiredState) {
+            return;
         }
 
+        this.frontState = desiredState;
         this.setChanged();
+
+        if (this.level != null && !this.level.isClientSide()) {
+            BlockState state = this.getBlockState();
+
+            this.level.sendBlockUpdated(
+                this.worldPosition,
+                state,
+                state,
+                Block.UPDATE_CLIENTS
+            );
+        }
     }
 
     public Optional<FluidPortHandler> getFluidPortHandler(
@@ -486,6 +655,51 @@ public class LavaGeneratorBlockEntity extends BlockEntity {
         }
 
         return allowedModes;
+    }
+
+    private boolean tryStartBurning() {
+        if (burnTime > 0) {
+            return false;
+        }
+
+        if (this.fluidStorage.getAmountAsInt(LAVA_TANK_INDEX) < LAVA_PER_CYCLE) {
+            return false;
+        }
+
+        try (Transaction tx = Transaction.openRoot()) {
+            int extracted = this.fluidStorage.extract(
+                LAVA_TANK_INDEX,
+                FluidResource.of(Fluids.LAVA),
+                LAVA_PER_CYCLE,
+                tx
+            );
+
+            if (extracted != LAVA_PER_CYCLE) {
+                return false;
+            }
+
+            this.burnTime = BURN_DURATION_TICKS;
+            this.burnDuration = BURN_DURATION_TICKS;
+
+            this.setChanged();
+            tx.commit();
+
+            return true;
+        }
+    }
+
+    private LavaGeneratorFrontState determineFrontState(boolean isRunning) {
+        if (!isRunning) {
+            return LavaGeneratorFrontState.OFF;
+        }
+
+        int lavaStored = this.getLavaStored();
+
+        if (lavaStored > LOW_LAVA_THRESHOLD) {
+            return LavaGeneratorFrontState.RUNNING;
+        }
+
+        return LavaGeneratorFrontState.LOW_LAVA;
     }
 
     private void saveEnergyPorts(@NonNull ValueOutput output) {

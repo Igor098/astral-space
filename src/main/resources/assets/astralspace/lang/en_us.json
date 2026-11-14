@@ -24,6 +24,8 @@
   "gui.astralspace.coal_generator.info.features.pause": "Burning pauses when energy storage is full, preserving the remaining fuel burn time.",
   "gui.astralspace.coal_generator.info.features.outputs": "Energy is transferred through configurable outputs.",
   "gui.astralspace.coal_generator.info.features.redstone": "Redstone signals can be used to control generator operation.",
+  "gui.astralspace.lava_generator.lava.tooltip": "Lava: %s / %s mB",
+  "gui.astralspace.lava_generator.energy.tooltip": "Energy: %s / %s FE",
   "gui.astralspace.machine_info.tooltip": "Machine Information",
   "gui.astralspace.machine_info.title": "Information",
   "gui.astralspace.side_config.title": "Configuration",

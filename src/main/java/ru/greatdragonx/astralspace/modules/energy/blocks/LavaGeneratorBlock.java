@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -13,6 +14,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -20,9 +23,11 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockTypes;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 
@@ -131,7 +136,7 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
                 EnergyPortMode mode =
                     currentMode == EnergyPortMode.DISABLED ? EnergyPortMode.OUTPUT :
                         EnergyPortMode.DISABLED;
-                
+
                 boolean changed = entity.changeEnergyPortMode(
                     side,
                     mode
@@ -155,16 +160,29 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
 
                 return InteractionResult.SUCCESS;
             }
-            entity.cycleDebugState();
-            level.sendBlockUpdated(
-                pos,
-                state,
-                state,
-                Block.UPDATE_CLIENTS
-            );
+            if (player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.openMenu(entity);
+                return InteractionResult.SUCCESS;
+            }
             return InteractionResult.SUCCESS;
         }
 
         return InteractionResult.PASS;
+    }
+
+    @Override
+    public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(
+        @NonNull Level level,
+        @NonNull BlockState state,
+        @NonNull BlockEntityType<T> blockEntityType
+    )
+    {
+        if (level.isClientSide()) return null;
+        
+        return LavaGeneratorBlock.createTickerHelper(
+            blockEntityType,
+            EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
+            LavaGeneratorBlockEntity::serverTick
+        );
     }
 }
