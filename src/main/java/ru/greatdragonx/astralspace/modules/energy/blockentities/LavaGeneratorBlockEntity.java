@@ -22,13 +22,16 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.model.data.ModelData;
 import net.neoforged.neoforge.model.data.ModelProperty;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import ru.greatdragonx.astralspace.common.energy.*;
 import ru.greatdragonx.astralspace.common.energy.component.EnergyComponent;
 import ru.greatdragonx.astralspace.common.energy.port.*;
 import ru.greatdragonx.astralspace.common.fluid.port.*;
@@ -130,6 +133,12 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private final FluidPortConfiguration fluidPortConfiguration;
     private final Map<MachineSide, FluidPortHandler> fluidPortHandlers;
     private final EnergyComponent energyComponent;
+    private final EnergyTransferTracker transferTracker;
+    private final EnergyTransferBudget extractionBudget;
+    private final EnergyDistributionManager distributionManager;
+    private final EnergyTransferCoordinator transferCoordinator;
+    private final EnergyPushTransfer energyPushTransfer;
+    private final Map<EnergyPortId, EnergyPortHandler> outputHandlers = new HashMap<>();
 
     private int burnTime;
     private int burnDuration;
@@ -185,6 +194,54 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             this::setChanged
         );
 
+        this.transferTracker = new EnergyTransferTracker();
+        this.extractionBudget = new EnergyTransferBudget(MAX_EXTRACT);
+        this.distributionManager = new EnergyDistributionManager(MAX_EXTRACT);
+
+        EnergyTransferBudget insertionBudget = new EnergyTransferBudget(1);
+        this.transferCoordinator = new EnergyTransferCoordinator(
+            this.energyComponent,
+            this.distributionManager,
+            insertionBudget,
+            this.extractionBudget,
+            this.transferTracker,
+            () -> Objects.requireNonNull(
+                    this.level,
+                    "Generator level is not initialized"
+                )
+                .getGameTime()
+        );
+
+        Map<EnergyPortId, EnergyPortMode> initialEnergyModes = new HashMap<>();
+        for (Map.Entry<MachineSide, EnergyPortId> entry : ENERGY_PORT_IDS.entrySet()) {
+            MachineSide side = entry.getKey();
+            EnergyPortId portId = entry.getValue();
+
+            EnergyPortMode mode =
+                side == MachineSide.BACK ? EnergyPortMode.OUTPUT : EnergyPortMode.DISABLED;
+
+            initialEnergyModes.put(
+                portId,
+                mode
+            );
+        }
+
+        this.energyPortConfiguration = new EnergyPortConfiguration(
+            initialEnergyModes,
+            this::onPortConfigurationChanged
+        );
+
+        this.energyPortPolicy = new ConfigurableEnergyPortPolicy(
+            createAllowedEnergyModes(),
+            this.energyPortConfiguration::getMode,
+            portId -> true
+        );
+
+        this.energyPushTransfer = new EnergyPushTransfer(
+            this.transferCoordinator,
+            this.energyPortPolicy
+        );
+
         this.fluidStorage = new MachineFluidStorage(
             FLUID_TANK_DEFINITIONS,
             this::setChanged
@@ -235,31 +292,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
 
         this.fluidPortHandlers = Map.copyOf(handlers);
-
-        Map<EnergyPortId, EnergyPortMode> initialEnergyModes = new HashMap<>();
-        for (Map.Entry<MachineSide, EnergyPortId> entry : ENERGY_PORT_IDS.entrySet()) {
-            MachineSide side = entry.getKey();
-            EnergyPortId portId = entry.getValue();
-
-            EnergyPortMode mode =
-                side == MachineSide.BACK ? EnergyPortMode.OUTPUT : EnergyPortMode.DISABLED;
-
-            initialEnergyModes.put(
-                portId,
-                mode
-            );
-        }
-
-        this.energyPortConfiguration = new EnergyPortConfiguration(
-            initialEnergyModes,
-            this::onPortConfigurationChanged
-        );
-
-        this.energyPortPolicy = new ConfigurableEnergyPortPolicy(
-            createAllowedEnergyModes(),
-            this.energyPortConfiguration::getMode,
-            portId -> true
-        );
+        this.syncAvailableEnergyPorts();
     }
 
     @Override
@@ -439,6 +472,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         @NonNull LavaGeneratorBlockEntity blockEntity
     )
     {
+        blockEntity.pushEnergyToNeighbors(
+            level,
+            pos
+        );
         long freeSpace = ENERGY_CAPACITY - blockEntity.getEnergyStored();
 
         if (freeSpace < ENERGY_GENERATION_PER_TICK) {
@@ -460,6 +497,14 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         blockEntity.burnTime -= 1;
         blockEntity.setChanged();
         blockEntity.updateFrontState(generatedEnergy > 0);
+        if (generatedEnergy > 0 &&
+            blockEntity.extractionBudget.getRemaining(level.getGameTime()) > 0)
+        {
+            blockEntity.pushEnergyToNeighbors(
+                level,
+                pos
+            );
+        }
     }
 
     public int getLavaStored() {
@@ -562,6 +607,34 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         );
     }
 
+    public @Nullable EnergyHandler getEnergyHandlerForWorldSide(
+        @Nullable Direction worldSide
+    )
+    {
+        if (worldSide == null) {
+            return null;
+        }
+
+        EnergyPortId portId = this.getEnergyPortId(worldSide);
+
+        if (portId == null) {
+            return null;
+        }
+
+        if (!this.energyPortPolicy.allowsExtract(portId)) {
+            return null;
+        }
+
+        return this.outputHandlers.computeIfAbsent(
+            portId,
+            id -> new EnergyPortHandler(
+                id,
+                this.energyPortPolicy,
+                this.transferCoordinator
+            )
+        );
+    }
+
     public @Nullable FluidPortHandler getFluidPortHandlerForWorldSide(
         @Nullable Direction worldSide
     )
@@ -580,6 +653,37 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         return this.getFluidPortHandler(side)
             .orElse(null);
+    }
+
+    private @Nullable EnergyPortId getEnergyPortId(Direction worldSide) {
+        BlockState state = this.getBlockState();
+
+        Direction facing = state.getValue(LavaGeneratorBlock.FACING);
+
+        MachineSide machineSide = MachineSideDirections.fromWorld(
+            worldSide,
+            facing
+        );
+
+        return ENERGY_PORT_IDS.get(machineSide);
+    }
+
+    private void syncAvailableEnergyPorts() {
+        List<EnergyPortId> portIds = new ArrayList<>();
+
+        for (MachineSide machineSide : MachineSide.values()) {
+            EnergyPortId portId = ENERGY_PORT_IDS.get(machineSide);
+            if (portId == null) {
+                continue;
+            }
+
+            boolean isOutputEnabled = this.energyPortPolicy.allowsExtract(portId);
+            if (isOutputEnabled) {
+                portIds.add(portId);
+            }
+        }
+
+        this.distributionManager.updateAvailablePorts(portIds);
     }
 
     private void updateFrontState(
@@ -759,6 +863,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             restoredModes,
             this.energyPortPolicy
         );
+        this.syncAvailableEnergyPorts();
     }
 
     private void loadFluidPorts(
@@ -793,15 +898,165 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     }
 
     private void onPortConfigurationChanged() {
+        this.syncAvailableEnergyPorts();
         this.setChanged();
 
         if (this.level != null && !this.level.isClientSide()) {
+            this.level.invalidateCapabilities(this.worldPosition);
             this.level.sendBlockUpdated(
                 this.worldPosition,
                 this.getBlockState(),
                 this.getBlockState(),
                 Block.UPDATE_CLIENTS
             );
+        }
+    }
+
+    private @NonNull List<Direction> getRotatedOutputSides(long currentTick) {
+        List<Direction> sides = new ArrayList<>();
+
+        for (Direction side : Direction.values()) {
+            EnergyPortId portId = this.getEnergyPortId(side);
+            if (portId == null) {
+                continue;
+            }
+
+            boolean isEnergyOutputEnabled = this.energyPortPolicy.allowsExtract(portId);
+            if (isEnergyOutputEnabled) {
+                sides.add(side);
+            }
+        }
+
+        if (sides.isEmpty()) {
+            return sides;
+        }
+
+        int distance = Math.floorMod(
+            currentTick,
+            sides.size()
+        );
+
+        Collections.rotate(
+            sides,
+            -distance
+        );
+
+        return sides;
+    }
+
+    private @Nullable EnergyHandler getNeighborEnergyHandler(
+        @NonNull Level level,
+        @NonNull BlockPos pos,
+        Direction side
+    )
+    {
+        BlockPos neighborPos = pos.relative(side);
+
+        if (!level.getChunkSource()
+            .hasChunk(
+                neighborPos.getX() >> 4,
+                neighborPos.getZ() >> 4
+            ))
+        {
+            return null;
+        }
+
+        return level.getCapability(
+            Capabilities.Energy.BLOCK,
+            neighborPos,
+            side.getOpposite()
+        );
+    }
+
+    private int probeEnergyAcceptance(
+        @NonNull EnergyHandler target
+    )
+    {
+        int accepted;
+
+        try (Transaction tx = Transaction.openRoot()) {
+            accepted = target.insert(
+                MAX_EXTRACT,
+                tx
+            );
+        }
+
+        return accepted;
+    }
+
+    private void pushEnergyToNeighbors(
+        @NonNull Level level,
+        BlockPos pos
+    )
+    {
+        Map<EnergyPortId, Integer> discoveryNeighbours = new LinkedHashMap<>();
+
+        List<Direction> rotatedEnergyOutputSides = this.getRotatedOutputSides(level.getGameTime());
+        for (Direction side : rotatedEnergyOutputSides) {
+            EnergyPortId portId = this.getEnergyPortId(side);
+
+            if (portId == null) {
+                continue;
+            }
+
+            EnergyHandler target = this.getNeighborEnergyHandler(
+                level,
+                pos,
+                side
+            );
+            if (target == null) {
+                continue;
+            }
+
+            int probeResult = this.probeEnergyAcceptance(target);
+            if (probeResult > 0) {
+                discoveryNeighbours.put(
+                    portId,
+                    probeResult
+                );
+            }
+        }
+
+        this.distributionManager.updatePushAvailability(
+            discoveryNeighbours,
+            level.getGameTime()
+        );
+
+        for (Direction side : rotatedEnergyOutputSides) {
+            if (this.energyComponent.getStoredEnergy() <= 0 ||
+                this.extractionBudget.getRemaining(level.getGameTime()) <= 0)
+            {
+                break;
+            }
+
+            EnergyHandler target = this.getNeighborEnergyHandler(
+                level,
+                pos,
+                side
+            );
+
+            if (target == null) {
+                continue;
+            }
+
+            EnergyPortId portId = this.getEnergyPortId(side);
+
+            if (portId == null) {
+                continue;
+            }
+
+            try (Transaction tx = Transaction.openRoot()) {
+                int transferred = this.energyPushTransfer.push(
+                    portId,
+                    target,
+                    MAX_EXTRACT,
+                    tx
+                );
+
+                if (transferred > 0) {
+                    tx.commit();
+                }
+            }
         }
     }
 

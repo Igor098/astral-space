@@ -15,6 +15,12 @@ public class EnergyCapabilitiesRegistration {
         );
 
         event.registerBlockEntity(
+            Capabilities.Energy.BLOCK,
+            EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
+            LavaGeneratorBlockEntity::getEnergyHandlerForWorldSide
+        );
+
+        event.registerBlockEntity(
             Capabilities.Fluid.BLOCK,
             EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
             LavaGeneratorBlockEntity::getFluidPortHandlerForWorldSide

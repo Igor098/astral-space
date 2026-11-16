@@ -176,7 +176,28 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         int mouseY
     )
     {
-        // Пока без надписей.
+        float scale = Math.min(
+            0.65f,
+            112.0f / Math.max(
+                1,
+                this.font.width(this.title)
+            )
+        );
+
+        float textWidth = this.font.width(this.title) * scale;
+
+        float x = (MENU_WIDTH - textWidth) / 2.0f;
+        float y = 6.0f;
+
+        GuiTextRenderer.drawScaledText(
+            graphics,
+            this.font,
+            this.title,
+            x,
+            y,
+            scale,
+            0xFFE4E8EC
+        );
     }
 
     private void drawLavaFill(@NonNull GuiGraphics graphics) {

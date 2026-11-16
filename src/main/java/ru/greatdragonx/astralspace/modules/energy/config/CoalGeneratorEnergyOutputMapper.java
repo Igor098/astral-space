@@ -48,10 +48,10 @@ public final class CoalGeneratorEnergyOutputMapper {
     private CoalGeneratorEnergyOutputMapper() {
     }
 
-    private record OutputDefinition(@NonNull MachineSide side,
-                                    @NonNull BooleanProperty property,
-                                    int bitIndex) {
-    }
+    private record OutputDefinition(
+        @NonNull MachineSide side, @NonNull BooleanProperty property, int bitIndex
+    )
+    {}
 
     public static @NonNull SideConfiguration fromMask(int mask) {
         Map<MachineSide, SidePortConfig> configuration = new EnumMap<>(MachineSide.class);
@@ -103,7 +103,8 @@ public final class CoalGeneratorEnergyOutputMapper {
     public static boolean isOutputEnabled(
         @NonNull BlockState state,
         @NonNull MachineSide side
-    ) {
+    )
+    {
         Objects.requireNonNull(
             state,
             "Block state cannot be null"
@@ -128,7 +129,8 @@ public final class CoalGeneratorEnergyOutputMapper {
     public static BlockState toggleOutput(
         @NonNull BlockState state,
         @NonNull MachineSide side
-    ) {
+    )
+    {
         Objects.requireNonNull(
             state,
             "Block state cannot be null"
