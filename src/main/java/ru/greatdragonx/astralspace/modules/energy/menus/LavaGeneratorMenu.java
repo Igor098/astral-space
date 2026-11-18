@@ -105,6 +105,14 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
         return this.data.get(LavaGeneratorBlockEntity.DATA_BURN_DURATION);
     }
 
+    public int getCurrentProductionRate() {
+        return this.data.get(LavaGeneratorBlockEntity.DATA_PRODUCTION);
+    }
+
+    public int getCurrentTransferRate() {
+        return this.data.get(LavaGeneratorBlockEntity.DATA_TRANSFER);
+    }
+
     public LavaGeneratorFrontState getFrontState() {
         int value = this.data.get(LavaGeneratorBlockEntity.DATA_FRONT_STATE);
 

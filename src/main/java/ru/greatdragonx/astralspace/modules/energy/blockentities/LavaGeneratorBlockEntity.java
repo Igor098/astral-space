@@ -69,7 +69,9 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_BURN_TIME = 3;
     public static final int DATA_BURN_DURATION = 4;
     public static final int DATA_FRONT_STATE = 5;
-    public static final int DATA_COUNT = 6;
+    public static final int DATA_PRODUCTION = 6;
+    public static final int DATA_TRANSFER = 7;
+    public static final int DATA_COUNT = 8;
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
     public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
@@ -142,6 +144,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
     private int burnTime;
     private int burnDuration;
+    private int currentProductionRate;
     private LavaGeneratorFrontState frontState = LavaGeneratorFrontState.OFF;
 
     private final ContainerData data = new ContainerData() {
@@ -159,6 +162,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 case DATA_BURN_TIME -> LavaGeneratorBlockEntity.this.burnTime;
                 case DATA_BURN_DURATION -> LavaGeneratorBlockEntity.this.burnDuration;
                 case DATA_FRONT_STATE -> LavaGeneratorBlockEntity.this.frontState.ordinal();
+                case DATA_PRODUCTION -> LavaGeneratorBlockEntity.this.getCurrentProductionRate();
+                case DATA_TRANSFER -> LavaGeneratorBlockEntity.this.getCurrentTransferRate();
                 default -> 0;
             };
         }
@@ -472,6 +477,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         @NonNull LavaGeneratorBlockEntity blockEntity
     )
     {
+        blockEntity.currentProductionRate = 0;
         blockEntity.pushEnergyToNeighbors(
             level,
             pos
@@ -494,6 +500,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         int generatedEnergy =
             blockEntity.energyComponent.storeProducedEnergy(ENERGY_GENERATION_PER_TICK);
+        blockEntity.currentProductionRate = generatedEnergy;
         blockEntity.burnTime -= 1;
         blockEntity.setChanged();
         blockEntity.updateFrontState(generatedEnergy > 0);
@@ -505,6 +512,20 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 pos
             );
         }
+    }
+
+    public int getCurrentProductionRate() {
+        return this.currentProductionRate;
+    }
+
+    public int getCurrentTransferRate() {
+        if (this.level == null) {
+            return 0;
+        }
+
+        long currentTick = this.level.getGameTime();
+
+        return this.transferTracker.getCurrentTransferRate(currentTick);
     }
 
     public int getLavaStored() {

@@ -2,16 +2,25 @@ package ru.greatdragonx.astralspace.modules.energy.client.screens;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
+import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiInfoEntry;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiMachineInfoTab;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
+import ru.greatdragonx.astralspace.client.gui.tabs.GuiTabGroup;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.LavaGeneratorMenu;
 
+import java.util.List;
 import java.util.Locale;
 
 public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMenu> {
@@ -33,6 +42,18 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private static final int COMBUSTION_LEFT_X = 55;
     private static final int COMBUSTION_RIGHT_X = 120;
 
+    private static final int STATUS_ICON_SIZE = 6;
+    private static final int STATUS_ICON_SOURCE_SIZE = 32;
+    private static final int STATUS_ICON_GAP = 2;
+    private static final float STATUS_PANEL_WIDTH = 62.0f;
+
+    private static final int LAVA_FRAME_TICKS = 4;
+
+    private static final Identifier STATUS_ICONS = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/status_icons.png"
+    );
+
     private static final Identifier BACKGROUND = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/lava_generator/shell.png"
@@ -45,10 +66,31 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/lava_generator/grille.png"
     );
-    private static final Identifier LAVA_FILL = Identifier.fromNamespaceAndPath(
+    private static final Identifier[] LAVA_FRAMES = {Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/lava_fill.png"
-    );
+        "textures/gui/lava_generator/fill_animation/lava_00.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_01.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_02.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_03.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_04.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_05.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_06.png"
+    ), Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/lava_generator/fill_animation/lava_07.png"
+    )};
     private static final Identifier COMBUSTION_FILL = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/lava_generator/combustion_fill.png"
@@ -57,6 +99,16 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/lava_generator/energy_fill.png"
     );
+    private static final Identifier ENERGY_TAB_ICON = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/common/tabs/energy_statistics.png"
+    );
+
+    private final GuiMachineInfoTab machineInfoTab;
+    private final GuiStatisticsTab statisticsTab;
+    private final GuiTabGroup leftTabs;
+
+    private final List<GuiInfoEntry> infoEntries;
 
     public LavaGeneratorScreen(
         @NonNull LavaGeneratorMenu menu,
@@ -72,6 +124,20 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
+
+        this.infoEntries = this.createInfoEntries();
+
+        this.machineInfoTab = new GuiMachineInfoTab(this.font);
+
+        this.statisticsTab = new GuiStatisticsTab(
+            this.font,
+            ENERGY_TAB_ICON
+        );
+
+        this.leftTabs = new GuiTabGroup(List.of(
+            this.machineInfoTab,
+            this.statisticsTab
+        ));
     }
 
     @Override
@@ -105,6 +171,35 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             graphics,
             mouseX,
             mouseY
+        );
+
+        int infoTabY = this.getLeftTabsY();
+
+        this.machineInfoTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.leftPos,
+            infoTabY
+        );
+
+        Component tooltip = Component.translatable(
+            "gui.astralspace.energy_statistics.rate.tooltip",
+            this.menu.getCurrentProductionRate()
+        );
+
+        int statisticsTabY = this.leftTabs.getTabY(
+            this.statisticsTab,
+            this.getLeftTabsY()
+        );
+
+        this.statisticsTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.leftPos,
+            statisticsTabY,
+            tooltip
         );
     }
 
@@ -167,6 +262,30 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
         this.drawLavaAmount(graphics);
         this.drawEnergyAmount(graphics);
+        this.drawGeneratorStatus(graphics);
+
+        int infoTabY = this.getLeftTabsY();
+
+        this.machineInfoTab.render(
+            graphics,
+            this.infoEntries,
+            this.leftPos,
+            infoTabY,
+            partialTick
+        );
+
+        int energyTabY = this.leftTabs.getTabY(
+            this.statisticsTab,
+            infoTabY
+        );
+
+        this.statisticsTab.render(
+            graphics,
+            this.leftPos,
+            energyTabY,
+            partialTick,
+            this.createStatisticsData()
+        );
     }
 
     @Override
@@ -200,6 +319,112 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
     }
 
+    @Override
+    public boolean mouseClicked(
+        @NonNull MouseButtonEvent event,
+        boolean doubled
+    )
+    {
+        if (this.leftTabs.mouseClicked(
+            event,
+            this.leftPos,
+            this.getLeftTabsY()
+        ))
+        {
+            return true;
+        }
+
+        int infoTabY = this.getLeftTabsY();
+
+        if (this.machineInfoTab.mouseClicked(
+            event.x(),
+            event.y(),
+            event.button(),
+            this.leftPos,
+            infoTabY,
+            this.infoEntries
+        ))
+        {
+            return true;
+        }
+
+        return super.mouseClicked(
+            event,
+            doubled
+        );
+    }
+
+    @Override
+    public boolean mouseScrolled(
+        double mouseX,
+        double mouseY,
+        double scrollX,
+        double scrollY
+    )
+    {
+        if (this.machineInfoTab.mouseScrolled(
+            mouseX,
+            mouseY,
+            scrollY,
+            this.leftPos,
+            this.getLeftTabsY(),
+            this.infoEntries
+        ))
+        {
+            return true;
+        }
+
+        return super.mouseScrolled(
+            mouseX,
+            mouseY,
+            scrollX,
+            scrollY
+        );
+    }
+
+    @Override
+    public boolean mouseDragged(
+        @NonNull MouseButtonEvent event,
+        double dragX,
+        double dragY
+    )
+    {
+        if (this.machineInfoTab.mouseDragged(
+            event.y(),
+            event.button(),
+            this.infoEntries
+        ))
+        {
+            return true;
+        }
+
+        return super.mouseDragged(
+            event,
+            dragX,
+            dragY
+        );
+    }
+
+    @Override
+    public boolean mouseReleased(
+        @NonNull MouseButtonEvent event
+    )
+    {
+        if (this.machineInfoTab.mouseReleased(event.button())) {
+            return true;
+        }
+
+        return super.mouseReleased(event);
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+
+        this.machineInfoTab.tick();
+        this.statisticsTab.tick();
+    }
+
     private void drawLavaFill(@NonNull GuiGraphics graphics) {
         int lavaStored = this.menu.getLavaStored();
 
@@ -231,7 +456,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
-            LAVA_FILL,
+            this.getLavaFrameTexture(),
             this.leftPos,
             this.topPos,
             0.0f,
@@ -409,6 +634,64 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
     }
 
+    private Identifier getLavaFrameTexture() {
+        long gameTime = this.minecraft.level == null ? 0L : this.minecraft.level.getGameTime();
+
+        int frameIndex = (int) Math.floorMod(
+            gameTime / LAVA_FRAME_TICKS,
+            (long) LAVA_FRAMES.length
+        );
+
+        return LAVA_FRAMES[frameIndex];
+    }
+
+    private void drawGeneratorStatus(@NonNull GuiGraphics graphics) {
+        LavaGeneratorGuiStatus status = this.getGeneratorStatus();
+        Component label = status.getLabel();
+
+        float scale = Math.min(
+            0.50f,
+            (STATUS_PANEL_WIDTH - STATUS_ICON_SIZE - STATUS_ICON_GAP) / Math.max(
+                1,
+                this.font.width(label)
+            )
+        );
+
+        float textWidth = this.font.width(label) * scale;
+
+        float totalWidth = STATUS_ICON_SIZE + STATUS_ICON_GAP + textWidth;
+
+        float startX = this.leftPos + (MENU_WIDTH - totalWidth) / 2.0f;
+
+        int iconX = Math.round(startX);
+        int iconY = this.topPos + 79;
+
+        graphics.blit(
+            RenderPipelines.GUI_TEXTURED,
+            STATUS_ICONS,
+            iconX,
+            iconY,
+            status.getIconU(),
+            status.getIconV(),
+            STATUS_ICON_SIZE,
+            STATUS_ICON_SIZE,
+            STATUS_ICON_SOURCE_SIZE,
+            STATUS_ICON_SOURCE_SIZE,
+            160,
+            32
+        );
+
+        GuiTextRenderer.drawScaledText(
+            graphics,
+            this.font,
+            label,
+            startX + STATUS_ICON_SIZE + STATUS_ICON_GAP,
+            this.topPos + 80f,
+            scale,
+            status.getColor()
+        );
+    }
+
     private boolean isLavaTankHovered(
         int mouseX,
         int mouseY
@@ -433,6 +716,29 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         int y2 = this.topPos + ENERGY_BOTTOM_Y;
 
         return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
+    }
+
+    private LavaGeneratorGuiStatus getGeneratorStatus() {
+        long freeSpace = this.menu.getEnergyCapacity() - this.menu.getEnergyStored();
+
+        if (freeSpace < LavaGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK) {
+            return LavaGeneratorGuiStatus.BUFFER_FULL;
+        }
+
+        return switch (this.menu.getFrontState()) {
+            case RUNNING -> LavaGeneratorGuiStatus.RUNNING;
+
+            case LOW_LAVA -> LavaGeneratorGuiStatus.LOW_LAVA;
+
+            case OFF -> {
+                if (this.menu.getBurnTime() > 0) {
+                    yield this.menu.getLavaStored() > 1_000 ? LavaGeneratorGuiStatus.RUNNING :
+                        LavaGeneratorGuiStatus.LOW_LAVA;
+                }
+
+                yield LavaGeneratorGuiStatus.NO_LAVA;
+            }
+        };
     }
 
     private void renderLavaTooltip(
@@ -489,5 +795,116 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             mouseX,
             mouseY
         );
+    }
+
+
+    private @NonNull @Unmodifiable List<GuiInfoEntry> createInfoEntries() {
+        return List.of(
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.name"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.description"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.fuel.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.fuel.description",
+                    LavaGeneratorBlockEntity.LAVA_PER_CYCLE,
+                    LavaGeneratorBlockEntity.BURN_DURATION_TICKS
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.specs.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.specs.generation",
+                    LavaGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.specs.capacity",
+                    LavaGeneratorBlockEntity.ENERGY_CAPACITY
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.specs.transfer",
+                    LavaGeneratorBlockEntity.MAX_EXTRACT
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.specs.tank",
+                    LavaGeneratorBlockEntity.LAVA_CAPACITY
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.features.title"),
+                true
+            ),
+            new GuiInfoEntry(
+                Component.translatable(
+                    "gui.astralspace.lava_generator.info.features.pause",
+                    LavaGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK
+                ),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.features.cycle"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.features.input"),
+                false
+            ),
+            new GuiInfoEntry(
+                Component.translatable("gui.astralspace.lava_generator.info.features.outputs"),
+                false
+            )
+        );
+    }
+
+
+    private @NonNull GuiStatisticsData createStatisticsData() {
+        Component title = Component.translatable("gui.astralspace.energy_statistics.title");
+
+        List<GuiStatisticEntry> entries = List.of(
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.energy_statistics.generation"),
+                Component.literal(this.menu.getCurrentProductionRate() + " FE/t")
+            ),
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.energy_statistics.max_generation"),
+                Component.literal(LavaGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK + " FE/t")
+            ),
+            new GuiStatisticEntry(
+                Component.translatable("gui.astralspace.energy_statistics.transfer"),
+                Component.literal(this.menu.getCurrentTransferRate() + " FE/t")
+            )
+        );
+
+        return new GuiStatisticsData(
+            title,
+            entries
+        );
+    }
+
+
+    private int getLeftTabsY() {
+        return this.topPos + 2;
     }
 }
