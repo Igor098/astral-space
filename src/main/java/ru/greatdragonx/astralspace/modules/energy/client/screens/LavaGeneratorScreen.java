@@ -4,20 +4,26 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
+import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
+import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewRenderState;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiInfoEntry;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiMachineInfoTab;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
 import ru.greatdragonx.astralspace.client.gui.tabs.GuiTabGroup;
+import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
+import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.menus.LavaGeneratorMenu;
 
 import java.util.List;
@@ -48,6 +54,8 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private static final float STATUS_PANEL_WIDTH = 62.0f;
 
     private static final int LAVA_FRAME_TICKS = 4;
+    private static final int COMBUSTION_FRAME_COUNT = 16;
+    private static final int COMBUSTION_FRAME_TICKS = 4;
 
     private static final Identifier STATUS_ICONS = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
@@ -68,33 +76,30 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     );
     private static final Identifier[] LAVA_FRAMES = {Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_00.png"
+        "textures/gui/lava_generator/animated/lava_00.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_01.png"
+        "textures/gui/lava_generator/animated/lava_01.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_02.png"
+        "textures/gui/lava_generator/animated/lava_02.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_03.png"
+        "textures/gui/lava_generator/animated/lava_03.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_04.png"
+        "textures/gui/lava_generator/animated/lava_04.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_05.png"
+        "textures/gui/lava_generator/animated/lava_05.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_06.png"
+        "textures/gui/lava_generator/animated/lava_06.png"
     ), Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/fill_animation/lava_07.png"
+        "textures/gui/lava_generator/animated/lava_07.png"
     )};
-    private static final Identifier COMBUSTION_FILL = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/lava_generator/combustion_fill.png"
-    );
+    private static final Identifier[] COMBUSTION_FRAMES = createCombustionFrames();
     private static final Identifier ENERGY_FILL = Identifier.fromNamespaceAndPath(
         AstralSpace.MOD_ID,
         "textures/gui/lava_generator/energy_fill.png"
@@ -109,6 +114,14 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private final GuiTabGroup leftTabs;
 
     private final List<GuiInfoEntry> infoEntries;
+
+    private float previewRotationX = 25.0f;
+    private float previewRotationY = 35.0f;
+
+    private double previewDragStartX;
+    private double previewDragStartY;
+    private boolean previewWasDragged = false;
+    private boolean previewDragging = false;
 
     public LavaGeneratorScreen(
         @NonNull LavaGeneratorMenu menu,
@@ -286,6 +299,31 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             partialTick,
             this.createStatisticsData()
         );
+
+        int previewSize = 64;
+
+        int previewX = this.leftPos + this.imageWidth + 8;
+        int previewY = this.topPos + 32;
+
+        BlockState blockState = EnergyBlocks.LAVA_GENERATOR.get()
+            .defaultBlockState()
+            .setValue(
+                LavaGeneratorBlock.FACING,
+                Direction.SOUTH
+            );
+
+        MachinePreviewRenderState state = new MachinePreviewRenderState(
+            previewX,
+            previewY,
+            previewSize,
+            previewSize,
+            this.previewRotationX,
+            this.previewRotationY,
+            graphics.peekScissorStack(),
+            blockState,
+            null
+        );
+        graphics.submitPictureInPictureRenderState(state);
     }
 
     @Override
@@ -348,6 +386,22 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             return true;
         }
 
+        int previewX = this.leftPos + this.imageWidth + 8;
+        int previewY = this.topPos + 32;
+        int previewSize = 64;
+
+        boolean isPreviewHovered = event.x() >= previewX &&
+            event.x() < previewX + previewSize &&
+            event.y() >= previewY &&
+            event.y() < previewY + previewSize;
+
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isPreviewHovered) {
+            this.previewDragging = true;
+            this.previewDragStartX = event.x();
+            this.previewDragStartY = event.y();
+            this.previewWasDragged = false;
+            return true;
+        }
         return super.mouseClicked(
             event,
             doubled
@@ -389,6 +443,26 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         double dragY
     )
     {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
+            double distance = Math.hypot(
+                event.x() - this.previewDragStartX,
+                event.y() - this.previewDragStartY
+            );
+
+            if (distance > 4.0) {
+                this.previewWasDragged = true;
+            }
+            if (this.previewWasDragged) {
+                this.previewRotationX = Math.clamp(
+                    this.previewRotationX + (float) (dragY * 0.8f),
+                    -110.0f,
+                    110.0f
+                );
+                this.previewRotationY += (float) (dragX * 0.8f);
+            }
+            return true;
+        }
+
         if (this.machineInfoTab.mouseDragged(
             event.y(),
             event.button(),
@@ -410,6 +484,19 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         @NonNull MouseButtonEvent event
     )
     {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
+            boolean wasDragged = this.previewWasDragged;
+
+            this.previewDragging = false;
+            this.previewWasDragged = false;
+
+            if (!wasDragged) {
+                AstralSpace.LOGGER.debug("Machine preview clicked");
+            }
+
+            return true;
+        }
+
         if (this.machineInfoTab.mouseReleased(event.button())) {
             return true;
         }
@@ -509,7 +596,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
         graphics.blit(
             RenderPipelines.GUI_TEXTURED,
-            COMBUSTION_FILL,
+            this.getCombustionFrameTexture(),
             this.leftPos,
             this.topPos,
             0.0f,
@@ -643,6 +730,34 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
 
         return LAVA_FRAMES[frameIndex];
+    }
+
+    private static Identifier @NonNull [] createCombustionFrames() {
+        Identifier[] frames = new Identifier[COMBUSTION_FRAME_COUNT];
+
+        for (int index = 0; index < frames.length; index++) {
+            frames[index] = Identifier.fromNamespaceAndPath(
+                AstralSpace.MOD_ID,
+                String.format(
+                    java.util.Locale.ROOT,
+                    "textures/gui/lava_generator/animated/combustion_%02d.png",
+                    index
+                )
+            );
+        }
+
+        return frames;
+    }
+
+    private Identifier getCombustionFrameTexture() {
+        long gameTime = this.minecraft.level == null ? 0L : this.minecraft.level.getGameTime();
+
+        int frameIndex = (int) Math.floorMod(
+            gameTime / COMBUSTION_FRAME_TICKS,
+            (long) COMBUSTION_FRAMES.length
+        );
+
+        return COMBUSTION_FRAMES[frameIndex];
     }
 
     private void drawGeneratorStatus(@NonNull GuiGraphics graphics) {

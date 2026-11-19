@@ -23,11 +23,11 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     private static final int DIVIDER_THICKNESS = 1;
 
     private static final int TITLE_COLOR = 0xFFE4E8EC;
-    private static final int DIVIDER_COLOR = 0xFF626C75;
+    private static final int DIVIDER_COLOR = 0xFF454C56;
 
     private static final float TITLE_SCALE = 0.75f;
-    private static final int TITLE_X_GAP = 4;
-    private static final int TITLE_Y_OFFSET = 2;
+    private static final int TITLE_X_GAP = 0;
+    private static final int TITLE_Y_OFFSET = 3;
 
     private static final int ICON_SIZE = 16;
     private static final int ICON_TEXTURE_SIZE = 64;

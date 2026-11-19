@@ -15,8 +15,7 @@ import ru.greatdragonx.astralspace.modules.energy.menus.EnergyMenus;
 @EventBusSubscriber(modid = AstralSpace.MOD_ID, value = Dist.CLIENT)
 public final class EnergyClientEvents {
 
-    private EnergyClientEvents() {
-    }
+    private EnergyClientEvents() {}
 
     @SubscribeEvent
     public static void registerScreens(
