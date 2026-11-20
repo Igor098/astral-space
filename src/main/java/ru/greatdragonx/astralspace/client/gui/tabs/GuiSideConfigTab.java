@@ -3,72 +3,27 @@ package ru.greatdragonx.astralspace.client.gui.tabs;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.client.gui.components.GuiMachinePreview;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
-import ru.greatdragonx.astralspace.common.machine.PortMode;
-import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
-import ru.greatdragonx.astralspace.common.machine.SidePortConfig;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 
 public final class GuiSideConfigTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
-    private static final int PANEL_WIDTH = 100;
-    private static final int PANEL_HEIGHT = 96;
+    private static final int PANEL_WIDTH = 140;
+    private static final int PANEL_HEIGHT = 140;
 
-    private static final int PORT_SIZE = 16;
+    private static final int PREVIEW_SIZE = 64;
 
-    private static final Identifier MACHINE_CENTER_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/side_config/machine_center.png"
-    );
-
-    private static final List<PortPlacement> PORT_PLACEMENTS = List.of(
-        new PortPlacement(
-            MachineSide.FRONT,
-            42,
-            47
-        ),
-        new PortPlacement(
-            MachineSide.BACK,
-            22,
-            27
-        ),
-        new PortPlacement(
-            MachineSide.TOP,
-            42,
-            27
-        ),
-        new PortPlacement(
-            MachineSide.LEFT,
-            22,
-            47
-        ),
-        new PortPlacement(
-            MachineSide.RIGHT,
-            62,
-            47
-        ),
-        new PortPlacement(
-            MachineSide.BOTTOM,
-            42,
-            67
-        )
-    );
-
+    private final GuiMachinePreview machinePreview;
     private final Font font;
     private final Identifier iconTexture;
-
-    private record PortPlacement(@NonNull MachineSide side, int offsetX, int offsetY) {}
 
     public GuiSideConfigTab(
         Font font,
@@ -83,16 +38,22 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         );
         this.font = font;
         this.iconTexture = iconTexture;
+        this.machinePreview = new GuiMachinePreview();
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        this.machinePreview.cancelInteraction();
     }
 
     public void render(
-        GuiGraphics graphics,
         int anchorX,
         int anchorY,
         float partialTick,
-        Component title,
-        SideConfiguration configuration,
-        Map<PortMode, Identifier> portTextures
+        @NonNull GuiGraphics graphics,
+        @NonNull Component title,
+        @NonNull BlockState blockState
     )
     {
         float progress = this.renderPanelBackground(
@@ -116,127 +77,111 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         );
 
         this.drawContent(
-            graphics,
-            configuration,
-            portTextures,
-            title,
             x,
             anchorY,
             width,
-            height
+            height,
+            graphics,
+            title,
+            blockState
         );
     }
 
-    public @Nullable MachineSide getClickedPort(
+    public boolean mouseClicked(
         @NonNull MouseButtonEvent event,
-        int anchorX,
-        int anchorY,
-        SideConfiguration configuration
-    )
-    {
-        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            return null;
-        }
-
-        return this.getHoveredPort(
-            event.x(),
-            event.y(),
-            anchorX,
-            anchorY,
-            configuration
-        );
-    }
-
-    public void renderTooltip(
-        GuiGraphics graphics,
-        int mouseX,
-        int mouseY,
-        int anchorX,
-        int anchorY,
-        SideConfiguration configuration
-    )
-    {
-        MachineSide hoveredPort = this.getHoveredPort(
-            mouseX,
-            mouseY,
-            anchorX,
-            anchorY,
-            configuration
-        );
-
-        boolean headerHovered = this.isFullyClosed() && this.isHeaderHovered(
-            mouseX,
-            mouseY,
-            anchorX,
-            anchorY
-        );
-
-        if (hoveredPort == null && !headerHovered) {
-            return;
-        }
-
-        List<Component> tooltip;
-
-        if (hoveredPort != null) {
-            SidePortConfig portConfig = configuration.ports()
-                .get(hoveredPort);
-            PortMode mode = portConfig.mode();
-
-            Component sideName = Component.translatable("gui.astralspace.side_config.side." +
-                hoveredPort.name()
-                    .toLowerCase(Locale.ROOT));
-
-            Component modeName = Component.translatable("gui.astralspace.side_config.mode." +
-                mode.name()
-                    .toLowerCase(Locale.ROOT));
-
-            tooltip = List.of(
-                sideName,
-                modeName
-            );
-        } else {
-            tooltip = List.of(Component.translatable("gui.astralspace.side_config.tooltip"));
-        }
-
-        graphics.setComponentTooltipForNextFrame(
-            this.font,
-            tooltip,
-            mouseX,
-            mouseY
-        );
-    }
-
-    private void drawMachineCenter(
-        @NonNull GuiGraphics graphics,
         int anchorX,
         int anchorY
     )
     {
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            MACHINE_CENTER_TEXTURE,
-            anchorX + 42,
-            anchorY + 47,
-            0,
-            0,
-            PORT_SIZE,
-            PORT_SIZE,
-            PORT_SIZE,
-            PORT_SIZE
+        boolean fullyExpanded = this.isOpen() &&
+            this.getRenderedWidth() == PANEL_WIDTH &&
+            this.getRenderedHeight() == PANEL_HEIGHT;
+
+        if (!fullyExpanded) {
+            return false;
+        }
+
+        int panelX = this.getPanelX(anchorX);
+
+        int previewX = panelX + (PANEL_WIDTH - PREVIEW_SIZE) / 2;
+        int previewY = anchorY + TAB_HEIGHT + 8;
+
+        return this.machinePreview.mouseClicked(
+            event,
+            previewX,
+            previewY,
+            PREVIEW_SIZE
         );
     }
 
+    public boolean mouseDragged(
+        @NonNull MouseButtonEvent event,
+        double dragX,
+        double dragY
+    )
+    {
+        boolean fullyExpanded = this.isOpen() &&
+            this.getRenderedWidth() == PANEL_WIDTH &&
+            this.getRenderedHeight() == PANEL_HEIGHT;
+
+        if (!fullyExpanded) {
+            return false;
+        }
+
+        return this.machinePreview.mouseDragged(
+            event,
+            dragX,
+            dragY
+        );
+    }
+
+    public boolean mouseReleased(
+        @NonNull MouseButtonEvent event,
+        int guiScale,
+        @NonNull Direction facing
+    )
+    {
+        boolean fullyExpanded = this.isOpen() &&
+            this.getRenderedWidth() == PANEL_WIDTH &&
+            this.getRenderedHeight() == PANEL_HEIGHT;
+
+        if (!fullyExpanded) {
+            this.machinePreview.cancelInteraction();
+            return false;
+        }
+
+        GuiMachinePreview.PreviewReleaseResult result = this.machinePreview.mouseReleased(
+            event,
+            guiScale
+        );
+
+        if (result.hitDirection() != null) {
+            MachineSide side = MachineSideDirections.fromWorld(
+                result.hitDirection(),
+                facing
+            );
+            AstralSpace.LOGGER.debug(
+                "Machine side clicked: {}",
+                side
+            );
+        }
+
+        return result.consumed();
+    }
+
     private void drawContent(
-        @NonNull GuiGraphics graphics,
-        @NonNull SideConfiguration configuration,
-        @NonNull Map<PortMode, Identifier> portTextures,
-        @NonNull Component title,
         int panelX,
         int panelY,
         int width,
-        int height
+        int height,
+        @NonNull GuiGraphics graphics,
+        @NonNull Component title,
+        @NonNull BlockState blockState
     )
     {
+        int previewX = panelX + (PANEL_WIDTH - PREVIEW_SIZE) / 2;
+        int previewY = panelY + TAB_HEIGHT + 8;
+
         graphics.enableScissor(
             panelX + BORDER_SIZE,
             panelY + BORDER_SIZE,
@@ -259,169 +204,17 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             width
         );
 
-        this.drawSidePorts(
-            graphics,
-            configuration,
-            portTextures,
-            panelX,
-            panelY,
-            width,
-            height
-        );
+        boolean fullyExpanded = this.isOpen() && width == PANEL_WIDTH && height == PANEL_HEIGHT;
+        if (fullyExpanded) {
+            this.machinePreview.render(
+                previewX,
+                previewY,
+                PREVIEW_SIZE,
+                graphics,
+                blockState
+            );
+        }
 
         graphics.disableScissor();
-    }
-
-    private void drawPort(
-        @NonNull GuiGraphics graphics,
-        @NonNull PortPlacement placement,
-        @NonNull Identifier texture,
-        int anchorX,
-        int anchorY
-    )
-    {
-        int x = anchorX + placement.offsetX();
-        int y = anchorY + placement.offsetY();
-
-        graphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            texture,
-            x,
-            y,
-            0,
-            0,
-            PORT_SIZE,
-            PORT_SIZE,
-            PORT_SIZE,
-            PORT_SIZE
-        );
-    }
-
-    private void drawPorts(
-        @NonNull GuiGraphics graphics,
-        @NonNull SideConfiguration configuration,
-        @NonNull Map<PortMode, Identifier> portTextures,
-        int anchorX,
-        int anchorY
-    )
-    {
-        for (PortPlacement placement : PORT_PLACEMENTS) {
-            MachineSide side = placement.side();
-
-            SidePortConfig portConfig = configuration.ports()
-                .get(side);
-
-            if (portConfig == null) {
-                continue;
-            }
-
-            PortMode mode = portConfig.mode();
-            Identifier texture = portTextures.get(mode);
-
-            if (texture == null) {
-                continue;
-            }
-
-            this.drawPort(
-                graphics,
-                placement,
-                texture,
-                anchorX,
-                anchorY
-            );
-        }
-    }
-
-    private void drawSidePorts(
-        @NonNull GuiGraphics graphics,
-        @NonNull SideConfiguration configuration,
-        @NonNull Map<PortMode, Identifier> portTextures,
-        int anchorX,
-        int anchorY,
-        int width,
-        int height
-    )
-    {
-        int minX = anchorX + BORDER_SIZE;
-        int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
-
-        int maxX = anchorX + width - BORDER_SIZE;
-        int maxY = anchorY + height - BORDER_SIZE;
-
-        if (maxX <= minX || maxY <= minY) {
-            return;
-        }
-
-        boolean isFrontAllowed = configuration.ports()
-            .containsKey(MachineSide.FRONT);
-
-        if (!isFrontAllowed) {
-            this.drawMachineCenter(
-                graphics,
-                anchorX,
-                anchorY
-            );
-        }
-
-        this.drawPorts(
-            graphics,
-            configuration,
-            portTextures,
-            anchorX,
-            anchorY
-        );
-    }
-
-    private @Nullable MachineSide getHoveredPort(
-        double mouseX,
-        double mouseY,
-        int anchorX,
-        int anchorY,
-        SideConfiguration configuration
-    )
-    {
-        int panelX = getPanelX(anchorX);
-        int renderedWidth = this.getRenderedWidth();
-        int renderedHeight = this.getRenderedHeight();
-
-        int minX = panelX + BORDER_SIZE;
-        int minY = anchorY + TAB_HEIGHT + BORDER_SIZE;
-
-        int maxX = panelX + renderedWidth - BORDER_SIZE;
-        int maxY = anchorY + renderedHeight - BORDER_SIZE;
-
-        if (maxX <= minX || maxY <= minY) {
-            return null;
-        }
-
-        boolean isXOutOfArea = mouseX < minX || mouseX >= maxX;
-        boolean isYOutOfArea = mouseY < minY || mouseY >= maxY;
-
-        if (isXOutOfArea || isYOutOfArea) {
-            return null;
-        }
-
-        for (PortPlacement placement : PORT_PLACEMENTS) {
-            MachineSide side = placement.side();
-
-            SidePortConfig portConfig = configuration.ports()
-                .get(side);
-
-            if (portConfig == null) {
-                continue;
-            }
-
-            int x = panelX + placement.offsetX();
-            int y = anchorY + placement.offsetY();
-
-            boolean horizontalHovered = mouseX >= x && mouseX < x + PORT_SIZE;
-            boolean verticalHovered = mouseY >= y && mouseY < y + PORT_SIZE;
-
-            if (horizontalHovered && verticalHovered) {
-                return side;
-            }
-        }
-
-        return null;
     }
 }

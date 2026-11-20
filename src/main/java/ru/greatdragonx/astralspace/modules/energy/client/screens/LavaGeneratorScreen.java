@@ -1,6 +1,7 @@
 package ru.greatdragonx.astralspace.modules.energy.client.screens;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -11,16 +12,14 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
-import org.lwjgl.glfw.GLFW;
+import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
 import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
+import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewPicker;
 import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewRenderState;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiInfoEntry;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiMachineInfoTab;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiStatisticsTab;
-import ru.greatdragonx.astralspace.client.gui.tabs.GuiTabGroup;
+import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
@@ -108,20 +107,28 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         AstralSpace.MOD_ID,
         "textures/gui/common/tabs/energy_statistics.png"
     );
+    private static final Identifier SIDE_CONFIG_ICON = Identifier.fromNamespaceAndPath(
+        AstralSpace.MOD_ID,
+        "textures/gui/common/tabs/side_configuration.png"
+    );
 
     private final GuiMachineInfoTab machineInfoTab;
     private final GuiStatisticsTab statisticsTab;
+    private final GuiSideConfigTab sideConfigTab;
+
     private final GuiTabGroup leftTabs;
+    private final GuiTabGroup rightTabs;
 
     private final List<GuiInfoEntry> infoEntries;
 
-    private float previewRotationX = 25.0f;
-    private float previewRotationY = 35.0f;
+    private final float previewRotationX = -70.0f;
+    private final float previewRotationY = 0.0f;
 
     private double previewDragStartX;
     private double previewDragStartY;
-    private boolean previewWasDragged = false;
-    private boolean previewDragging = false;
+    private final boolean previewWasDragged = false;
+    private final boolean previewDragging = false;
+    private final MachinePreviewPicker previewPicker = new MachinePreviewPicker();
 
     public LavaGeneratorScreen(
         @NonNull LavaGeneratorMenu menu,
@@ -141,16 +148,20 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         this.infoEntries = this.createInfoEntries();
 
         this.machineInfoTab = new GuiMachineInfoTab(this.font);
-
         this.statisticsTab = new GuiStatisticsTab(
             this.font,
             ENERGY_TAB_ICON
         );
-
         this.leftTabs = new GuiTabGroup(List.of(
             this.machineInfoTab,
             this.statisticsTab
         ));
+
+        this.sideConfigTab = new GuiSideConfigTab(
+            this.font,
+            SIDE_CONFIG_ICON
+        );
+        this.rightTabs = new GuiTabGroup(List.of(this.sideConfigTab));
     }
 
     @Override
@@ -300,30 +311,18 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             this.createStatisticsData()
         );
 
-        int previewSize = 64;
-
-        int previewX = this.leftPos + this.imageWidth + 8;
-        int previewY = this.topPos + 32;
-
-        BlockState blockState = EnergyBlocks.LAVA_GENERATOR.get()
-            .defaultBlockState()
-            .setValue(
-                LavaGeneratorBlock.FACING,
-                Direction.SOUTH
-            );
-
-        MachinePreviewRenderState state = new MachinePreviewRenderState(
-            previewX,
-            previewY,
-            previewSize,
-            previewSize,
-            this.previewRotationX,
-            this.previewRotationY,
-            graphics.peekScissorStack(),
-            blockState,
-            null
+        BlockState blockState = this.getPreviewBlockState();
+        this.sideConfigTab.render(
+            getRightTabsX(),
+            getRightTabsY(),
+            partialTick,
+            graphics,
+            Component.translatable("gui.astralspace.side_config.title"),
+            blockState
         );
-        graphics.submitPictureInPictureRenderState(state);
+
+//        MachinePreviewRenderState state = this.createPreviewState(graphics.peekScissorStack());
+//        graphics.submitPictureInPictureRenderState(state);
     }
 
     @Override
@@ -372,6 +371,15 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             return true;
         }
 
+        if (this.rightTabs.mouseClicked(
+            event,
+            this.getRightTabsX(),
+            this.getRightTabsY()
+        ))
+        {
+            return true;
+        }
+
         int infoTabY = this.getLeftTabsY();
 
         if (this.machineInfoTab.mouseClicked(
@@ -386,22 +394,31 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             return true;
         }
 
-        int previewX = this.leftPos + this.imageWidth + 8;
-        int previewY = this.topPos + 32;
-        int previewSize = 64;
-
-        boolean isPreviewHovered = event.x() >= previewX &&
-            event.x() < previewX + previewSize &&
-            event.y() >= previewY &&
-            event.y() < previewY + previewSize;
-
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isPreviewHovered) {
-            this.previewDragging = true;
-            this.previewDragStartX = event.x();
-            this.previewDragStartY = event.y();
-            this.previewWasDragged = false;
+        if (this.sideConfigTab.mouseClicked(
+            event,
+            this.getRightTabsX(),
+            this.getRightTabsY()
+        ))
+        {
             return true;
         }
+
+//        int previewX = this.leftPos + this.imageWidth + 8;
+//        int previewY = this.topPos + 32;
+//        int previewSize = 64;
+//
+//        boolean isPreviewHovered = event.x() >= previewX &&
+//            event.x() < previewX + previewSize &&
+//            event.y() >= previewY &&
+//            event.y() < previewY + previewSize;
+//
+//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isPreviewHovered) {
+//            this.previewDragging = true;
+//            this.previewDragStartX = event.x();
+//            this.previewDragStartY = event.y();
+//            this.previewWasDragged = false;
+//            return true;
+//        }
         return super.mouseClicked(
             event,
             doubled
@@ -443,30 +460,39 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         double dragY
     )
     {
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
-            double distance = Math.hypot(
-                event.x() - this.previewDragStartX,
-                event.y() - this.previewDragStartY
-            );
-
-            if (distance > 4.0) {
-                this.previewWasDragged = true;
-            }
-            if (this.previewWasDragged) {
-                this.previewRotationX = Math.clamp(
-                    this.previewRotationX + (float) (dragY * 0.8f),
-                    -110.0f,
-                    110.0f
-                );
-                this.previewRotationY += (float) (dragX * 0.8f);
-            }
-            return true;
-        }
+//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
+//            double distance = Math.hypot(
+//                event.x() - this.previewDragStartX,
+//                event.y() - this.previewDragStartY
+//            );
+//
+//            if (distance > 4.0) {
+//                this.previewWasDragged = true;
+//            }
+//            if (this.previewWasDragged) {
+//                this.previewRotationX = Math.clamp(
+//                    this.previewRotationX + (float) (dragY * 0.8f),
+//                    -110.0f,
+//                    110.0f
+//                );
+//                this.previewRotationY += (float) (dragX * 0.8f);
+//            }
+//            return true;
+//        }
 
         if (this.machineInfoTab.mouseDragged(
             event.y(),
             event.button(),
             this.infoEntries
+        ))
+        {
+            return true;
+        }
+
+        if (this.sideConfigTab.mouseDragged(
+            event,
+            dragX,
+            dragY
         ))
         {
             return true;
@@ -484,20 +510,44 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         @NonNull MouseButtonEvent event
     )
     {
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
-            boolean wasDragged = this.previewWasDragged;
+//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
+//            boolean wasDragged = this.previewWasDragged;
+//
+//            this.previewDragging = false;
+//            this.previewWasDragged = false;
+//
+//            if (!wasDragged) {
+//                MachinePreviewRenderState state = this.createPreviewState(null);
+//                int guiScale = this.minecraft.getWindow()
+//                    .getGuiScale();
+//                Direction hitDirection = previewPicker.detectHitDirection(
+//                    event.x(),
+//                    event.y(),
+//                    state,
+//                    guiScale
+//                );
+//                AstralSpace.LOGGER.debug(
+//                    "Machine preview clicked: {}",
+//                    hitDirection
+//                );
+//            }
+//
+//            return true;
+//        }
 
-            this.previewDragging = false;
-            this.previewWasDragged = false;
-
-            if (!wasDragged) {
-                AstralSpace.LOGGER.debug("Machine preview clicked");
-            }
-
+        if (this.machineInfoTab.mouseReleased(event.button())) {
             return true;
         }
 
-        if (this.machineInfoTab.mouseReleased(event.button())) {
+        BlockState blockState = this.getPreviewBlockState();
+        Direction facing = blockState.getValue(LavaGeneratorBlock.FACING);
+        if (this.sideConfigTab.mouseReleased(
+            event,
+            this.minecraft.getWindow()
+                .getGuiScale(),
+            facing
+        ))
+        {
             return true;
         }
 
@@ -510,6 +560,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
         this.machineInfoTab.tick();
         this.statisticsTab.tick();
+        this.sideConfigTab.tick();
     }
 
     private void drawLavaFill(@NonNull GuiGraphics graphics) {
@@ -1018,6 +1069,46 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
     }
 
+    private @NonNull MachinePreviewRenderState createPreviewState(
+        @Nullable ScreenRectangle scissorArea
+    )
+    {
+        int previewSize = 64;
+        int previewX = this.leftPos + this.imageWidth + 8;
+        int previewY = this.topPos + 32;
+
+        BlockState blockState = EnergyBlocks.LAVA_GENERATOR.get()
+            .defaultBlockState()
+            .setValue(
+                LavaGeneratorBlock.FACING,
+                Direction.SOUTH
+            );
+
+        return new MachinePreviewRenderState(
+            previewX,
+            previewY,
+            previewSize,
+            previewSize,
+            this.previewRotationX,
+            this.previewRotationY,
+            scissorArea,
+            blockState,
+            null
+        );
+    }
+
+    private @NonNull BlockState getPreviewBlockState() {
+        return EnergyBlocks.LAVA_GENERATOR.get()
+            .defaultBlockState();
+    }
+
+    private int getRightTabsX() {
+        return this.leftPos + this.imageWidth;
+    }
+
+    private int getRightTabsY() {
+        return this.topPos + 2;
+    }
 
     private int getLeftTabsY() {
         return this.topPos + 2;

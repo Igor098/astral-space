@@ -85,7 +85,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private final List<GuiInfoEntry> infoEntries;
     private final GuiMachineInfoTab machineInfoTab;
     private final GuiStatisticsTab statisticsTab;
-    private final GuiSideConfigTab sideConfigTab;
+    private final GuiSideConfigTabOld sideConfigTab;
     private final GuiRedstoneControlTab redstoneControlTab;
 
     public CoalGeneratorScreen(
@@ -112,7 +112,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             ENERGY_ICON
         );
 
-        this.sideConfigTab = new GuiSideConfigTab(
+        this.sideConfigTab = new GuiSideConfigTabOld(
             this.font,
             SIDE_CONFIG_ICON
         );
