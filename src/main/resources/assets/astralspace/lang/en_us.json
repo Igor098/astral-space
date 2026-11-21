@@ -53,6 +53,8 @@
   "gui.astralspace.machine_info.tooltip": "Machine Information",
   "gui.astralspace.machine_info.title": "Information",
   "gui.astralspace.side_config.title": "Configuration",
+  "gui.astralspace.side_config.select_side": "Select Side",
+  "gui.astralspace.side_config.port_unavailable": "Port Unavailable",
   "gui.astralspace.side_config.side.front": "Front Side",
   "gui.astralspace.side_config.side.back": "Back Side",
   "gui.astralspace.side_config.side.left": "Left Side",

@@ -18,10 +18,7 @@ public final class MachinePreviewPicker {
         int guiScale
     )
     {
-        Objects.requireNonNull(
-            state,
-            "state cannot be null"
-        );
+        Objects.requireNonNull(state, "state cannot be null");
         if (guiScale <= 0) {
             throw new IllegalArgumentException("guiScale must be positive");
         }
@@ -44,26 +41,17 @@ public final class MachinePreviewPicker {
             state.y1()
         );
 
-        Matrix4f projectionMatrix = MachinePreviewMatrices.createProjectionMatrix(
-            state,
-            guiScale
-        );
-        Matrix4f modelMatrix = MachinePreviewMatrices.createModelMatrix(
-            state,
-            guiScale
-        );
+        Matrix4f projectionMatrix = MachinePreviewMatrices.createProjectionMatrix(state, guiScale);
+        Matrix4f modelMatrix = MachinePreviewMatrices.createModelMatrix(state, guiScale);
 
         MachinePreviewRay ray = rayBuilder.buildRay(
             ndc,
-            1.0f,
             -1.0f,
+            1.0f,
             projectionMatrix,
             modelMatrix
         );
 
-        return MachinePreviewRaycaster.detectHitDirection(
-            ray.start(),
-            ray.end()
-        );
+        return MachinePreviewRaycaster.detectHitDirection(ray.start(), ray.end());
     }
 }

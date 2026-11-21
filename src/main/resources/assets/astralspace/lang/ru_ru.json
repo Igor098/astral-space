@@ -53,6 +53,8 @@
   "gui.astralspace.machine_info.tooltip": "Информация о механизме",
   "gui.astralspace.machine_info.title": "Информация",
   "gui.astralspace.side_config.title": "Конфигурация",
+  "gui.astralspace.side_config.select_side": "Выберите сторону",
+  "gui.astralspace.side_config.port_unavailable": "Порт недоступен",
   "gui.astralspace.side_config.side.front": "Передняя сторона",
   "gui.astralspace.side_config.side.back": "Задняя сторона",
   "gui.astralspace.side_config.side.left": "Левая сторона",

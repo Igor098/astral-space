@@ -10,10 +10,11 @@ import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewPicker;
 import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewRenderState;
+import ru.greatdragonx.astralspace.common.machine.MachineSide;
 
 public final class GuiMachinePreview {
     private float rotationX = 25.0f;
-    private float rotationY = 145.0f;
+    private float rotationY = 215.0f;
 
     private boolean dragging = false;
     private boolean wasDragged = false;
@@ -25,10 +26,11 @@ public final class GuiMachinePreview {
     private int size;
 
     private @Nullable BlockState blockState;
+    private @Nullable MachineSide selectedSide;
     private final MachinePreviewPicker previewPicker;
 
     public record PreviewReleaseResult(
-        boolean consumed, @Nullable Direction hitDirection
+        boolean consumed, boolean clicked, @Nullable Direction hitDirection
     ) {}
 
     public GuiMachinePreview() {
@@ -40,13 +42,15 @@ public final class GuiMachinePreview {
         int y,
         int size,
         @NonNull GuiGraphics graphics,
-        @NonNull BlockState blockState
+        @NonNull BlockState blockState,
+        @Nullable MachineSide selectedSide
     )
     {
         this.x = x;
         this.y = y;
         this.size = size;
         this.blockState = blockState;
+        this.selectedSide = selectedSide;
 
         MachinePreviewRenderState state = this.createRenderState(graphics.peekScissorStack());
         graphics.submitPictureInPictureRenderState(state);
@@ -117,6 +121,7 @@ public final class GuiMachinePreview {
         if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.dragging) {
             return new PreviewReleaseResult(
                 false,
+                false,
                 null
             );
         }
@@ -126,25 +131,31 @@ public final class GuiMachinePreview {
         this.dragging = false;
         this.wasDragged = false;
 
-        if (!wasDragged) {
-            MachinePreviewRenderState state = this.createRenderState(null);
-
-            Direction hitDirection = previewPicker.detectHitDirection(
-                event.x(),
-                event.y(),
-                state,
-                guiScale
-            );
-
+        if (wasDragged || !this.isInsidePreviewArea(
+            event.x(),
+            event.y()
+        ))
+        {
             return new PreviewReleaseResult(
                 true,
-                hitDirection
+                false,
+                null
             );
         }
 
+        MachinePreviewRenderState state = this.createRenderState(null);
+
+        Direction hitDirection = previewPicker.detectHitDirection(
+            event.x(),
+            event.y(),
+            state,
+            guiScale
+        );
+
         return new PreviewReleaseResult(
             true,
-            null
+            true,
+            hitDirection
         );
     }
 
@@ -170,7 +181,18 @@ public final class GuiMachinePreview {
             this.rotationY,
             scissorArea,
             this.blockState,
-            null
+            this.selectedSide
         );
+    }
+
+    private boolean isInsidePreviewArea(
+        double mouseX,
+        double mouseY
+    )
+    {
+        return mouseX >= this.x &&
+            mouseX < this.x + this.size &&
+            mouseY >= this.y &&
+            mouseY < this.y + this.size;
     }
 }

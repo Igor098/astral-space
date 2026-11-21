@@ -71,7 +71,9 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_FRONT_STATE = 5;
     public static final int DATA_PRODUCTION = 6;
     public static final int DATA_TRANSFER = 7;
-    public static final int DATA_COUNT = 8;
+    public static final int DATA_ENERGY_PORT_START = 8;
+    public static final int DATA_FLUID_PORT_START = 14;
+    public static final int DATA_COUNT = 20;
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
     public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
@@ -124,8 +126,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             ROUTE,
             FLUID_PORT_IDS.get(MachineSide.BOTTOM),
             ROUTE
-        ),
-        FLUID_TANK_DEFINITIONS
+        ), FLUID_TANK_DEFINITIONS
     );
 
     private final EnergyPortConfiguration energyPortConfiguration;
@@ -150,6 +151,20 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private final ContainerData data = new ContainerData() {
         @Override
         public int get(int index) {
+            if (index >= DATA_ENERGY_PORT_START && index < DATA_FLUID_PORT_START) {
+                int offset = index - DATA_ENERGY_PORT_START;
+                MachineSide side = getSideByOffset(offset);
+
+                return getEnergyPortData(side);
+            }
+            
+            if (index >= DATA_FLUID_PORT_START && index < DATA_COUNT) {
+                int offset = index - DATA_FLUID_PORT_START;
+                MachineSide side = getSideByOffset(offset);
+
+                return getFluidPortData(side);
+            }
+
             return switch (index) {
                 case DATA_LAVA_STORED -> LavaGeneratorBlockEntity.this.getLavaStored();
                 case DATA_ENERGY_LOW -> (int) (
@@ -169,10 +184,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
 
         @Override
-        public void set(
-            int index,
-            int value
-        )
+        public void set(int index, int value)
         {
             // Изменение данных через GUI не предусмотрено.
         }
@@ -183,21 +195,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
     };
 
-    public LavaGeneratorBlockEntity(
-        BlockPos pos,
-        BlockState state
-    )
+    public LavaGeneratorBlockEntity(BlockPos pos, BlockState state)
     {
-        super(
-            EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
-            pos,
-            state
-        );
+        super(EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(), pos, state);
 
-        this.energyComponent = new EnergyComponent(
-            ENERGY_CAPACITY,
-            this::setChanged
-        );
+        this.energyComponent = new EnergyComponent(ENERGY_CAPACITY, this::setChanged);
 
         this.transferTracker = new EnergyTransferTracker();
         this.extractionBudget = new EnergyTransferBudget(MAX_EXTRACT);
@@ -210,10 +212,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             insertionBudget,
             this.extractionBudget,
             this.transferTracker,
-            () -> Objects.requireNonNull(
-                    this.level,
-                    "Generator level is not initialized"
-                )
+            () -> Objects.requireNonNull(this.level, "Generator level is not initialized")
                 .getGameTime()
         );
 
@@ -225,10 +224,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             EnergyPortMode mode =
                 side == MachineSide.BACK ? EnergyPortMode.OUTPUT : EnergyPortMode.DISABLED;
 
-            initialEnergyModes.put(
-                portId,
-                mode
-            );
+            initialEnergyModes.put(portId, mode);
         }
 
         this.energyPortConfiguration = new EnergyPortConfiguration(
@@ -247,10 +243,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             this.energyPortPolicy
         );
 
-        this.fluidStorage = new MachineFluidStorage(
-            FLUID_TANK_DEFINITIONS,
-            this::setChanged
-        );
+        this.fluidStorage = new MachineFluidStorage(FLUID_TANK_DEFINITIONS, this::setChanged);
 
         Map<FluidPortId, FluidPortMode> initialFluidModes = new HashMap<>();
         for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
@@ -260,10 +253,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             FluidPortMode mode =
                 side == MachineSide.RIGHT ? FluidPortMode.INPUT : FluidPortMode.DISABLED;
 
-            initialFluidModes.put(
-                portId,
-                mode
-            );
+            initialFluidModes.put(portId, mode);
         }
 
         this.fluidPortConfiguration = new FluidPortConfiguration(
@@ -277,8 +267,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             portId -> true
         );
 
-        Map<MachineSide, FluidPortHandler> handlers =
-            new EnumMap<MachineSide, FluidPortHandler>(MachineSide.class);
+        Map<MachineSide, FluidPortHandler> handlers = new EnumMap<MachineSide, FluidPortHandler>(
+            MachineSide.class);
         for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
             MachineSide side = entry.getKey();
             FluidPortId portId = entry.getValue();
@@ -290,10 +280,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 this.fluidStorage
             );
 
-            handlers.put(
-                side,
-                handler
-            );
+            handlers.put(side, handler);
         }
 
         this.fluidPortHandlers = Map.copyOf(handlers);
@@ -303,14 +290,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     @Override
     public @NonNull ModelData getModelData() {
         return ModelData.builder()
-            .with(
-                FRONT_STATE,
-                this.getFrontState()
-            )
-            .with(
-                VISUAL_PORTS,
-                this.createVisualPortsSnapshot()
-            )
+            .with(FRONT_STATE, this.getFrontState())
+            .with(VISUAL_PORTS, this.createVisualPortsSnapshot())
             .build();
     }
 
@@ -318,25 +299,13 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     protected void saveAdditional(@NonNull ValueOutput output) {
         super.saveAdditional(output);
 
-        output.putInt(
-            "burn_time",
-            this.burnTime
-        );
+        output.putInt("burn_time", this.burnTime);
 
-        output.putInt(
-            "burn_duration",
-            this.burnDuration
-        );
+        output.putInt("burn_duration", this.burnDuration);
 
-        output.putLong(
-            "energy_stored",
-            this.energyComponent.getStoredEnergy()
-        );
+        output.putLong("energy_stored", this.energyComponent.getStoredEnergy());
 
-        output.putString(
-            "front_state",
-            this.frontState.name()
-        );
+        output.putString("front_state", this.frontState.name());
 
         this.saveEnergyPorts(output);
         this.saveFluidPorts(output);
@@ -347,33 +316,13 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     protected void loadAdditional(@NonNull ValueInput input) {
         super.loadAdditional(input);
 
-        this.burnDuration = Math.clamp(
-            input.getIntOr(
-                "burn_duration",
-                0
-            ),
-            0,
-            BURN_DURATION_TICKS
-        );
+        this.burnDuration = Math.clamp(input.getIntOr("burn_duration", 0), 0, BURN_DURATION_TICKS);
 
-        this.burnTime = Math.clamp(
-            input.getIntOr(
-                "burn_time",
-                0
-            ),
-            0,
-            this.burnDuration
-        );
+        this.burnTime = Math.clamp(input.getIntOr("burn_time", 0), 0, this.burnDuration);
 
-        this.energyComponent.restoreStoredEnergy(input.getLongOr(
-            "energy_stored",
-            0L
-        ));
+        this.energyComponent.restoreStoredEnergy(input.getLongOr("energy_stored", 0L));
 
-        String savedState = input.getStringOr(
-            "front_state",
-            "OFF"
-        );
+        String savedState = input.getStringOr("front_state", "OFF");
 
         this.frontState = switch (savedState) {
             case "RUNNING" -> LavaGeneratorFrontState.RUNNING;
@@ -400,17 +349,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     }
 
     @Override
-    public void onDataPacket(
-        @NonNull Connection connection,
-        @NonNull ValueInput input
-    )
+    public void onDataPacket(@NonNull Connection connection, @NonNull ValueInput input)
     {
         LavaGeneratorFrontState previousState = this.getFrontState();
         Set<VisualPort> previousPortsState = Set.copyOf(this.createVisualPortsSnapshot());
-        super.onDataPacket(
-            connection,
-            input
-        );
+        super.onDataPacket(connection, input);
         LavaGeneratorFrontState currentState = this.getFrontState();
         Set<VisualPort> currentPortsState = Set.copyOf(this.createVisualPortsSnapshot());
 
@@ -423,12 +366,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             Level level = this.getLevel();
             if (level != null && level.isClientSide()) {
                 BlockState state = this.getBlockState();
-                level.sendBlockUpdated(
-                    worldPosition,
-                    state,
-                    state,
-                    Block.UPDATE_CLIENTS
-                );
+                level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
             }
         }
     }
@@ -462,10 +400,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return new LavaGeneratorMenu(
             containerId,
             playerInventory,
-            ContainerLevelAccess.create(
-                this.level,
-                this.worldPosition
-            ),
+            ContainerLevelAccess.create(this.level, this.worldPosition),
             this.data
         );
     }
@@ -478,10 +413,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     )
     {
         blockEntity.currentProductionRate = 0;
-        blockEntity.pushEnergyToNeighbors(
-            level,
-            pos
-        );
+        blockEntity.pushEnergyToNeighbors(level, pos);
         long freeSpace = ENERGY_CAPACITY - blockEntity.getEnergyStored();
 
         if (freeSpace < ENERGY_GENERATION_PER_TICK) {
@@ -498,8 +430,8 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             }
         }
 
-        int generatedEnergy =
-            blockEntity.energyComponent.storeProducedEnergy(ENERGY_GENERATION_PER_TICK);
+        int generatedEnergy = blockEntity.energyComponent.storeProducedEnergy(
+            ENERGY_GENERATION_PER_TICK);
         blockEntity.currentProductionRate = generatedEnergy;
         blockEntity.burnTime -= 1;
         blockEntity.setChanged();
@@ -507,10 +439,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         if (generatedEnergy > 0 &&
             blockEntity.extractionBudget.getRemaining(level.getGameTime()) > 0)
         {
-            blockEntity.pushEnergyToNeighbors(
-                level,
-                pos
-            );
+            blockEntity.pushEnergyToNeighbors(level, pos);
         }
     }
 
@@ -537,10 +466,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     }
 
     public EnergyPortMode getEnergyPortMode(@NonNull MachineSide side) {
-        Objects.requireNonNull(
-            side,
-            "side cannot be null"
-        );
+        Objects.requireNonNull(side, "side cannot be null");
 
         EnergyPortId portId = ENERGY_PORT_IDS.get(side);
         if (portId == null) {
@@ -554,10 +480,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         @NonNull MachineSide side
     )
     {
-        Objects.requireNonNull(
-            side,
-            "side cannot be null"
-        );
+        Objects.requireNonNull(side, "side cannot be null");
         FluidPortId portId = FLUID_PORT_IDS.get(side);
         if (portId == null) {
             return FluidPortMode.DISABLED;
@@ -566,20 +489,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return this.fluidPortConfiguration.getMode(portId);
     }
 
-    public boolean changeEnergyPortMode(
-        @NonNull MachineSide side,
-        @NonNull EnergyPortMode newMode
-    )
+    public boolean changeEnergyPortMode(@NonNull MachineSide side, @NonNull EnergyPortMode newMode)
     {
-        Objects.requireNonNull(
-            side,
-            "side cannot be null"
-        );
+        Objects.requireNonNull(side, "side cannot be null");
 
-        Objects.requireNonNull(
-            newMode,
-            "newMode cannot be null"
-        );
+        Objects.requireNonNull(newMode, "newMode cannot be null");
 
         if (this.level == null || this.level.isClientSide()) {
             return false;
@@ -590,27 +504,14 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return false;
         }
 
-        return this.energyPortConfiguration.changeMode(
-            portId,
-            newMode,
-            this.energyPortPolicy
-        );
+        return this.energyPortConfiguration.changeMode(portId, newMode, this.energyPortPolicy);
     }
 
-    public boolean changeFluidPortMode(
-        @NonNull MachineSide side,
-        @NonNull FluidPortMode newMode
-    )
+    public boolean changeFluidPortMode(@NonNull MachineSide side, @NonNull FluidPortMode newMode)
     {
-        Objects.requireNonNull(
-            side,
-            "side cannot be null"
-        );
+        Objects.requireNonNull(side, "side cannot be null");
 
-        Objects.requireNonNull(
-            newMode,
-            "newMode cannot be null"
-        );
+        Objects.requireNonNull(newMode, "newMode cannot be null");
 
         if (this.level == null || this.level.isClientSide()) {
             return false;
@@ -621,11 +522,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return false;
         }
 
-        return this.fluidPortConfiguration.changeMode(
-            portId,
-            newMode,
-            this.fluidPortPolicy
-        );
+        return this.fluidPortConfiguration.changeMode(portId, newMode, this.fluidPortPolicy);
     }
 
     public @Nullable EnergyHandler getEnergyHandlerForWorldSide(
@@ -648,11 +545,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         return this.outputHandlers.computeIfAbsent(
             portId,
-            id -> new EnergyPortHandler(
-                id,
-                this.energyPortPolicy,
-                this.transferCoordinator
-            )
+            id -> new EnergyPortHandler(id, this.energyPortPolicy, this.transferCoordinator)
         );
     }
 
@@ -667,10 +560,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         Direction facing = this.getBlockState()
             .getValue(LavaGeneratorBlock.FACING);
 
-        MachineSide side = MachineSideDirections.fromWorld(
-            worldSide,
-            facing
-        );
+        MachineSide side = MachineSideDirections.fromWorld(worldSide, facing);
 
         return this.getFluidPortHandler(side)
             .orElse(null);
@@ -681,10 +571,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         Direction facing = state.getValue(LavaGeneratorBlock.FACING);
 
-        MachineSide machineSide = MachineSideDirections.fromWorld(
-            worldSide,
-            facing
-        );
+        MachineSide machineSide = MachineSideDirections.fromWorld(worldSide, facing);
 
         return ENERGY_PORT_IDS.get(machineSide);
     }
@@ -723,12 +610,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         if (this.level != null && !this.level.isClientSide()) {
             BlockState state = this.getBlockState();
 
-            this.level.sendBlockUpdated(
-                this.worldPosition,
-                state,
-                state,
-                Block.UPDATE_CLIENTS
-            );
+            this.level.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
         }
     }
 
@@ -736,10 +618,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         @NonNull MachineSide side
     )
     {
-        Objects.requireNonNull(
-            side,
-            "side cannot be null"
-        );
+        Objects.requireNonNull(side, "side cannot be null");
 
         return Optional.ofNullable(this.fluidPortHandlers.get(side));
     }
@@ -747,16 +626,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private static @NonNull Map<EnergyPortId, Set<EnergyPortMode>> createAllowedEnergyModes() {
         Map<EnergyPortId, Set<EnergyPortMode>> allowedModes = new HashMap<>();
 
-        Set<EnergyPortMode> modes = Set.of(
-            EnergyPortMode.OUTPUT,
-            EnergyPortMode.DISABLED
-        );
+        Set<EnergyPortMode> modes = Set.of(EnergyPortMode.OUTPUT, EnergyPortMode.DISABLED);
 
         for (EnergyPortId portId : ENERGY_PORT_IDS.values()) {
-            allowedModes.put(
-                portId,
-                modes
-            );
+            allowedModes.put(portId, modes);
         }
 
         return allowedModes;
@@ -773,10 +646,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         );
 
         for (FluidPortId portId : FLUID_PORT_IDS.values()) {
-            allowedModes.put(
-                portId,
-                modes
-            );
+            allowedModes.put(portId, modes);
         }
 
         return allowedModes;
@@ -872,18 +742,12 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             try {
                 EnergyPortMode mode = EnergyPortMode.valueOf(savedMode.get());
 
-                restoredModes.put(
-                    portId,
-                    mode
-                );
+                restoredModes.put(portId, mode);
             } catch (IllegalArgumentException ignored) {
             }
         }
 
-        this.energyPortConfiguration.restoreModes(
-            restoredModes,
-            this.energyPortPolicy
-        );
+        this.energyPortConfiguration.restoreModes(restoredModes, this.energyPortPolicy);
         this.syncAvailableEnergyPorts();
     }
 
@@ -904,18 +768,12 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             try {
                 FluidPortMode mode = FluidPortMode.valueOf(savedMode.get());
 
-                restoredModes.put(
-                    portId,
-                    mode
-                );
+                restoredModes.put(portId, mode);
             } catch (IllegalArgumentException ignored) {
             }
         }
 
-        this.fluidPortConfiguration.restoreModes(
-            restoredModes,
-            this.fluidPortPolicy
-        );
+        this.fluidPortConfiguration.restoreModes(restoredModes, this.fluidPortPolicy);
     }
 
     private void onPortConfigurationChanged() {
@@ -952,15 +810,9 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return sides;
         }
 
-        int distance = Math.floorMod(
-            currentTick,
-            sides.size()
-        );
+        int distance = Math.floorMod(currentTick, sides.size());
 
-        Collections.rotate(
-            sides,
-            -distance
-        );
+        Collections.rotate(sides, -distance);
 
         return sides;
     }
@@ -974,19 +826,12 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         BlockPos neighborPos = pos.relative(side);
 
         if (!level.getChunkSource()
-            .hasChunk(
-                neighborPos.getX() >> 4,
-                neighborPos.getZ() >> 4
-            ))
+            .hasChunk(neighborPos.getX() >> 4, neighborPos.getZ() >> 4))
         {
             return null;
         }
 
-        return level.getCapability(
-            Capabilities.Energy.BLOCK,
-            neighborPos,
-            side.getOpposite()
-        );
+        return level.getCapability(Capabilities.Energy.BLOCK, neighborPos, side.getOpposite());
     }
 
     private int probeEnergyAcceptance(
@@ -996,19 +841,13 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         int accepted;
 
         try (Transaction tx = Transaction.openRoot()) {
-            accepted = target.insert(
-                MAX_EXTRACT,
-                tx
-            );
+            accepted = target.insert(MAX_EXTRACT, tx);
         }
 
         return accepted;
     }
 
-    private void pushEnergyToNeighbors(
-        @NonNull Level level,
-        BlockPos pos
-    )
+    private void pushEnergyToNeighbors(@NonNull Level level, BlockPos pos)
     {
         Map<EnergyPortId, Integer> discoveryNeighbours = new LinkedHashMap<>();
 
@@ -1020,41 +859,27 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 continue;
             }
 
-            EnergyHandler target = this.getNeighborEnergyHandler(
-                level,
-                pos,
-                side
-            );
+            EnergyHandler target = this.getNeighborEnergyHandler(level, pos, side);
             if (target == null) {
                 continue;
             }
 
             int probeResult = this.probeEnergyAcceptance(target);
             if (probeResult > 0) {
-                discoveryNeighbours.put(
-                    portId,
-                    probeResult
-                );
+                discoveryNeighbours.put(portId, probeResult);
             }
         }
 
-        this.distributionManager.updatePushAvailability(
-            discoveryNeighbours,
-            level.getGameTime()
-        );
+        this.distributionManager.updatePushAvailability(discoveryNeighbours, level.getGameTime());
 
         for (Direction side : rotatedEnergyOutputSides) {
-            if (this.energyComponent.getStoredEnergy() <= 0 ||
-                this.extractionBudget.getRemaining(level.getGameTime()) <= 0)
+            if (this.energyComponent.getStoredEnergy() <= 0 || this.extractionBudget.getRemaining(
+                level.getGameTime()) <= 0)
             {
                 break;
             }
 
-            EnergyHandler target = this.getNeighborEnergyHandler(
-                level,
-                pos,
-                side
-            );
+            EnergyHandler target = this.getNeighborEnergyHandler(level, pos, side);
 
             if (target == null) {
                 continue;
@@ -1067,12 +892,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             }
 
             try (Transaction tx = Transaction.openRoot()) {
-                int transferred = this.energyPushTransfer.push(
-                    portId,
-                    target,
-                    MAX_EXTRACT,
-                    tx
-                );
+                int transferred = this.energyPushTransfer.push(portId, target, MAX_EXTRACT, tx);
 
                 if (transferred > 0) {
                     tx.commit();
@@ -1095,11 +915,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
             VisualPortId visualPortId = new VisualPortId("energy." + portId.value());
 
-            visualPorts.add(new VisualPort(
-                visualPortId,
-                VisualPortType.ENERGY,
-                side
-            ));
+            visualPorts.add(new VisualPort(visualPortId, VisualPortType.ENERGY, side));
         }
 
         for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
@@ -1112,13 +928,56 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             }
 
             VisualPortId visualPortId = new VisualPortId("fluid." + portId.value());
-            visualPorts.add(new VisualPort(
-                visualPortId,
-                VisualPortType.FLUID,
-                side
-            ));
+            visualPorts.add(new VisualPort(visualPortId, VisualPortType.FLUID, side));
         }
 
         return List.copyOf(visualPorts);
+    }
+
+    private static MachineSide getSideByOffset(int offset) {
+        return switch (offset) {
+            case 0 -> MachineSide.FRONT;
+            case 1 -> MachineSide.BACK;
+            case 2 -> MachineSide.LEFT;
+            case 3 -> MachineSide.RIGHT;
+            case 4 -> MachineSide.TOP;
+            case 5 -> MachineSide.BOTTOM;
+            default ->
+                throw new IllegalArgumentException("Unknown machine side offset: %d".formatted(
+                    offset));
+        };
+    }
+
+    private int getEnergyPortData(@NonNull MachineSide side) {
+        Objects.requireNonNull(side, "side cannot be null");
+
+        EnergyPortId portId = ENERGY_PORT_IDS.get(side);
+        if (portId == null) {
+            return -1;
+        }
+
+        EnergyPortMode mode = this.energyPortConfiguration.getMode(portId);
+        return switch (mode) {
+            case DISABLED -> 0;
+            case OUTPUT -> 1;
+            case INPUT -> 2;
+        };
+    }
+
+    private int getFluidPortData(@NonNull MachineSide side) {
+        Objects.requireNonNull(side, "side cannot be null");
+
+        FluidPortId portId = FLUID_PORT_IDS.get(side);
+        if (portId == null) {
+            return -1;
+        }
+
+        FluidPortMode mode = this.fluidPortConfiguration.getMode(portId);
+        return switch (mode) {
+            case DISABLED -> 0;
+            case INPUT -> 1;
+            case SERVICE -> 2;
+            case OUTPUT -> 3;
+        };
     }
 }

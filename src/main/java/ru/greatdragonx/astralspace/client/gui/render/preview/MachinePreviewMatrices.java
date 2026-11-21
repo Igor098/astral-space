@@ -18,14 +18,7 @@ public final class MachinePreviewMatrices {
         int width = (state.x1() - state.x0()) * guiScale;
         int height = (state.y1() - state.y0()) * guiScale;
 
-        return new Matrix4f().setOrtho(
-            0.0f,
-            width,
-            height,
-            0.0f,
-            -1000.0f,
-            1000.0f
-        );
+        return new Matrix4f().setOrtho(0.0f, width, height, 0.0f, -1000.0f, 1000.0f);
     }
 
     public static @NonNull Matrix4f createModelMatrix(
@@ -43,35 +36,27 @@ public final class MachinePreviewMatrices {
 
         float f = guiScale * state.scale();
 
-        matrix.translate(
-            width / 2.0f,
-            height,
-            0.0f
-        );
-        matrix.scale(
-            f,
-            f,
-            -f
-        );
+        matrix.translate(width / 2.0f, height, 0.0f);
+        matrix.scale(f, f, -f);
 
         matrix.translate(
-            0.0f,
-            -32.0f,
-            0.0f
+            MachinePreviewTransform.MODEL_TRANSLATION_X,
+            MachinePreviewTransform.MODEL_TRANSLATION_Y,
+            MachinePreviewTransform.MODEL_TRANSLATION_Z
         );
         matrix.scale(
-            28.0f,
-            -28.0f,
-            28.0f
+            MachinePreviewTransform.MODEL_SCALE_X,
+            MachinePreviewTransform.MODEL_SCALE_Y,
+            MachinePreviewTransform.MODEL_SCALE_Z
         );
 
         matrix.rotateX((float) Math.toRadians(state.rotationX()));
         matrix.rotateY((float) Math.toRadians(state.rotationY()));
 
         matrix.translate(
-            -0.5f,
-            -0.5f,
-            -0.5f
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET,
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET,
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET
         );
 
         return matrix;

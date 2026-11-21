@@ -8,10 +8,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.GuiMachinePreview;
+import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
+
+import java.util.Locale;
 
 public final class GuiSideConfigTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
@@ -21,21 +26,18 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
 
     private static final int PREVIEW_SIZE = 64;
 
+    private static final float INFO_TEXT_SCALE = 0.75f;
+    private static final int INFO_TEXT_COLOR = 0xFFFFFFFF;
+
     private final GuiMachinePreview machinePreview;
     private final Font font;
     private final Identifier iconTexture;
 
-    public GuiSideConfigTab(
-        Font font,
-        Identifier iconTexture
-    )
+    private @Nullable MachineSide selectedSide;
+
+    public GuiSideConfigTab(Font font, Identifier iconTexture)
     {
-        super(
-            false,
-            ANIMATION_STEP,
-            PANEL_WIDTH,
-            PANEL_HEIGHT
-        );
+        super(false, ANIMATION_STEP, PANEL_WIDTH, PANEL_HEIGHT);
         this.font = font;
         this.iconTexture = iconTexture;
         this.machinePreview = new GuiMachinePreview();
@@ -53,45 +55,22 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         float partialTick,
         @NonNull GuiGraphics graphics,
         @NonNull Component title,
-        @NonNull BlockState blockState
+        @NonNull BlockState blockState,
+        @NonNull SideConfiguration configuration
     )
     {
-        float progress = this.renderPanelBackground(
-            graphics,
-            anchorX,
-            anchorY,
-            partialTick
-        );
+        float progress = this.renderPanelBackground(graphics, anchorX, anchorY, partialTick);
 
         int width = this.getRenderedWidth();
         int height = this.getRenderedHeight();
 
         int x = this.getPanelX(anchorX);
 
-        this.drawTabIcon(
-            graphics,
-            this.iconTexture,
-            x,
-            anchorY,
-            progress
-        );
-
-        this.drawContent(
-            x,
-            anchorY,
-            width,
-            height,
-            graphics,
-            title,
-            blockState
-        );
+        this.drawTabIcon(graphics, this.iconTexture, x, anchorY, progress);
+        this.drawContent(x, anchorY, width, height, graphics, title, blockState, configuration);
     }
 
-    public boolean mouseClicked(
-        @NonNull MouseButtonEvent event,
-        int anchorX,
-        int anchorY
-    )
+    public boolean mouseClicked(@NonNull MouseButtonEvent event, int anchorX, int anchorY)
     {
         boolean fullyExpanded = this.isOpen() &&
             this.getRenderedWidth() == PANEL_WIDTH &&
@@ -106,19 +85,10 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         int previewX = panelX + (PANEL_WIDTH - PREVIEW_SIZE) / 2;
         int previewY = anchorY + TAB_HEIGHT + 8;
 
-        return this.machinePreview.mouseClicked(
-            event,
-            previewX,
-            previewY,
-            PREVIEW_SIZE
-        );
+        return this.machinePreview.mouseClicked(event, previewX, previewY, PREVIEW_SIZE);
     }
 
-    public boolean mouseDragged(
-        @NonNull MouseButtonEvent event,
-        double dragX,
-        double dragY
-    )
+    public boolean mouseDragged(@NonNull MouseButtonEvent event, double dragX, double dragY)
     {
         boolean fullyExpanded = this.isOpen() &&
             this.getRenderedWidth() == PANEL_WIDTH &&
@@ -128,11 +98,7 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             return false;
         }
 
-        return this.machinePreview.mouseDragged(
-            event,
-            dragX,
-            dragY
-        );
+        return this.machinePreview.mouseDragged(event, dragX, dragY);
     }
 
     public boolean mouseReleased(
@@ -154,16 +120,14 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             event,
             guiScale
         );
-
-        if (result.hitDirection() != null) {
-            MachineSide side = MachineSideDirections.fromWorld(
-                result.hitDirection(),
-                facing
-            );
-            AstralSpace.LOGGER.debug(
-                "Machine side clicked: {}",
-                side
-            );
+        if (result.clicked()) {
+            if (result.hitDirection() == null) {
+                this.selectedSide = null;
+                AstralSpace.LOGGER.debug("Machine side reset");
+            } else {
+                this.selectedSide = MachineSideDirections.fromWorld(result.hitDirection(), facing);
+                AstralSpace.LOGGER.debug("Machine side clicked: {}", this.selectedSide);
+            }
         }
 
         return result.consumed();
@@ -176,7 +140,8 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         int height,
         @NonNull GuiGraphics graphics,
         @NonNull Component title,
-        @NonNull BlockState blockState
+        @NonNull BlockState blockState,
+        @NonNull SideConfiguration configuration
     )
     {
         int previewX = panelX + (PANEL_WIDTH - PREVIEW_SIZE) / 2;
@@ -189,20 +154,9 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             panelY + height - BORDER_SIZE
         );
 
-        this.drawTitle(
-            graphics,
-            this.font,
-            title,
-            panelX,
-            panelY
-        );
+        this.drawTitle(graphics, this.font, title, panelX, panelY);
 
-        this.drawDivider(
-            graphics,
-            panelX,
-            panelY,
-            width
-        );
+        this.drawDivider(graphics, panelX, panelY, width);
 
         boolean fullyExpanded = this.isOpen() && width == PANEL_WIDTH && height == PANEL_HEIGHT;
         if (fullyExpanded) {
@@ -211,10 +165,74 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
                 previewY,
                 PREVIEW_SIZE,
                 graphics,
-                blockState
+                blockState,
+                this.selectedSide
             );
+
+            this.drawSelectedSideInfo(graphics, panelX, previewY);
         }
 
         graphics.disableScissor();
     }
+
+    private void drawSelectedSideInfo(@NonNull GuiGraphics graphics, int panelX, int previewY) {
+        int textY = previewY + PREVIEW_SIZE + 8;
+
+        MachineSide side = this.selectedSide;
+        Component text = side == null ? Component.translatable(
+            "gui.astralspace.side_config.select_side") : Component.translatable(
+            "gui.astralspace.side_config.side." +
+                side.name()
+                    .toLowerCase(Locale.ROOT));
+
+        float textWidth = this.font.width(text) * INFO_TEXT_SCALE;
+        float textX = panelX + PANEL_WIDTH / 2.0f - textWidth / 2.0f;
+
+        GuiTextRenderer.drawScaledText(
+            graphics,
+            this.font,
+            text,
+            textX,
+            textY,
+            INFO_TEXT_SCALE,
+            INFO_TEXT_COLOR
+        );
+    }
+
+//    private void drawPortEntries()(
+//        int panelX,
+//        int previewY,
+//        @NonNull GuiGraphics graphics,
+//        @NonNull SideConfiguration configuration
+//    )
+//    {
+//        if (this.selectedSide == null) {
+//            return;
+//        }
+//
+//        int sideTextY = previewY + PREVIEW_SIZE + 8;
+//        int modeTextY = sideTextY + 12;
+//        SidePortConfig portConfig = configuration.ports()
+//            .get(this.selectedSide);
+//
+//        Component modeText = portConfig == null ? Component.translatable(
+//            "gui.astralspace.side_config.port_unavailable") : Component.translatable(
+//            "gui.astralspace.side_config.mode." +
+//                portConfig.mode()
+//                    .name()
+//                    .toLowerCase(Locale.ROOT));
+//
+//        float textWidth = this.font.width(modeText) * INFO_TEXT_SCALE;
+//        float textX = panelX + PANEL_WIDTH / 2.0f - textWidth / 2.0f;
+//
+//        GuiTextRenderer.drawScaledText(
+//            graphics,
+//            this.font,
+//            modeText,
+//            textX,
+//            modeTextY,
+//            INFO_TEXT_SCALE,
+//            INFO_TEXT_COLOR
+//        );
+//    }
 }

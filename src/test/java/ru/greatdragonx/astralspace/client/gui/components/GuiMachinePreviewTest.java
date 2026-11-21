@@ -16,18 +16,33 @@ import java.lang.reflect.Field;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GuiMachinePreviewTest {
+
     private static final int X = 100;
     private static final int Y = 50;
     private static final int SIZE = 64;
     private static final double CENTER_X = X + SIZE / 2.0;
     private static final double CENTER_Y = Y + SIZE / 2.0;
     private static final float EPSILON = 0.0001f;
+    private static final float INITIAL_ROTATION_X = 25.0f;
+    private static final float INITIAL_ROTATION_Y = 215.0f;
 
     private GuiMachinePreview preview;
 
     @BeforeEach
     void setUp() {
         this.preview = new GuiMachinePreview();
+        setField(
+            "x",
+            X
+        );
+        setField(
+            "y",
+            Y
+        );
+        setField(
+            "size",
+            SIZE
+        );
     }
 
     @ParameterizedTest
@@ -146,12 +161,12 @@ class GuiMachinePreviewTest {
         ));
 
         assertEquals(
-            25.0f,
+            INITIAL_ROTATION_X,
             rotation("rotationX"),
             EPSILON
         );
         assertEquals(
-            35.0f,
+            INITIAL_ROTATION_Y,
             rotation("rotationY"),
             EPSILON
         );
@@ -172,12 +187,12 @@ class GuiMachinePreviewTest {
         ));
 
         assertEquals(
-            25.0f,
+            INITIAL_ROTATION_X,
             rotation("rotationX"),
             EPSILON
         );
         assertEquals(
-            35.0f,
+            INITIAL_ROTATION_Y,
             rotation("rotationY"),
             EPSILON
         );
@@ -207,12 +222,12 @@ class GuiMachinePreviewTest {
         );
 
         assertEquals(
-            25.0f,
+            INITIAL_ROTATION_X,
             rotation("rotationX"),
             EPSILON
         );
         assertEquals(
-            35.0f + 2.0f * 0.8f,
+            INITIAL_ROTATION_Y + 2.0f * 0.8f,
             rotation("rotationY"),
             EPSILON
         );
@@ -233,7 +248,6 @@ class GuiMachinePreviewTest {
         );
         float rotationAfterFirstDrag = rotation("rotationY");
 
-        // The cursor returns to the click position, but the drag is still active.
         preview.mouseDragged(
             mouseEvent(
                 CENTER_X,
@@ -259,6 +273,7 @@ class GuiMachinePreviewTest {
             1
         );
         assertTrue(result.consumed());
+        assertFalse(result.clicked());
         assertNull(result.hitDirection());
     }
 
@@ -312,7 +327,7 @@ class GuiMachinePreviewTest {
         );
 
         assertEquals(
-            35.0f + 500.0f * 0.8f,
+            INITIAL_ROTATION_Y + 500.0f * 0.8f,
             rotation("rotationY"),
             EPSILON
         );
@@ -341,6 +356,7 @@ class GuiMachinePreviewTest {
         );
 
         assertTrue(result.consumed());
+        assertFalse(result.clicked());
         assertNull(result.hitDirection());
     }
 
@@ -356,6 +372,7 @@ class GuiMachinePreviewTest {
         );
 
         assertFalse(result.consumed());
+        assertFalse(result.clicked());
         assertNull(result.hitDirection());
     }
 
@@ -372,6 +389,7 @@ class GuiMachinePreviewTest {
             1
         );
         assertFalse(rightRelease.consumed());
+        assertFalse(rightRelease.clicked());
         assertNull(rightRelease.hitDirection());
 
         preview.mouseDragged(
@@ -392,6 +410,7 @@ class GuiMachinePreviewTest {
             1
         );
         assertTrue(leftRelease.consumed());
+        assertFalse(leftRelease.clicked());
         assertNull(leftRelease.hitDirection());
     }
 
@@ -427,6 +446,7 @@ class GuiMachinePreviewTest {
             1
         );
         assertFalse(secondRelease.consumed());
+        assertFalse(secondRelease.clicked());
         assertNull(secondRelease.hitDirection());
     }
 
@@ -461,7 +481,6 @@ class GuiMachinePreviewTest {
             0.0
         ));
 
-        // A fresh click must start a new interaction.
         assertTrue(preview.mouseClicked(
             mouseEvent(
                 CENTER_X,
@@ -515,6 +534,7 @@ class GuiMachinePreviewTest {
         );
 
         assertTrue(result.consumed());
+        assertTrue(result.clicked());
         assertEquals(
             Direction.SOUTH,
             result.hitDirection()
@@ -556,12 +576,12 @@ class GuiMachinePreviewTest {
         );
 
         assertTrue(result.consumed());
+        assertTrue(result.clicked());
         assertNull(result.hitDirection());
     }
 
     @Test
     void shouldConsumeClickReleasedOutsidePreviewWithoutSelectingFace() {
-        preparePickingState();
         beginClick();
 
         GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
@@ -574,6 +594,7 @@ class GuiMachinePreviewTest {
         );
 
         assertTrue(result.consumed());
+        assertFalse(result.clicked());
         assertNull(result.hitDirection());
     }
 
@@ -603,12 +624,259 @@ class GuiMachinePreviewTest {
                 result.consumed(),
                 "GUI scale " + guiScale
             );
+            assertTrue(
+                result.clicked(),
+                "GUI scale " + guiScale
+            );
             assertEquals(
                 Direction.SOUTH,
                 result.hitDirection(),
                 "GUI scale " + guiScale
             );
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"100.5, 82.0, 99.999, 82.0", "163.5, 82.0, 164.0, 82.0", "132.0, 50.5, 132.0, 49.999", "132.0, 113.5, 132.0, 114.0"})
+    void shouldNotCountReleaseOutsideBoundaryAsClick(
+        double pressX,
+        double pressY,
+        double releaseX,
+        double releaseY
+    )
+    {
+        assertTrue(preview.mouseClicked(
+            mouseEvent(
+                pressX,
+                pressY,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            X,
+            Y,
+            SIZE
+        ));
+
+        assertTrue(preview.mouseDragged(
+            mouseEvent(
+                releaseX,
+                releaseY,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            releaseX - pressX,
+            releaseY - pressY
+        ));
+
+        GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
+            mouseEvent(
+                releaseX,
+                releaseY,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+
+        assertTrue(result.consumed());
+        assertFalse(result.clicked());
+        assertNull(result.hitDirection());
+        assertFalse(preview.mouseReleased(
+                mouseEvent(
+                    releaseX,
+                    releaseY,
+                    GLFW.GLFW_MOUSE_BUTTON_LEFT
+                ),
+                1
+            )
+            .consumed());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"100.0, 50.0", "163.999, 50.0", "100.0, 113.999", "163.999, 113.999"})
+    void shouldCountEmptyCornerInsidePreviewAsClick(
+        double mouseX,
+        double mouseY
+    )
+    {
+        preparePickingState();
+        setField(
+            "rotationX",
+            0.0f
+        );
+        setField(
+            "rotationY",
+            0.0f
+        );
+
+        assertTrue(preview.mouseClicked(
+            mouseEvent(
+                mouseX,
+                mouseY,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            X,
+            Y,
+            SIZE
+        ));
+
+        GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
+            mouseEvent(
+                mouseX,
+                mouseY,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+
+        assertTrue(result.consumed());
+        assertTrue(result.clicked());
+        assertNull(result.hitDirection());
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0.0, 3.0, 4.0})
+    void shouldCountMovementWithinThresholdAsClick(double mouseOffset) {
+        preparePickingState();
+        setField(
+            "rotationX",
+            0.0f
+        );
+        setField(
+            "rotationY",
+            0.0f
+        );
+        beginClick();
+
+        assertTrue(preview.mouseDragged(
+            mouseEvent(
+                CENTER_X + mouseOffset,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            mouseOffset,
+            0.0
+        ));
+
+        GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
+            mouseEvent(
+                CENTER_X + mouseOffset,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+
+        assertTrue(result.consumed());
+        assertTrue(result.clicked());
+        assertEquals(
+            Direction.SOUTH,
+            result.hitDirection()
+        );
+    }
+
+    @Test
+    void shouldNotCountCompletedDragOutsidePreviewAsClick() {
+        beginClick();
+        assertTrue(preview.mouseDragged(
+            mouseEvent(
+                X + SIZE + 5,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            X + SIZE + 5 - CENTER_X,
+            0.0
+        ));
+
+        GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
+            mouseEvent(
+                X + SIZE + 5,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+
+        assertTrue(result.consumed());
+        assertFalse(result.clicked());
+        assertNull(result.hitDirection());
+    }
+
+    @Test
+    void shouldIgnoreReleaseAfterCancelledClick() {
+        beginClick();
+        preview.cancelInteraction();
+
+        GuiMachinePreview.PreviewReleaseResult result = preview.mouseReleased(
+            mouseEvent(
+                CENTER_X,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+
+        assertFalse(result.consumed());
+        assertFalse(result.clicked());
+        assertNull(result.hitDirection());
+    }
+
+    @Test
+    void shouldAllowNewClickAfterCancellingActiveDrag() {
+        preparePickingState();
+        beginClick();
+        assertTrue(preview.mouseDragged(
+            mouseEvent(
+                CENTER_X + 12,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            12.0,
+            0.0
+        ));
+        preview.cancelInteraction();
+
+        assertFalse(preview.mouseDragged(
+            mouseEvent(
+                CENTER_X + 15,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            3.0,
+            0.0
+        ));
+        GuiMachinePreview.PreviewReleaseResult cancelled = preview.mouseReleased(
+            mouseEvent(
+                CENTER_X + 15,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+        assertFalse(cancelled.consumed());
+        assertFalse(cancelled.clicked());
+        assertNull(cancelled.hitDirection());
+
+        setField(
+            "rotationX",
+            0.0f
+        );
+        setField(
+            "rotationY",
+            0.0f
+        );
+        beginClick();
+        GuiMachinePreview.PreviewReleaseResult next = preview.mouseReleased(
+            mouseEvent(
+                CENTER_X,
+                CENTER_Y,
+                GLFW.GLFW_MOUSE_BUTTON_LEFT
+            ),
+            1
+        );
+        assertTrue(next.consumed());
+        assertTrue(next.clicked());
+        assertEquals(
+            Direction.SOUTH,
+            next.hitDirection()
+        );
     }
 
     private void beginClick() {
@@ -625,8 +893,6 @@ class GuiMachinePreviewTest {
     }
 
     private void preparePickingState() {
-        // Normally these fields are set by render(), which needs GuiGraphics.
-        // Initialize them directly so the release/picker logic can be unit tested.
         setField(
             "x",
             X

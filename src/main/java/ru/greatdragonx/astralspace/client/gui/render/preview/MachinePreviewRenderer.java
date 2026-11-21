@@ -1,6 +1,7 @@
 package ru.greatdragonx.astralspace.client.gui.render.preview;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
@@ -8,14 +9,24 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import org.joml.Vector3f;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+
+import java.util.List;
+import java.util.Objects;
 
 public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePreviewRenderState> {
+    private static final float HIGHLIGHT_OFFSET = 0.001f;
+    private static final int HIGHLIGHT_COLOR = 0x6440B4FF;
+
     public MachinePreviewRenderer(MultiBufferSource.BufferSource bufferSource) {
         super(bufferSource);
     }
@@ -26,10 +37,7 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
     }
 
     @Override
-    protected void renderToTexture(
-        MachinePreviewRenderState state,
-        @NonNull PoseStack poseStack
-    )
+    protected void renderToTexture(MachinePreviewRenderState state, @NonNull PoseStack poseStack)
     {
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
@@ -40,30 +48,27 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
         BlockRenderDispatcher blockRenderer = minecraft.getBlockRenderer();
         BlockState blockState = state.blockState();
 
-        int width = state.x1() - state.x0();
-        int height = state.y1() - state.y0();
-
         poseStack.pushPose();
 
         poseStack.translate(
-            0.0,
-            -32.0,
-            0.0
+            MachinePreviewTransform.MODEL_TRANSLATION_X,
+            MachinePreviewTransform.MODEL_TRANSLATION_Y,
+            MachinePreviewTransform.MODEL_TRANSLATION_Z
         );
 
         poseStack.scale(
-            28.0f,
-            -28.0f,
-            28.0f
+            MachinePreviewTransform.MODEL_SCALE_X,
+            MachinePreviewTransform.MODEL_SCALE_Y,
+            MachinePreviewTransform.MODEL_SCALE_Z
         );
 
         poseStack.mulPose(Axis.XP.rotationDegrees(state.rotationX()));
         poseStack.mulPose(Axis.YP.rotationDegrees(state.rotationY()));
 
         poseStack.translate(
-            -0.5,
-            -0.5,
-            -0.5
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET,
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET,
+            MachinePreviewTransform.BLOCK_CENTER_OFFSET
         );
 
         blockRenderer.renderSingleBlock(
@@ -76,6 +81,15 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
             BlockPos.ZERO
         );
 
+        MachineSide selectedSide = state.selectedSide();
+        if (selectedSide != null) {
+            Direction facing = state.blockState()
+                .getValue(BlockStateProperties.HORIZONTAL_FACING);
+
+            Direction direction = MachineSideDirections.toWorld(selectedSide, facing);
+            bufferSource.endBatch();
+            this.renderFaceHighlight(poseStack, direction);
+        }
         poseStack.popPose();
     }
 
@@ -84,17 +98,20 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
         return "astralspace:machine_preview";
     }
 
-    private float getYRotation(@Nullable MachineSide side) {
-        if (side == null) {
-            return 0.0f;
-        }
+    private void renderFaceHighlight(@NonNull PoseStack poseStack, @NonNull Direction direction) {
+        Objects.requireNonNull(poseStack, "poseStack cannot be null");
+        Objects.requireNonNull(direction, "direction cannot be null");
 
-        return switch (side) {
-            case FRONT -> 0.0f;
-            case RIGHT -> 90.0f;
-            case BACK -> 180.0f;
-            case LEFT -> 270.0f;
-            default -> 0.0f;
-        };
+        List<Vector3f> vertices = MachinePreviewFaceGeometry.getOffsetFaceVertices(
+            direction,
+            HIGHLIGHT_OFFSET
+        );
+        VertexConsumer consumer = bufferSource.getBuffer(RenderTypes.debugQuads());
+        PoseStack.Pose pose = poseStack.last();
+
+        for (Vector3f vertex : vertices) {
+            consumer.addVertex(pose, vertex)
+                .setColor(HIGHLIGHT_COLOR);
+        }
     }
 }
