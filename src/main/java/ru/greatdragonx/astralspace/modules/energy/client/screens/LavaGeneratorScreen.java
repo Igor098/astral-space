@@ -954,17 +954,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
                 ));
             }
 
-            // TODO: Удалить после тестирования прокрутки
-            if (side == MachineSide.RIGHT) {
-                List<GuiPortModeOption> testModes = List.of(new GuiPortModeOption(
-                    "disabled",
-                    Component.translatable("gui.astralspace.port_mode.disabled")
-                ));
-
-                entries.add(new GuiPortEntry(VisualPortType.ITEM, "disabled", testModes));
-                entries.add(new GuiPortEntry(VisualPortType.GAS, "disabled", testModes));
-            }
-
             data.put(side, entries);
         }
 
