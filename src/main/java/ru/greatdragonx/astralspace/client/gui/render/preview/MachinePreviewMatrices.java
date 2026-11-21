@@ -34,20 +34,27 @@ public final class MachinePreviewMatrices {
         int height = (state.y1() - state.y0()) * guiScale;
         Matrix4f matrix = new Matrix4f();
 
+        float factor = MachinePreviewTransform.viewportFactor(
+            state.x1() - state.x0(),
+            state.y1() - state.y0()
+        );
+        float scaleFactor = Math.min(1.0f, factor * 1.2f);
+
         float f = guiScale * state.scale();
 
         matrix.translate(width / 2.0f, height, 0.0f);
         matrix.scale(f, f, -f);
 
         matrix.translate(
-            MachinePreviewTransform.MODEL_TRANSLATION_X,
-            MachinePreviewTransform.MODEL_TRANSLATION_Y,
-            MachinePreviewTransform.MODEL_TRANSLATION_Z
+            MachinePreviewTransform.MODEL_TRANSLATION_X * factor,
+            MachinePreviewTransform.MODEL_TRANSLATION_Y * factor,
+            MachinePreviewTransform.MODEL_TRANSLATION_Z * factor
         );
+
         matrix.scale(
-            MachinePreviewTransform.MODEL_SCALE_X,
-            MachinePreviewTransform.MODEL_SCALE_Y,
-            MachinePreviewTransform.MODEL_SCALE_Z
+            MachinePreviewTransform.MODEL_SCALE_X * scaleFactor,
+            MachinePreviewTransform.MODEL_SCALE_Y * scaleFactor,
+            MachinePreviewTransform.MODEL_SCALE_Z * scaleFactor
         );
 
         matrix.rotateX((float) Math.toRadians(state.rotationX()));

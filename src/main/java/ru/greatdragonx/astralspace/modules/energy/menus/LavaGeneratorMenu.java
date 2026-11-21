@@ -18,6 +18,7 @@ import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlo
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class LavaGeneratorMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
@@ -142,5 +143,15 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
         int code = this.data.get(index);
 
         return MachinePortDataCodec.decodeFluid(code);
+    }
+
+    public void withGenerator(Consumer<LavaGeneratorBlockEntity> action) {
+        Objects.requireNonNull(action, "action cannot be null");
+
+        this.access.execute((level, pos) -> {
+            if (level.getBlockEntity(pos) instanceof LavaGeneratorBlockEntity entity) {
+                action.accept(entity);
+            }
+        });
     }
 }

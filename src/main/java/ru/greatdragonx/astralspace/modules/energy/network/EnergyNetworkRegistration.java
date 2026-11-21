@@ -28,5 +28,11 @@ public final class EnergyNetworkRegistration {
             SetCoalGeneratorRedstoneModePayload.STREAM_CODEC,
             SetCoalGeneratorRedstoneModeHandler::handle
         );
+
+        registrar.playToServer(
+            SetLavaGeneratorPortModePayload.TYPE,
+            SetLavaGeneratorPortModePayload.STREAM_CODEC,
+            SetLavaGeneratorPortModeHandler::handle
+        );
     }
 }

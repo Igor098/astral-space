@@ -22,15 +22,7 @@ public final class GuiTabAnimation {
             progress -= step;
         }
 
-        this.progress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
-    }
-
-    public void toggle() {
-        this.open = !this.open;
+        this.progress = Math.clamp(progress, 0.0f, 1.0f);
     }
 
     public void open() {
@@ -50,11 +42,7 @@ public final class GuiTabAnimation {
     }
 
     public float getProgress(float partialTick) {
-        float progress = Mth.lerp(
-            partialTick,
-            this.previousProgress,
-            this.progress
-        );
+        float progress = Mth.lerp(partialTick, this.previousProgress, this.progress);
 
         return GuiEasing.smoothstep(progress);
     }

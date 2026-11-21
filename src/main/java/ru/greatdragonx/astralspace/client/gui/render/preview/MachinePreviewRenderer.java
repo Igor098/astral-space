@@ -37,7 +37,10 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
     }
 
     @Override
-    protected void renderToTexture(MachinePreviewRenderState state, @NonNull PoseStack poseStack)
+    protected void renderToTexture(
+        @NonNull MachinePreviewRenderState state,
+        @NonNull PoseStack poseStack
+    )
     {
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
@@ -50,16 +53,22 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
 
         poseStack.pushPose();
 
+        float factor = MachinePreviewTransform.viewportFactor(
+            state.x1() - state.x0(),
+            state.y1() - state.y0()
+        );
+        float scaleFactor = Math.min(1.0f, factor * 1.2f);
+
         poseStack.translate(
-            MachinePreviewTransform.MODEL_TRANSLATION_X,
-            MachinePreviewTransform.MODEL_TRANSLATION_Y,
-            MachinePreviewTransform.MODEL_TRANSLATION_Z
+            MachinePreviewTransform.MODEL_TRANSLATION_X * factor,
+            MachinePreviewTransform.MODEL_TRANSLATION_Y * factor,
+            MachinePreviewTransform.MODEL_TRANSLATION_Z * factor
         );
 
         poseStack.scale(
-            MachinePreviewTransform.MODEL_SCALE_X,
-            MachinePreviewTransform.MODEL_SCALE_Y,
-            MachinePreviewTransform.MODEL_SCALE_Z
+            MachinePreviewTransform.MODEL_SCALE_X * scaleFactor,
+            MachinePreviewTransform.MODEL_SCALE_Y * scaleFactor,
+            MachinePreviewTransform.MODEL_SCALE_Z * scaleFactor
         );
 
         poseStack.mulPose(Axis.XP.rotationDegrees(state.rotationX()));
@@ -83,8 +92,7 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
 
         MachineSide selectedSide = state.selectedSide();
         if (selectedSide != null) {
-            Direction facing = state.blockState()
-                .getValue(BlockStateProperties.HORIZONTAL_FACING);
+            Direction facing = state.blockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
 
             Direction direction = MachineSideDirections.toWorld(selectedSide, facing);
             bufferSource.endBatch();
@@ -98,7 +106,11 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
         return "astralspace:machine_preview";
     }
 
-    private void renderFaceHighlight(@NonNull PoseStack poseStack, @NonNull Direction direction) {
+    private void renderFaceHighlight(
+        @NonNull PoseStack poseStack,
+        @NonNull Direction direction
+    )
+    {
         Objects.requireNonNull(poseStack, "poseStack cannot be null");
         Objects.requireNonNull(direction, "direction cannot be null");
 
@@ -110,8 +122,7 @@ public class MachinePreviewRenderer extends PictureInPictureRenderer<MachinePrev
         PoseStack.Pose pose = poseStack.last();
 
         for (Vector3f vertex : vertices) {
-            consumer.addVertex(pose, vertex)
-                .setColor(HIGHLIGHT_COLOR);
+            consumer.addVertex(pose, vertex).setColor(HIGHLIGHT_COLOR);
         }
     }
 }

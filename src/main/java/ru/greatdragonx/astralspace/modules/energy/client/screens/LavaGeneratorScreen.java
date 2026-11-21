@@ -10,16 +10,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
-import ru.greatdragonx.astralspace.client.gui.components.GuiPortEntry;
-import ru.greatdragonx.astralspace.client.gui.components.GuiSideConfigData;
-import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticEntry;
-import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
+import ru.greatdragonx.astralspace.client.gui.components.*;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
-import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewPicker;
 import ru.greatdragonx.astralspace.client.gui.render.preview.MachinePreviewRenderState;
 import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
@@ -30,6 +27,7 @@ import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.menus.LavaGeneratorMenu;
+import ru.greatdragonx.astralspace.modules.energy.network.SetLavaGeneratorPortModePayload;
 
 import java.util.*;
 
@@ -60,6 +58,26 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private static final int LAVA_FRAME_TICKS = 4;
     private static final int COMBUSTION_FRAME_COUNT = 16;
     private static final int COMBUSTION_FRAME_TICKS = 4;
+
+    private static final List<GuiPortModeOption> ENERGY_MODE_OPTIONS = List.of(
+        new GuiPortModeOption(
+            "disabled",
+            Component.translatable("gui.astralspace.port_mode.disabled")
+        ),
+        new GuiPortModeOption("output", Component.translatable("gui.astralspace.port_mode.output"))
+    );
+
+    private static final List<GuiPortModeOption> FLUID_MODE_OPTIONS = List.of(
+        new GuiPortModeOption(
+            "disabled",
+            Component.translatable("gui.astralspace.port_mode.disabled")
+        ),
+        new GuiPortModeOption("input", Component.translatable("gui.astralspace.port_mode.input")),
+        new GuiPortModeOption(
+            "service",
+            Component.translatable("gui.astralspace.port_mode.service")
+        )
+    );
 
     private static final Identifier STATUS_ICONS =
         Identifier.fromNamespaceAndPath(
@@ -134,11 +152,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private final float previewRotationX = -70.0f;
     private final float previewRotationY = 0.0f;
 
-    private double previewDragStartX;
-    private double previewDragStartY;
-    private final boolean previewWasDragged = false;
-    private final boolean previewDragging = false;
-    private final MachinePreviewPicker previewPicker = new MachinePreviewPicker();
+    private GuiSideConfigData sideConfigData;
 
     public LavaGeneratorScreen(
         @NonNull LavaGeneratorMenu menu,
@@ -151,13 +165,22 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         this.imageWidth = MENU_WIDTH;
         this.imageHeight = MENU_HEIGHT;
 
+        this.sideConfigData = this.buildSideConfigData();
         this.infoEntries = this.createInfoEntries();
 
         this.machineInfoTab = new GuiMachineInfoTab(this.font);
         this.statisticsTab = new GuiStatisticsTab(this.font, ENERGY_TAB_ICON);
         this.leftTabs = new GuiTabGroup(List.of(this.machineInfoTab, this.statisticsTab));
 
-        this.sideConfigTab = new GuiSideConfigTab(this.font, SIDE_CONFIG_ICON);
+        this.sideConfigTab = new GuiSideConfigTab(
+            this.font, SIDE_CONFIG_ICON, (side, portType, modeId) -> {
+            ClientPacketDistributor.sendToServer(new SetLavaGeneratorPortModePayload(
+                side,
+                portType,
+                modeId
+            ));
+        }
+        );
         this.rightTabs = new GuiTabGroup(List.of(this.sideConfigTab));
     }
 
@@ -171,14 +194,21 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     {
         super.render(graphics, mouseX, mouseY, partialTick);
 
+        this.sideConfigTab.renderDropdownOverlay(
+            graphics,
+            mouseX,
+            mouseY,
+            this.getRightTabsX(),
+            this.getRightTabsY(),
+            this.height,
+            this.sideConfigData
+        );
+
         this.renderTooltip(graphics, mouseX, mouseY);
-
         this.renderLavaTooltip(graphics, mouseX, mouseY);
-
         this.renderEnergyTooltip(graphics, mouseX, mouseY);
 
         int infoTabY = this.getLeftTabsY();
-
         this.machineInfoTab.renderTooltip(graphics, mouseX, mouseY, this.leftPos, infoTabY);
 
         Component tooltip = Component.translatable(
@@ -187,7 +217,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
 
         int statisticsTabY = this.leftTabs.getTabY(this.statisticsTab, this.getLeftTabsY());
-
         this.statisticsTab.renderTooltip(
             graphics,
             mouseX,
@@ -260,11 +289,9 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         this.drawGeneratorStatus(graphics);
 
         int infoTabY = this.getLeftTabsY();
-
         this.machineInfoTab.render(graphics, this.infoEntries, this.leftPos, infoTabY, partialTick);
 
         int energyTabY = this.leftTabs.getTabY(this.statisticsTab, infoTabY);
-
         this.statisticsTab.render(
             graphics,
             this.leftPos,
@@ -274,17 +301,15 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
 
         BlockState blockState = this.getPreviewBlockState();
-//        this.sideConfigTab.render(
-//            getRightTabsX(),
-//            getRightTabsY(),
-//            partialTick,
-//            graphics,
-//            Component.translatable("gui.astralspace.side_config.title"),
-//            blockState
-//        );
-
-//        MachinePreviewRenderState state = this.createPreviewState(graphics.peekScissorStack());
-//        graphics.submitPictureInPictureRenderState(state);
+        this.sideConfigTab.render(
+            getRightTabsX(),
+            getRightTabsY(),
+            partialTick,
+            graphics,
+            Component.translatable("gui.astralspace.side_config.title"),
+            blockState,
+            this.sideConfigData
+        );
     }
 
     @Override
@@ -310,6 +335,17 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         boolean doubled
     )
     {
+        if (this.sideConfigTab.handleDropdownClick(
+            event,
+            this.getRightTabsX(),
+            this.getRightTabsY(),
+            this.height,
+            this.sideConfigData
+        ))
+        {
+            return true;
+        }
+
         if (this.leftTabs.mouseClicked(event, this.leftPos, this.getLeftTabsY())) {
             return true;
         }
@@ -332,26 +368,16 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             return true;
         }
 
-        if (this.sideConfigTab.mouseClicked(event, this.getRightTabsX(), this.getRightTabsY())) {
+        if (this.sideConfigTab.mouseClicked(
+            event,
+            this.getRightTabsX(),
+            this.getRightTabsY(),
+            this.sideConfigData
+        ))
+        {
             return true;
         }
 
-//        int previewX = this.leftPos + this.imageWidth + 8;
-//        int previewY = this.topPos + 32;
-//        int previewSize = 64;
-//
-//        boolean isPreviewHovered = event.x() >= previewX &&
-//            event.x() < previewX + previewSize &&
-//            event.y() >= previewY &&
-//            event.y() < previewY + previewSize;
-//
-//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isPreviewHovered) {
-//            this.previewDragging = true;
-//            this.previewDragStartX = event.x();
-//            this.previewDragStartY = event.y();
-//            this.previewWasDragged = false;
-//            return true;
-//        }
         return super.mouseClicked(event, doubled);
     }
 
@@ -363,6 +389,18 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         double scrollY
     )
     {
+        if (this.sideConfigTab.mouseScrolled(
+            mouseX,
+            mouseY,
+            scrollY,
+            this.leftPos + this.imageWidth,
+            this.getRightTabsY(),
+            this.sideConfigData
+        ))
+        {
+            return true;
+        }
+
         if (this.machineInfoTab.mouseScrolled(
             mouseX,
             mouseY,
@@ -385,26 +423,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         double dragY
     )
     {
-//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
-//            double distance = Math.hypot(
-//                event.x() - this.previewDragStartX,
-//                event.y() - this.previewDragStartY
-//            );
-//
-//            if (distance > 4.0) {
-//                this.previewWasDragged = true;
-//            }
-//            if (this.previewWasDragged) {
-//                this.previewRotationX = Math.clamp(
-//                    this.previewRotationX + (float) (dragY * 0.8f),
-//                    -110.0f,
-//                    110.0f
-//                );
-//                this.previewRotationY += (float) (dragX * 0.8f);
-//            }
-//            return true;
-//        }
-
         if (this.machineInfoTab.mouseDragged(event.y(), event.button(), this.infoEntries)) {
             return true;
         }
@@ -421,31 +439,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         @NonNull MouseButtonEvent event
     )
     {
-//        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.previewDragging) {
-//            boolean wasDragged = this.previewWasDragged;
-//
-//            this.previewDragging = false;
-//            this.previewWasDragged = false;
-//
-//            if (!wasDragged) {
-//                MachinePreviewRenderState state = this.createPreviewState(null);
-//                int guiScale = this.minecraft.getWindow()
-//                    .getGuiScale();
-//                Direction hitDirection = previewPicker.detectHitDirection(
-//                    event.x(),
-//                    event.y(),
-//                    state,
-//                    guiScale
-//                );
-//                AstralSpace.LOGGER.debug(
-//                    "Machine preview clicked: {}",
-//                    hitDirection
-//                );
-//            }
-//
-//            return true;
-//        }
-
         if (this.machineInfoTab.mouseReleased(event.button())) {
             return true;
         }
@@ -454,8 +447,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         Direction facing = blockState.getValue(LavaGeneratorBlock.FACING);
         if (this.sideConfigTab.mouseReleased(
             event,
-            this.minecraft.getWindow()
-                .getGuiScale(),
+            this.minecraft.getWindow().getGuiScale(),
             facing
         ))
         {
@@ -468,6 +460,8 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     @Override
     protected void containerTick() {
         super.containerTick();
+
+        this.sideConfigData = this.buildSideConfigData();
 
         this.machineInfoTab.tick();
         this.statisticsTab.tick();
@@ -661,22 +655,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         }
 
         return frames;
-    }
-
-    private static @NonNull Component getEnergyModeName(
-        @NonNull EnergyPortMode mode
-    )
-    {
-        return Component.translatable("gui.astralspace.port_mode." + mode.name()
-            .toLowerCase(Locale.ROOT));
-    }
-
-    private static @NonNull Component getFluidModeName(
-        @NonNull FluidPortMode mode
-    )
-    {
-        return Component.translatable("gui.astralspace.port_mode." + mode.name()
-            .toLowerCase(Locale.ROOT));
     }
 
     private Identifier getCombustionFrameTexture() {
@@ -928,9 +906,9 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         int previewX = this.leftPos + this.imageWidth + 8;
         int previewY = this.topPos + 32;
 
-        BlockState blockState = EnergyBlocks.LAVA_GENERATOR.get()
-            .defaultBlockState()
-            .setValue(LavaGeneratorBlock.FACING, Direction.SOUTH);
+        BlockState blockState = EnergyBlocks.LAVA_GENERATOR.get().defaultBlockState().setValue(LavaGeneratorBlock.FACING,
+            Direction.SOUTH
+        );
 
         return new MachinePreviewRenderState(
             previewX,
@@ -946,8 +924,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     }
 
     private @NonNull BlockState getPreviewBlockState() {
-        return EnergyBlocks.LAVA_GENERATOR.get()
-            .defaultBlockState();
+        return EnergyBlocks.LAVA_GENERATOR.get().defaultBlockState();
     }
 
     private @NonNull GuiSideConfigData buildSideConfigData() {
@@ -958,12 +935,34 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
 
             EnergyPortMode energyMode = this.menu.getEnergyPortMode(side);
             if (energyMode != null) {
-                entries.add(new GuiPortEntry(VisualPortType.ENERGY, getEnergyModeName(energyMode)));
+                String currentModeId = energyMode.name().toLowerCase(Locale.ROOT);
+
+                entries.add(new GuiPortEntry(
+                    VisualPortType.ENERGY,
+                    currentModeId,
+                    ENERGY_MODE_OPTIONS
+                ));
             }
 
             FluidPortMode fluidMode = this.menu.getFluidPortMode(side);
             if (fluidMode != null) {
-                entries.add(new GuiPortEntry(VisualPortType.FLUID, getFluidModeName(fluidMode)));
+                String currentModeId = fluidMode.name().toLowerCase(Locale.ROOT);
+                entries.add(new GuiPortEntry(
+                    VisualPortType.FLUID,
+                    currentModeId,
+                    FLUID_MODE_OPTIONS
+                ));
+            }
+
+            // TODO: Удалить после тестирования прокрутки
+            if (side == MachineSide.RIGHT) {
+                List<GuiPortModeOption> testModes = List.of(new GuiPortModeOption(
+                    "disabled",
+                    Component.translatable("gui.astralspace.port_mode.disabled")
+                ));
+
+                entries.add(new GuiPortEntry(VisualPortType.ITEM, "disabled", testModes));
+                entries.add(new GuiPortEntry(VisualPortType.GAS, "disabled", testModes));
             }
 
             data.put(side, entries);

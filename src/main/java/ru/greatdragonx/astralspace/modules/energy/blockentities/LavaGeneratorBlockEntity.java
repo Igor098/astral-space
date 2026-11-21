@@ -274,8 +274,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             portId -> true
         );
 
-        Map<MachineSide, FluidPortHandler> handlers = new EnumMap<MachineSide, FluidPortHandler>(
-            MachineSide.class);
+        Map<MachineSide, FluidPortHandler> handlers = new EnumMap<>(MachineSide.class);
         for (Map.Entry<MachineSide, FluidPortId> entry : FLUID_PORT_IDS.entrySet()) {
             MachineSide side = entry.getKey();
             FluidPortId portId = entry.getValue();
@@ -296,10 +295,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
     @Override
     public @NonNull ModelData getModelData() {
-        return ModelData.builder()
-            .with(FRONT_STATE, this.getFrontState())
-            .with(VISUAL_PORTS, this.createVisualPortsSnapshot())
-            .build();
+        return ModelData.builder().with(FRONT_STATE, this.getFrontState()).with(
+            VISUAL_PORTS,
+            this.createVisualPortsSnapshot()
+        ).build();
     }
 
     @Override
@@ -573,13 +572,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return null;
         }
 
-        Direction facing = this.getBlockState()
-            .getValue(LavaGeneratorBlock.FACING);
+        Direction facing = this.getBlockState().getValue(LavaGeneratorBlock.FACING);
 
         MachineSide side = MachineSideDirections.fromWorld(worldSide, facing);
 
-        return this.getFluidPortHandler(side)
-            .orElse(null);
+        return this.getFluidPortHandler(side).orElse(null);
     }
 
     private @Nullable EnergyPortId getEnergyPortId(Direction worldSide) {
@@ -718,12 +715,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         Map<EnergyPortId, EnergyPortMode> snapshot = this.energyPortConfiguration.snapshot();
         for (Map.Entry<EnergyPortId, EnergyPortMode> entry : snapshot.entrySet()) {
-            portsOutput.putString(
-                entry.getKey()
-                    .value(),
-                entry.getValue()
-                    .name()
-            );
+            portsOutput.putString(entry.getKey().value(), entry.getValue().name());
         }
     }
 
@@ -735,12 +727,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         Map<FluidPortId, FluidPortMode> snapshot = this.fluidPortConfiguration.snapshot();
         for (Map.Entry<FluidPortId, FluidPortMode> entry : snapshot.entrySet()) {
-            portsOutput.putString(
-                entry.getKey()
-                    .value(),
-                entry.getValue()
-                    .name()
-            );
+            portsOutput.putString(entry.getKey().value(), entry.getValue().name());
         }
     }
 
@@ -798,12 +785,11 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         if (this.level != null && !this.level.isClientSide()) {
             this.level.invalidateCapabilities(this.worldPosition);
-            this.level.sendBlockUpdated(
-                this.worldPosition,
-                this.getBlockState(),
-                this.getBlockState(),
-                Block.UPDATE_CLIENTS
-            );
+
+            BlockState state = this.getBlockState();
+
+            this.level.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
+            this.level.updateNeighborsAt(this.worldPosition, state.getBlock());
         }
     }
 
@@ -841,9 +827,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     {
         BlockPos neighborPos = pos.relative(side);
 
-        if (!level.getChunkSource()
-            .hasChunk(neighborPos.getX() >> 4, neighborPos.getZ() >> 4))
-        {
+        if (!level.getChunkSource().hasChunk(neighborPos.getX() >> 4, neighborPos.getZ() >> 4)) {
             return null;
         }
 

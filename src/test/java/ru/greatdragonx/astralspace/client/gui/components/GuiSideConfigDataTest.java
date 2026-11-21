@@ -10,12 +10,32 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GuiSideConfigDataTest {
+    private static GuiPortModeOption option(
+        String id,
+        String label
+    )
+    {
+        return new GuiPortModeOption(id, Component.literal(label));
+    }
+
     private static GuiPortEntry energyPort() {
-        return new GuiPortEntry(VisualPortType.ENERGY, Component.literal("Output"));
+        return new GuiPortEntry(
+            VisualPortType.ENERGY,
+            "output",
+            List.of(option("disabled", "Disabled"), option("output", "Output"))
+        );
     }
 
     private static GuiPortEntry fluidPort() {
-        return new GuiPortEntry(VisualPortType.FLUID, Component.literal("Input"));
+        return new GuiPortEntry(
+            VisualPortType.FLUID,
+            "input",
+            List.of(
+                option("disabled", "Disabled"),
+                option("input", "Input"),
+                option("service", "Service")
+            )
+        );
     }
 
     @Test

@@ -5,8 +5,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
+import ru.greatdragonx.astralspace.client.gui.animation.GuiEasing;
 import ru.greatdragonx.astralspace.client.gui.animation.GuiTabAnimation;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
 import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
@@ -33,16 +35,25 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     private static final int ICON_TEXTURE_SIZE = 64;
     private static final int ICON_OPEN_LEFT_INSET = 5;
 
+    private static final float HEIGHT_ANIMATION_STEP = 0.15f;
+
     private final int panelWidth;
     private final int panelHeight;
 
     private int renderedWidth = TAB_WIDTH;
     private int renderedHeight = TAB_HEIGHT;
 
-    private static final Identifier BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/tabs/tab_background.png"
-    );
+    private int targetPanelHeight;
+
+    private float heightAnimationStart;
+    private float heightAnimationProgress = 1.0f;
+    private float previousHeightAnimationProgress = 1.0f;
+
+    private static final Identifier BACKGROUND_TEXTURE =
+        Identifier.fromNamespaceAndPath(
+            AstralSpace.MOD_ID,
+            "textures/gui/common/tabs/tab_background.png"
+        );
 
     private final GuiTabAnimation animation;
     private final boolean opensLeft;
@@ -55,10 +66,14 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     )
     {
         if (panelWidth < TAB_WIDTH || panelHeight < TAB_HEIGHT) {
-            throw new IllegalArgumentException("Panel dimensions must not be smaller than tab dimensions");
+            throw new IllegalArgumentException(
+                "Panel dimensions must not be smaller than tab dimensions");
         }
         this.panelWidth = panelWidth;
         this.panelHeight = panelHeight;
+
+        this.targetPanelHeight = panelHeight;
+        this.heightAnimationStart = panelHeight;
 
         this.opensLeft = opensLeft;
         this.animation = new GuiTabAnimation(animationStep);
@@ -66,6 +81,13 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
 
     public void tick() {
         this.animation.tick();
+
+        this.previousHeightAnimationProgress = this.heightAnimationProgress;
+
+        this.heightAnimationProgress = Math.min(
+            1.0f,
+            this.heightAnimationProgress + HEIGHT_ANIMATION_STEP
+        );
     }
 
     @Override
@@ -97,9 +119,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     )
     {
         int x = this.getPanelX(anchorX);
-        return mouseX >= x &&
-            mouseX < x + this.renderedWidth &&
-            mouseY >= anchorY &&
+        return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY &&
             mouseY < anchorY + TAB_HEIGHT;
     }
 
@@ -139,10 +159,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
         int targetHeight
     )
     {
-        float progress = this.updateRenderState(
-            partialTick,
-            targetHeight
-        );
+        float progress = this.updateRenderState(partialTick, targetHeight);
         int x = getPanelX(anchorX);
 
         NineSliceRenderer.drawScaled(
@@ -170,8 +187,8 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     {
         int baseInset = (TAB_WIDTH - ICON_SIZE) / 2;
 
-        int iconInset = this.opensLeft ? Math.round(baseInset +
-            (ICON_OPEN_LEFT_INSET - baseInset) * progress) : baseInset;
+        int iconInset = this.opensLeft ? Math.round(
+            baseInset + (ICON_OPEN_LEFT_INSET - baseInset) * progress) : baseInset;
 
         int iconX = panelX + iconInset;
         int iconY = panelY + (TAB_HEIGHT - ICON_SIZE) / 2;
@@ -232,11 +249,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
 
     private int getAnimatedWidth(float progress) {
         int delta = this.panelWidth - TAB_WIDTH;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
+        float normalizedProgress = Math.clamp(progress, 0.0f, 1.0f);
         return Math.round(TAB_WIDTH + delta * normalizedProgress);
     }
 
@@ -246,12 +259,20 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     )
     {
         int delta = targetHeight - TAB_HEIGHT;
-        float normalizedProgress = Math.clamp(
-            progress,
-            0.0f,
-            1.0f
-        );
+        float normalizedProgress = Math.clamp(progress, 0.0f, 1.0f);
         return Math.round(TAB_HEIGHT + delta * normalizedProgress);
+    }
+
+    private float getInterpolatedPanelHeight(float partialTick) {
+        float progress = Mth.lerp(
+            partialTick,
+            this.previousHeightAnimationProgress,
+            this.heightAnimationProgress
+        );
+
+        float easedProgress = GuiEasing.smoothstep(progress);
+
+        return Mth.lerp(easedProgress, this.heightAnimationStart, this.targetPanelHeight);
     }
 
     private float updateRenderState(
@@ -259,13 +280,26 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
         int targetHeight
     )
     {
+        if (targetHeight != this.targetPanelHeight) {
+            float currentHeight = this.getInterpolatedPanelHeight(partialTick);
+            this.targetPanelHeight = targetHeight;
+
+            if (!this.animation.isOpen()) {
+                this.heightAnimationStart = targetHeight;
+                this.heightAnimationProgress = 1.0f;
+                this.previousHeightAnimationProgress = 1.0f;
+            } else {
+                this.heightAnimationStart = currentHeight;
+                this.heightAnimationProgress = 0.0f;
+                this.previousHeightAnimationProgress = 0.0f;
+            }
+        }
+
         float progress = this.animation.getProgress(partialTick);
+        float animatedHeight = this.getInterpolatedPanelHeight(partialTick);
 
         this.renderedWidth = this.getAnimatedWidth(progress);
-        this.renderedHeight = this.getAnimatedHeight(
-            progress,
-            targetHeight
-        );
+        this.renderedHeight = Math.round(TAB_HEIGHT + (animatedHeight - TAB_HEIGHT) * progress);
 
         return progress;
     }
