@@ -12,23 +12,25 @@ import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
 import ru.greatdragonx.astralspace.client.gui.render.NineSliceRenderer;
 
 public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
-    protected static final int TAB_WIDTH = 20;
-    protected static final int TAB_HEIGHT = 20;
-    protected static final int BORDER_SIZE = 5;
+    protected static final int TAB_WIDTH = 28;
+    protected static final int TAB_HEIGHT = 28;
 
-    private static final int TEXTURE_SIZE = 20;
+    private static final int TEXTURE_SIZE = 160;
+    private static final int SOURCE_BORDER = 40;
+    protected static final int BORDER_SIZE = 7;
 
     private static final int DIVIDER_HORIZONTAL_INSET = 5;
     private static final int DIVIDER_THICKNESS = 1;
 
     private static final int TITLE_COLOR = 0xFFE4E8EC;
-    private static final int DIVIDER_COLOR = 0xFF626C75;
+    private static final int DIVIDER_COLOR = 0xFF454C56;
 
     private static final float TITLE_SCALE = 0.75f;
-    private static final int TITLE_X_GAP = 4;
-    private static final int TITLE_Y_OFFSET = 2;
+    private static final int TITLE_X_GAP = 0;
+    private static final int TITLE_Y_OFFSET = 3;
 
     private static final int ICON_SIZE = 16;
+    private static final int ICON_TEXTURE_SIZE = 64;
     private static final int ICON_OPEN_LEFT_INSET = 5;
 
     private final int panelWidth;
@@ -57,7 +59,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
         }
         this.panelWidth = panelWidth;
         this.panelHeight = panelHeight;
-        
+
         this.opensLeft = opensLeft;
         this.animation = new GuiTabAnimation(animationStep);
     }
@@ -95,7 +97,9 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     )
     {
         int x = this.getPanelX(anchorX);
-        return mouseX >= x && mouseX < x + this.renderedWidth && mouseY >= anchorY &&
+        return mouseX >= x &&
+            mouseX < x + this.renderedWidth &&
+            mouseY >= anchorY &&
             mouseY < anchorY + TAB_HEIGHT;
     }
 
@@ -141,7 +145,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
         );
         int x = getPanelX(anchorX);
 
-        NineSliceRenderer.draw(
+        NineSliceRenderer.drawScaled(
             graphics,
             BACKGROUND_TEXTURE,
             x,
@@ -149,6 +153,7 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
             this.renderedWidth,
             this.renderedHeight,
             TEXTURE_SIZE,
+            SOURCE_BORDER,
             BORDER_SIZE
         );
 
@@ -165,8 +170,8 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
     {
         int baseInset = (TAB_WIDTH - ICON_SIZE) / 2;
 
-        int iconInset = this.opensLeft ? Math.round(
-            baseInset + (ICON_OPEN_LEFT_INSET - baseInset) * progress) : baseInset;
+        int iconInset = this.opensLeft ? Math.round(baseInset +
+            (ICON_OPEN_LEFT_INSET - baseInset) * progress) : baseInset;
 
         int iconX = panelX + iconInset;
         int iconY = panelY + (TAB_HEIGHT - ICON_SIZE) / 2;
@@ -180,8 +185,10 @@ public abstract class GuiAnimatedTab implements GuiCollapsibleTab {
             0,
             ICON_SIZE,
             ICON_SIZE,
-            ICON_SIZE,
-            ICON_SIZE
+            ICON_TEXTURE_SIZE,
+            ICON_TEXTURE_SIZE,
+            ICON_TEXTURE_SIZE,
+            ICON_TEXTURE_SIZE
         );
     }
 

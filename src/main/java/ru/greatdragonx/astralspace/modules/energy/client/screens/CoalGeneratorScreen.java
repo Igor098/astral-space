@@ -85,7 +85,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     private final List<GuiInfoEntry> infoEntries;
     private final GuiMachineInfoTab machineInfoTab;
     private final GuiStatisticsTab statisticsTab;
-    private final GuiSideConfigTab sideConfigTab;
+    private final GuiSideConfigTabOld sideConfigTab;
     private final GuiRedstoneControlTab redstoneControlTab;
 
     public CoalGeneratorScreen(
@@ -112,7 +112,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
             ENERGY_ICON
         );
 
-        this.sideConfigTab = new GuiSideConfigTab(
+        this.sideConfigTab = new GuiSideConfigTabOld(
             this.font,
             SIDE_CONFIG_ICON
         );
@@ -161,7 +161,7 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
         );
 
         Component tooltip = Component.translatable(
-            "gui.astralspace.coal_generator.production_rate.tooltip",
+            "gui.astralspace.energy_statistics.rate.tooltip",
             this.menu.getCurrentProductionRate()
         );
 
@@ -474,18 +474,18 @@ public class CoalGeneratorScreen extends AbstractContainerScreen<CoalGeneratorMe
     }
 
     private @NonNull GuiStatisticsData createStatisticsData() {
-        Component title = Component.translatable("gui.astralspace.coal_generator.statistics.title");
+        Component title = Component.translatable("gui.astralspace.energy_statistics.title");
         List<GuiStatisticEntry> entries = List.of(
             new GuiStatisticEntry(
-                Component.translatable("gui.astralspace.coal_generator.statistics.generation"),
+                Component.translatable("gui.astralspace.energy_statistics.generation"),
                 Component.literal(this.menu.getCurrentProductionRate() + " FE/t")
             ),
             new GuiStatisticEntry(
-                Component.translatable("gui.astralspace.coal_generator.statistics.max_generation"),
+                Component.translatable("gui.astralspace.energy_statistics.max_generation"),
                 Component.literal(CoalGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK + " FE/t")
             ),
             new GuiStatisticEntry(
-                Component.translatable("gui.astralspace.coal_generator.statistics.transfer"),
+                Component.translatable("gui.astralspace.energy_statistics.transfer"),
                 Component.literal(this.menu.getCurrentTransferRate() + " FE/t")
             )
         );

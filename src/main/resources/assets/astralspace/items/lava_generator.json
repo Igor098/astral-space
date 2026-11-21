@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "astralspace:block/lava_generator/off"
+  }
+}

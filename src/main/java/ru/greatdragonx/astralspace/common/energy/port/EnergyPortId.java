@@ -21,13 +21,13 @@ public record EnergyPortId(String value) {
     public EnergyPortId {
         Objects.requireNonNull(
             value,
-            "Port value cannot be null"
+            "Energy port value cannot be null"
         );
         if (value.isBlank()) {
-            throw new IllegalArgumentException("Port value cannot be blank");
+            throw new IllegalArgumentException("Energy port value cannot be blank");
         }
         if (!value.equals(value.strip())) {
-            throw new IllegalArgumentException("Port value does not contain before and after whitespace");
+            throw new IllegalArgumentException("Energy port value must not have leading or trailing whitespace");
         }
     }
 }

@@ -72,11 +72,11 @@ public final class FixedEnergyPortPolicy implements EnergyPortPolicy {
     {
         this.modes = Map.copyOf(Objects.requireNonNull(
             modes,
-            "modes cannot be null"
+            "Energy modes cannot be null"
         ));
         this.availability = Objects.requireNonNull(
             availability,
-            "availability cannot be null"
+            "Energy availability cannot be null"
         );
     }
 

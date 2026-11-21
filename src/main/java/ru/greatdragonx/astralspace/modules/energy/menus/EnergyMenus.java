@@ -20,6 +20,13 @@ public final class EnergyMenus {
             FeatureFlags.DEFAULT_FLAGS
         )
     );
+    public static final Supplier<MenuType<LavaGeneratorMenu>> LAVA_GENERATOR_MENU = MENUS.register(
+        "lava_generator_menu",
+        () -> new MenuType<>(
+            LavaGeneratorMenu::new,
+            FeatureFlags.DEFAULT_FLAGS
+        )
+    );
 
     private EnergyMenus() {
     }
