@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.fluid.port.FluidPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.serialization.MachinePortDataCodec;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFrontState;
@@ -22,7 +23,10 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final ContainerData data;
 
-    public LavaGeneratorMenu(int containerId, Inventory playerInventory)
+    public LavaGeneratorMenu(
+        int containerId,
+        Inventory playerInventory
+    )
     {
         this(
             containerId,
@@ -63,7 +67,10 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public @NonNull ItemStack quickMoveStack(@NonNull Player player, int index)
+    public @NonNull ItemStack quickMoveStack(
+        @NonNull Player player,
+        int index
+    )
     {
         return ItemStack.EMPTY;
     }
@@ -117,11 +124,11 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
     {
         Objects.requireNonNull(side, "side cannot be null");
 
-        int offset = getSideOffset(side);
+        int offset = MachinePortDataCodec.encodeSide(side);
         int index = LavaGeneratorBlockEntity.DATA_ENERGY_PORT_START + offset;
         int code = this.data.get(index);
 
-        return decodeEnergyPortMode(code);
+        return MachinePortDataCodec.decodeEnergy(code);
     }
 
     public @Nullable FluidPortMode getFluidPortMode(
@@ -130,42 +137,10 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
     {
         Objects.requireNonNull(side, "side cannot be null");
 
-        int offset = getSideOffset(side);
+        int offset = MachinePortDataCodec.encodeSide(side);
         int index = LavaGeneratorBlockEntity.DATA_FLUID_PORT_START + offset;
         int code = this.data.get(index);
 
-        return decodeFluidPortMode(code);
-    }
-
-    private static int getSideOffset(@NonNull MachineSide side) {
-        return switch (side) {
-            case FRONT -> 0;
-            case BACK -> 1;
-            case LEFT -> 2;
-            case RIGHT -> 3;
-            case TOP -> 4;
-            case BOTTOM -> 5;
-        };
-    }
-
-    private static @Nullable EnergyPortMode decodeEnergyPortMode(int code) {
-        return switch (code) {
-            case -1 -> null;
-            case 0 -> EnergyPortMode.DISABLED;
-            case 1 -> EnergyPortMode.OUTPUT;
-            case 2 -> EnergyPortMode.INPUT;
-            default -> throw new IllegalArgumentException("Unknown energy port mode code: " + code);
-        };
-    }
-
-    private static @Nullable FluidPortMode decodeFluidPortMode(int code) {
-        return switch (code) {
-            case -1 -> null;
-            case 0 -> FluidPortMode.DISABLED;
-            case 1 -> FluidPortMode.INPUT;
-            case 2 -> FluidPortMode.SERVICE;
-            case 3 -> FluidPortMode.OUTPUT;
-            default -> throw new IllegalArgumentException("Unknown fluid port mode code: " + code);
-        };
+        return MachinePortDataCodec.decodeFluid(code);
     }
 }

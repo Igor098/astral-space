@@ -1,5 +1,6 @@
 package ru.greatdragonx.astralspace.common.machine.visual.layout;
 
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
@@ -7,28 +8,13 @@ import ru.greatdragonx.astralspace.common.machine.visual.VisualPortId;
 
 import java.util.*;
 
-public class PortLayout {
-    private static final PortLayoutPreset CENTER = new PortLayoutPreset(
-        0.0f,
-        0.0f,
-        1.0f
-    );
-    private static final PortLayoutPreset UPPER = new PortLayoutPreset(
-        0.0f,
-        0.1375f,
-        0.6f
-    );
-    private static final PortLayoutPreset LOWER = new PortLayoutPreset(
-        0.0f,
-        -0.1375f,
-        0.6f
-    );
+public final class PortLayout {
+    private static final PortLayoutPreset CENTER = new PortLayoutPreset(0.0f, 0.0f, 1.0f);
+    private static final PortLayoutPreset UPPER = new PortLayoutPreset(0.0f, 0.1375f, 0.6f);
+    private static final PortLayoutPreset LOWER = new PortLayoutPreset(0.0f, -0.1375f, 0.6f);
 
     public List<PortPlacement> arrange(@NonNull List<VisualPort> ports) {
-        Objects.requireNonNull(
-            ports,
-            "Visual ports must not be null"
-        );
+        Objects.requireNonNull(ports, "Visual ports must not be null");
 
         if (ports.isEmpty()) {
             return Collections.emptyList();
@@ -42,12 +28,10 @@ public class PortLayout {
         MachineSide expectedSide = firstPort.side();
 
         for (VisualPort port : ports) {
-            Objects.requireNonNull(
-                port,
-                "Visual port must not be null"
-            );
+            Objects.requireNonNull(port, "Visual port must not be null");
             if (port.side() != expectedSide) {
-                throw new IllegalArgumentException("All visual ports must belong to the same machine side");
+                throw new IllegalArgumentException(
+                    "All visual ports must belong to the same machine side");
             }
             if (!usedIds.add(port.id())) {
                 throw new IllegalArgumentException("Duplicate visual port id: " + port.id()
@@ -90,11 +74,7 @@ public class PortLayout {
         throw new UnsupportedOperationException("Multiple port layout is not implemented yet");
     }
 
-    public List<PortLayoutPreset> supportedPresets() {
-        return List.of(
-            CENTER,
-            UPPER,
-            LOWER
-        );
+    public @NonNull @Unmodifiable List<PortLayoutPreset> supportedPresets() {
+        return List.of(CENTER, UPPER, LOWER);
     }
 }
