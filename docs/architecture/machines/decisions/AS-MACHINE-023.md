@@ -60,6 +60,48 @@ BlockEntity
 - Runtime-изменение FE-порта: пересчёт, `setChanged()`, необходимая инвалидация capability и необязательное уведомление конкретному генератору через защищённый hook. Не вызывать hook из конструктора или `loadAdditional()`.
 - Для Lava энергетический и жидкостный callbacks **разделены**: изменение Fluid-настроек само по себе не пересчитывает FE-распределитель. Динамический `ModelData`/`DynamicBlockStateModel` остаётся обязанностью Lava, а не общей FE-базы.
 
+
+## Зафиксированный контракт EnergyOutputController (уточнение §§81–87 журнала)
+
+**Состав конструктора утверждён на уровне эскиза Java-сигнатуры:**
+
+```java
+public EnergyOutputController(
+    EnergyComponent energy,
+    List<EnergyPortId> ports,
+    EnergyPortPolicy policy,
+    EnergyDistributionManager distribution,
+    EnergyTransferBudget outputBudget,
+    EnergyTransferTracker tracker,
+    LongSupplier currentTickSupplier
+);
+```
+
+Это **семь прямых зависимостей**, без `Level`, `BlockEntity`, `GeneratorConfiguration`, входного контроллера/бюджета и топливных зависимостей. Не заменять их искусственным `EnergyOutputContext` или обязательной фабрикой только ради сокращения списка аргументов. Контроллер не создаёт граф зависимостей самостоятельно.
+
+- `ports` — неизменяемая защитная копия `List` без `null` и повторяющихся ID; **порядок** определяет детерминированный обход. Внутри контроллера допускается производный неизменяемый `Set` для дешёвой проверки принадлежности, но он не заменяет упорядоченный список.
+- Сохраняются **две перегрузки извлечения**: обычная для внешнего Pull (`EnergyPortOperations.extract`) и явная с `ExtractionOrigin` для Push/Pull, используемая `EnergyPushTransfer`. Точная сигнатура без отличий от уже существующего `EnergyTransferCoordinator` должна быть уточнена при переносе, не ломая учёт спроса/квот.
+- Перед расчётом бюджета, запросов, статистики и чтением игрового времени **обе** перегрузки проверяют известность `portId` и актуальную `policy.allowsExtract(portId)`. При отказе возвращают `0`, не вызывают `currentTickSupplier` и ничего не изменяют. `null` и отрицательное количество — нарушения входного контракта, их нельзя скрывать обычным отказом.
+- `currentTickSupplier` вызывается **только после** guard'ов валидного порта и готового серверного мира; в конструкторе не вызывается и фиктивный тик `0` для неподключённого мира не используется.
+- `refreshAvailablePorts()` передаёт в менеджер новый список только при безопасном вне-транзакционном согласовании и не создаёт новый распределитель. Вызовы могут происходить при `onLoad` и при runtime-изменениях.
+
+## Утверждённый порядок сборки FE-контура (уточнение §§85–86)
+
+Сначала родитель `AbstractEnergyMachineBlockEntity` создаёт `EnergyComponent`. Затем `AbstractGeneratorBlockEntity` создаёт зависимости **в таком порядке**:
+
+1. `EnergyPortConfiguration` — **только** при `CONFIGURABLE`, без фиктивной изменяемой конфигурации при `FIXED`.
+2. `EnergyPortPolicy` с доступом к уже созданной конфигурации, если она нужна.
+3. `EnergyDistributionManager`.
+4. Общий исходящий `EnergyTransferBudget`.
+5. `EnergyTransferTracker`.
+6. `EnergyOutputController` из семи готовых зависимостей.
+7. `EnergyPortDispatcher`, реализующий `EnergyPortOperations`.
+8. `EnergyPushTransfer`, использующий тот же выходной контроллер и политику.
+
+После этого создаются и кэшируются обработчики `EnergyPortHandler`, когда их зависимости готовы. Общая база не создаёт `EnergyInputController` у генератора. Объекты создаются **без взаимодействия с миром**, виртуальных вызовов наследников и предварительного `refreshAvailablePorts()`; при `loadAdditional` восстанавливается состояние, а при `onLoad` согласуется его доступность.
+
+Для `EnergyPortConfiguration` сохраняется существующий `Runnable onConfigurationChanged` **без аргументов** (§65). Владелец на его вызов согласует текущие порты и побочные эффекты; не вводить обязательный `Consumer<EnergyPortId>` или event-объект, пока не появится реальная нужда.
+
 ## Граница решения и миграция
 
 Это **утверждённый проект**, а не сообщение о наличии `AbstractEnergyMachineBlockEntity`, `AbstractGeneratorBlockEntity`, `EnergyInputController`, `EnergyOutputController` и `EnergyPortDispatcher` в `main`. Работающий `LavaGeneratorBlockEntity` в ветке `feature/lava-generator-mk1` — ориентир по BE-owned конфигурации портов и динамической модели; Coal пока использует более старую `BlockState.OUTPUT_*`-схему. Не переносить эту старую визуальную схему в новую базу.
