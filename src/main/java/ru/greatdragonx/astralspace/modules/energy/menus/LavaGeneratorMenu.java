@@ -1,5 +1,6 @@
 package ru.greatdragonx.astralspace.modules.energy.menus;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -12,6 +13,8 @@ import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.fluid.port.FluidPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.menu.RedstoneConfigurableMenu;
 import ru.greatdragonx.astralspace.common.machine.serialization.MachinePortDataCodec;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
@@ -20,14 +23,11 @@ import ru.greatdragonx.astralspace.modules.energy.blocks.state.LavaGeneratorFron
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public class LavaGeneratorMenu extends AbstractContainerMenu {
+public class LavaGeneratorMenu extends AbstractContainerMenu implements RedstoneConfigurableMenu {
     private final ContainerLevelAccess access;
     private final ContainerData data;
 
-    public LavaGeneratorMenu(
-        int containerId,
-        Inventory playerInventory
-    )
+    public LavaGeneratorMenu(int containerId, Inventory playerInventory)
     {
         this(
             containerId,
@@ -68,12 +68,17 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public @NonNull ItemStack quickMoveStack(
-        @NonNull Player player,
-        int index
-    )
+    public @NonNull ItemStack quickMoveStack(@NonNull Player player, int index)
     {
         return ItemStack.EMPTY;
+    }
+
+    @Override
+    public void setRedstoneControlMode(ServerPlayer player, RedstoneControlMode mode) {
+        if (!this.stillValid(player)) {
+            return;
+        }
+        this.withGenerator(entity -> entity.setRedstoneControlMode(mode));
     }
 
     public int getLavaStored() {
@@ -143,6 +148,26 @@ public class LavaGeneratorMenu extends AbstractContainerMenu {
         int code = this.data.get(index);
 
         return MachinePortDataCodec.decodeFluid(code);
+    }
+
+    public boolean hasRedstoneSignal() {
+        return this.data.get(LavaGeneratorBlockEntity.DATA_REDSTONE_SIGNAL) == 1;
+    }
+
+    public boolean isRedstoneBlocked() {
+        return this.data.get(LavaGeneratorBlockEntity.DATA_REDSTONE_BLOCKED) == 1;
+    }
+
+    public RedstoneControlMode getRedstoneControlMode() {
+        int value = this.data.get(LavaGeneratorBlockEntity.DATA_REDSTONE_MODE);
+
+        RedstoneControlMode[] modes = RedstoneControlMode.values();
+
+        if (value < 0 || value >= modes.length) {
+            return RedstoneControlMode.IGNORE;
+        }
+
+        return modes[value];
     }
 
     public void withGenerator(Consumer<LavaGeneratorBlockEntity> action) {

@@ -54,7 +54,8 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_OUTPUT_MASK = 6;
     public static final int DATA_REDSTONE_MODE = 7;
     public static final int DATA_REDSTONE_BLOCKED = 8;
-    public static final int DATA_COUNT = 9;
+    public static final int DATA_REDSTONE_SIGNAL = 9;
+    public static final int DATA_COUNT = 10;
 
     private static final long LOW_FUEL_THRESHOLD = 8_000L;
     private static final Map<MachineSide, EnergyPortId> OUTPUT_PORT_IDS = Map.of(
@@ -119,15 +120,16 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
                     yield canOperate ? 0 : 1;
                 }
+                case DATA_REDSTONE_SIGNAL -> {
+                    Level level = CoalGeneratorBlockEntity.this.getLevel();
+                    yield level != null && level.hasNeighborSignal(worldPosition) ? 1 : 0;
+                }
                 default -> 0;
             };
         }
 
         @Override
-        public void set(
-            int index,
-            int value
-        )
+        public void set(int index, int value)
         {
         }
 
@@ -137,24 +139,14 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
     };
 
-    public CoalGeneratorBlockEntity(
-        BlockPos pos,
-        BlockState blockState
-    )
+    public CoalGeneratorBlockEntity(BlockPos pos, BlockState blockState)
     {
-        super(
-            EnergyBlockEntities.COAL_GENERATOR_BLOCK_ENTITY.get(),
-            pos,
-            blockState
-        );
+        super(EnergyBlockEntities.COAL_GENERATOR_BLOCK_ENTITY.get(), pos, blockState);
 
         this.transferTracker = new EnergyTransferTracker();
         this.extractionBudget = new EnergyTransferBudget(MAX_EXTRACT);
         this.distributionManager = new EnergyDistributionManager(MAX_EXTRACT);
-        this.energyComponent = new EnergyComponent(
-            ENERGY_CAPACITY,
-            this::setChanged
-        );
+        this.energyComponent = new EnergyComponent(ENERGY_CAPACITY, this::setChanged);
         EnergyTransferBudget insertionBudget = new EnergyTransferBudget(1);
 
         this.transferCoordinator = new EnergyTransferCoordinator(
@@ -163,20 +155,14 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             insertionBudget,
             this.extractionBudget,
             this.transferTracker,
-            () -> Objects.requireNonNull(
-                    this.level,
-                    "Generator level is not initialized"
-                )
+            () -> Objects.requireNonNull(this.level, "Generator level is not initialized")
                 .getGameTime()
         );
 
         Map<EnergyPortId, EnergyPortMode> outputModes = new HashMap<>();
 
         for (EnergyPortId portId : OUTPUT_PORT_IDS.values()) {
-            outputModes.put(
-                portId,
-                EnergyPortMode.OUTPUT
-            );
+            outputModes.put(portId, EnergyPortMode.OUTPUT);
         }
 
         this.energyPortPolicy = new FixedEnergyPortPolicy(
@@ -191,19 +177,13 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         this.fuelInventory = new ItemStacksResourceHandler(1) {
             @Override
-            protected void onContentsChanged(
-                int index,
-                @NonNull ItemStack previousContents
-            )
+            protected void onContentsChanged(int index, @NonNull ItemStack previousContents)
             {
                 CoalGeneratorBlockEntity.this.setChanged();
             }
 
             @Override
-            public boolean isValid(
-                int index,
-                @NonNull ItemResource resource
-            )
+            public boolean isValid(int index, @NonNull ItemResource resource)
             {
                 ItemStack stack = resource.toStack();
                 Level level = CoalGeneratorBlockEntity.this.level;
@@ -212,17 +192,12 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                     return false;
                 }
 
-                if (!stack.getCraftingRemainder()
-                    .isEmpty())
-                {
+                if (!stack.getCraftingRemainder().isEmpty()) {
                     return false;
                 }
 
                 FuelValues fuelValues = level.fuelValues();
-                return stack.getBurnTime(
-                    null,
-                    fuelValues
-                ) > 0;
+                return stack.getBurnTime(null, fuelValues) > 0;
             }
         };
 
@@ -249,11 +224,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         return this.outputHandlers.computeIfAbsent(
             portId,
-            id -> new EnergyPortHandler(
-                id,
-                this.energyPortPolicy,
-                this.transferCoordinator
-            )
+            id -> new EnergyPortHandler(id, this.energyPortPolicy, this.transferCoordinator)
         );
     }
 
@@ -266,16 +237,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     {
         blockEntity.currentProductionRate = 0;
         blockEntity.syncAvailableEnergyPorts(state);
-        blockEntity.pushEnergyToNeighbors(
-            level,
-            pos
-        );
+        blockEntity.pushEnergyToNeighbors(level, pos);
 
         if (blockEntity.energyComponent.getStoredEnergy() >= ENERGY_CAPACITY) {
-            blockEntity.updateFrontState(
-                state,
-                false
-            );
+            blockEntity.updateFrontState(state, false);
             return;
         }
 
@@ -283,10 +248,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         boolean canOperate = blockEntity.redstoneControlMode.allowsOperation(hasSignal);
 
         if (!canOperate) {
-            blockEntity.updateFrontState(
-                state,
-                false
-            );
+            blockEntity.updateFrontState(state, false);
             return;
         }
 
@@ -294,31 +256,22 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             boolean isBurningStarted = blockEntity.tryStartBurning();
 
             if (!isBurningStarted || blockEntity.burnTime <= 0) {
-                blockEntity.updateFrontState(
-                    state,
-                    false
-                );
+                blockEntity.updateFrontState(state, false);
                 return;
             }
         }
 
-        int generatedEnergy =
-            blockEntity.energyComponent.storeProducedEnergy(ENERGY_GENERATION_PER_TICK);
+        int generatedEnergy = blockEntity.energyComponent.storeProducedEnergy(
+            ENERGY_GENERATION_PER_TICK);
         blockEntity.currentProductionRate = generatedEnergy;
         blockEntity.burnTime -= 1;
         blockEntity.setChanged();
-        blockEntity.updateFrontState(
-            state,
-            true
-        );
+        blockEntity.updateFrontState(state, true);
 
         if (generatedEnergy > 0 &&
             blockEntity.extractionBudget.getRemaining(level.getGameTime()) > 0)
         {
-            blockEntity.pushEnergyToNeighbors(
-                level,
-                pos
-            );
+            blockEntity.pushEnergyToNeighbors(level, pos);
         }
     }
 
@@ -356,10 +309,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             containerId,
             playerInventory,
             this.fuelInventory,
-            ContainerLevelAccess.create(
-                this.level,
-                this.worldPosition
-            ),
+            ContainerLevelAccess.create(this.level, this.worldPosition),
             this.data
         );
     }
@@ -374,20 +324,13 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
 
         BlockState currentState = this.getBlockState();
-        BlockState newState = CoalGeneratorEnergyOutputMapper.toggleOutput(
-            currentState,
-            side
-        );
+        BlockState newState = CoalGeneratorEnergyOutputMapper.toggleOutput(currentState, side);
 
         if (currentState == newState) {
             return;
         }
 
-        boolean isSuccess = this.level.setBlock(
-            this.getBlockPos(),
-            newState,
-            Block.UPDATE_ALL
-        );
+        boolean isSuccess = this.level.setBlock(this.getBlockPos(), newState, Block.UPDATE_ALL);
 
         if (isSuccess) {
             this.level.invalidateCapabilities(this.worldPosition);
@@ -404,10 +347,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return;
         }
 
-        Objects.requireNonNull(
-            mode,
-            "Redstone control mode cannot be null"
-        );
+        Objects.requireNonNull(mode, "Redstone control mode cannot be null");
 
         if (this.redstoneControlMode == mode) {
             return;
@@ -420,24 +360,9 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     @Override
     protected void loadAdditional(@NonNull ValueInput input) {
         super.loadAdditional(input);
-        this.energyComponent.restoreStoredEnergy(input.getIntOr(
-            "energyStored",
-            0
-        ));
-        this.burnTime = Math.max(
-            0,
-            input.getIntOr(
-                "burnTime",
-                0
-            )
-        );
-        this.burnDuration = Math.max(
-            0,
-            input.getIntOr(
-                "burnDuration",
-                0
-            )
-        );
+        this.energyComponent.restoreStoredEnergy(input.getIntOr("energyStored", 0));
+        this.burnTime = Math.max(0, input.getIntOr("burnTime", 0));
+        this.burnDuration = Math.max(0, input.getIntOr("burnDuration", 0));
         this.fuelInventory.deserialize(input.childOrEmpty("fuelInventory"));
         String savedMode = input.getStringOr(
             "redstoneControlMode",
@@ -454,22 +379,10 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     protected void saveAdditional(@NonNull ValueOutput output) {
         super.saveAdditional(output);
         ValueOutput fuelOutput = output.child("fuelInventory");
-        output.putInt(
-            "energyStored",
-            (int) this.energyComponent.getStoredEnergy()
-        );
-        output.putInt(
-            "burnTime",
-            this.burnTime
-        );
-        output.putInt(
-            "burnDuration",
-            this.burnDuration
-        );
-        output.putString(
-            "redstoneControlMode",
-            this.redstoneControlMode.name()
-        );
+        output.putInt("energyStored", (int) this.energyComponent.getStoredEnergy());
+        output.putInt("burnTime", this.burnTime);
+        output.putInt("burnDuration", this.burnDuration);
+        output.putString("redstoneControlMode", this.redstoneControlMode.name());
         this.fuelInventory.serialize(fuelOutput);
     }
 
@@ -479,9 +392,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
 
         for (Map.Entry<MachineSide, EnergyPortId> entry : OUTPUT_PORT_IDS.entrySet()) {
-            if (entry.getValue()
-                .equals(portId))
-            {
+            if (entry.getValue().equals(portId)) {
                 return CoalGeneratorEnergyOutputMapper.isOutputEnabled(
                     this.getBlockState(),
                     entry.getKey()
@@ -501,12 +412,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
 
         try (Transaction tx = Transaction.openRoot()) {
-            int extracted = fuelInventory.extract(
-                FUEL_SLOT,
-                resource,
-                1,
-                tx
-            );
+            int extracted = fuelInventory.extract(FUEL_SLOT, resource, 1, tx);
             if (extracted == 1) {
                 tx.commit();
                 return true;
@@ -536,16 +442,11 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
         ItemStack stack = resource.toStack();
 
-        if (!stack.getCraftingRemainder()
-            .isEmpty())
-        {
+        if (!stack.getCraftingRemainder().isEmpty()) {
             return false;
         }
 
-        int burningTime = stack.getBurnTime(
-            null,
-            fuelValues
-        );
+        int burningTime = stack.getBurnTime(null, fuelValues);
 
         if (burningTime <= 0) {
             return false;
@@ -571,22 +472,13 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         Direction facing = state.getValue(CoalGeneratorBlock.FACING);
 
-        MachineSide machineSide = MachineSideDirections.fromWorld(
-            side,
-            facing
-        );
+        MachineSide machineSide = MachineSideDirections.fromWorld(side, facing);
 
-        return CoalGeneratorEnergyOutputMapper.isOutputEnabled(
-            state,
-            machineSide
-        );
+        return CoalGeneratorEnergyOutputMapper.isOutputEnabled(state, machineSide);
     }
 
     private long calculateTotalBurnTime() {
-        long totalBurnTime = Math.max(
-            0,
-            this.burnTime
-        );
+        long totalBurnTime = Math.max(0, this.burnTime);
         if (fuelInventory.getAmountAsInt(FUEL_SLOT) == 0) {
             return totalBurnTime;
         }
@@ -598,10 +490,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         ItemResource resource = fuelInventory.getResource(FUEL_SLOT);
         ItemStack stack = resource.toStack();
-        int burningTime = stack.getBurnTime(
-            null,
-            fuelValues
-        );
+        int burningTime = stack.getBurnTime(null, fuelValues);
 
         long fuelCount = fuelInventory.getAmountAsLong(FUEL_SLOT);
 
@@ -627,10 +516,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return CoalGeneratorFrontState.RUNNING_LOW_FUEL;
     }
 
-    private void updateFrontState(
-        BlockState state,
-        boolean isRunning
-    )
+    private void updateFrontState(BlockState state, boolean isRunning)
     {
         if (level == null) {
             return;
@@ -644,10 +530,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         level.setBlock(
             worldPosition,
-            state.setValue(
-                CoalGeneratorBlock.FRONT_STATE,
-                desiredState
-            ),
+            state.setValue(CoalGeneratorBlock.FRONT_STATE, desiredState),
             Block.UPDATE_CLIENTS
         );
     }
@@ -665,23 +548,14 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             return sides;
         }
 
-        int distance = Math.floorMod(
-            currentTick,
-            sides.size()
-        );
+        int distance = Math.floorMod(currentTick, sides.size());
 
-        Collections.rotate(
-            sides,
-            -distance
-        );
+        Collections.rotate(sides, -distance);
 
         return sides;
     }
 
-    private void pushEnergyToNeighbors(
-        @NonNull Level level,
-        BlockPos pos
-    )
+    private void pushEnergyToNeighbors(@NonNull Level level, BlockPos pos)
     {
         Map<EnergyPortId, Integer> discoveryNeighbours = new LinkedHashMap<>();
 
@@ -693,41 +567,27 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 continue;
             }
 
-            EnergyHandler target = this.getNeighborEnergyHandler(
-                level,
-                pos,
-                side
-            );
+            EnergyHandler target = this.getNeighborEnergyHandler(level, pos, side);
             if (target == null) {
                 continue;
             }
 
             int probeResult = this.probeEnergyAcceptance(target);
             if (probeResult > 0) {
-                discoveryNeighbours.put(
-                    portId,
-                    probeResult
-                );
+                discoveryNeighbours.put(portId, probeResult);
             }
         }
 
-        this.distributionManager.updatePushAvailability(
-            discoveryNeighbours,
-            level.getGameTime()
-        );
+        this.distributionManager.updatePushAvailability(discoveryNeighbours, level.getGameTime());
 
         for (Direction side : rotatedEnergyOutputSides) {
-            if (this.energyComponent.getStoredEnergy() <= 0 ||
-                this.extractionBudget.getRemaining(level.getGameTime()) <= 0)
+            if (this.energyComponent.getStoredEnergy() <= 0 || this.extractionBudget.getRemaining(
+                level.getGameTime()) <= 0)
             {
                 break;
             }
 
-            EnergyHandler target = this.getNeighborEnergyHandler(
-                level,
-                pos,
-                side
-            );
+            EnergyHandler target = this.getNeighborEnergyHandler(level, pos, side);
 
             if (target == null) {
                 continue;
@@ -740,12 +600,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             }
 
             try (Transaction tx = Transaction.openRoot()) {
-                int transferred = this.energyPushTransfer.push(
-                    portId,
-                    target,
-                    MAX_EXTRACT,
-                    tx
-                );
+                int transferred = this.energyPushTransfer.push(portId, target, MAX_EXTRACT, tx);
 
                 if (transferred > 0) {
                     tx.commit();
@@ -782,10 +637,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
         int accepted;
 
         try (Transaction tx = Transaction.openRoot()) {
-            accepted = target.insert(
-                CoalGeneratorBlockEntity.MAX_EXTRACT,
-                tx
-            );
+            accepted = target.insert(CoalGeneratorBlockEntity.MAX_EXTRACT, tx);
         }
 
         return accepted;
@@ -799,20 +651,11 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     {
         BlockPos neighborPos = pos.relative(side);
 
-        if (!level.getChunkSource()
-            .hasChunk(
-                neighborPos.getX() >> 4,
-                neighborPos.getZ() >> 4
-            ))
-        {
+        if (!level.getChunkSource().hasChunk(neighborPos.getX() >> 4, neighborPos.getZ() >> 4)) {
             return null;
         }
 
-        return level.getCapability(
-            Capabilities.Energy.BLOCK,
-            neighborPos,
-            side.getOpposite()
-        );
+        return level.getCapability(Capabilities.Energy.BLOCK, neighborPos, side.getOpposite());
     }
 
     private @Nullable EnergyPortId getEnergyPortId(Direction worldSide) {
@@ -820,10 +663,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         Direction facing = state.getValue(CoalGeneratorBlock.FACING);
 
-        MachineSide machineSide = MachineSideDirections.fromWorld(
-            worldSide,
-            facing
-        );
+        MachineSide machineSide = MachineSideDirections.fromWorld(worldSide, facing);
 
         return OUTPUT_PORT_IDS.get(machineSide);
     }

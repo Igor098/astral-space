@@ -14,6 +14,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.components.*;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
@@ -22,7 +23,9 @@ import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.fluid.port.FluidPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
+import ru.greatdragonx.astralspace.common.network.SetMachineRedstoneModePayload;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.LavaGeneratorBlock;
@@ -143,6 +146,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     private final GuiMachineInfoTab machineInfoTab;
     private final GuiStatisticsTab statisticsTab;
     private final GuiSideConfigTab sideConfigTab;
+    private final GuiRedstoneControlTab redstoneControlTab;
 
     private final GuiTabGroup leftTabs;
     private final GuiTabGroup rightTabs;
@@ -181,16 +185,12 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             ));
         }
         );
-        this.rightTabs = new GuiTabGroup(List.of(this.sideConfigTab));
+        this.redstoneControlTab = new GuiRedstoneControlTab(this.font);
+        this.rightTabs = new GuiTabGroup(List.of(this.sideConfigTab, this.redstoneControlTab));
     }
 
     @Override
-    public void render(
-        @NonNull GuiGraphics graphics,
-        int mouseX,
-        int mouseY,
-        float partialTick
-    )
+    public void render(@NonNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
         super.render(graphics, mouseX, mouseY, partialTick);
 
@@ -224,6 +224,16 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             this.leftPos,
             statisticsTabY,
             tooltip
+        );
+
+        int redstoneTabY = this.rightTabs.getTabY(this.redstoneControlTab, this.getRightTabsY());
+        this.redstoneControlTab.renderTooltip(
+            graphics,
+            mouseX,
+            mouseY,
+            this.getRightTabsX(),
+            redstoneTabY,
+            this.menu.getRedstoneControlMode()
         );
     }
 
@@ -310,14 +320,21 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             blockState,
             this.sideConfigData
         );
+
+        int redstoneTabY = this.rightTabs.getTabY(this.redstoneControlTab, this.getRightTabsY());
+        this.redstoneControlTab.render(
+            graphics,
+            this.menu.getRedstoneControlMode(),
+            this.menu.isRedstoneBlocked(),
+            this.menu.hasRedstoneSignal(),
+            this.getRightTabsX(),
+            redstoneTabY,
+            partialTick
+        );
     }
 
     @Override
-    protected void renderLabels(
-        @NonNull GuiGraphics graphics,
-        int mouseX,
-        int mouseY
-    )
+    protected void renderLabels(@NonNull GuiGraphics graphics, int mouseX, int mouseY)
     {
         float scale = Math.min(0.65f, 112.0f / Math.max(1, this.font.width(this.title)));
 
@@ -330,10 +347,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     }
 
     @Override
-    public boolean mouseClicked(
-        @NonNull MouseButtonEvent event,
-        boolean doubled
-    )
+    public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubled)
     {
         if (this.sideConfigTab.handleDropdownClick(
             event,
@@ -355,7 +369,6 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         }
 
         int infoTabY = this.getLeftTabsY();
-
         if (this.machineInfoTab.mouseClicked(
             event.x(),
             event.y(),
@@ -378,16 +391,30 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
             return true;
         }
 
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            int redstoneTabY = this.rightTabs.getTabY(
+                this.redstoneControlTab,
+                this.getRightTabsY()
+            );
+
+            RedstoneControlMode clickedMode = this.redstoneControlTab.getHoveredMode(
+                event.x(),
+                event.y(),
+                this.getRightTabsX(),
+                redstoneTabY
+            );
+
+            if (clickedMode != null) {
+                ClientPacketDistributor.sendToServer(new SetMachineRedstoneModePayload(clickedMode));
+                return true;
+            }
+        }
+
         return super.mouseClicked(event, doubled);
     }
 
     @Override
-    public boolean mouseScrolled(
-        double mouseX,
-        double mouseY,
-        double scrollX,
-        double scrollY
-    )
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
     {
         if (this.sideConfigTab.mouseScrolled(
             mouseX,
@@ -417,11 +444,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     }
 
     @Override
-    public boolean mouseDragged(
-        @NonNull MouseButtonEvent event,
-        double dragX,
-        double dragY
-    )
+    public boolean mouseDragged(@NonNull MouseButtonEvent event, double dragX, double dragY)
     {
         if (this.machineInfoTab.mouseDragged(event.y(), event.button(), this.infoEntries)) {
             return true;
@@ -466,6 +489,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         this.machineInfoTab.tick();
         this.statisticsTab.tick();
         this.sideConfigTab.tick();
+        this.redstoneControlTab.tick();
     }
 
     private void drawLavaFill(@NonNull GuiGraphics graphics) {
@@ -713,10 +737,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         );
     }
 
-    private boolean isLavaTankHovered(
-        int mouseX,
-        int mouseY
-    )
+    private boolean isLavaTankHovered(int mouseX, int mouseY)
     {
         int x1 = this.leftPos + 16;
         int y1 = this.topPos + 27;
@@ -726,10 +747,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
     }
 
-    private boolean isEnergyTankHovered(
-        int mouseX,
-        int mouseY
-    )
+    private boolean isEnergyTankHovered(int mouseX, int mouseY)
     {
         int x1 = this.leftPos + ENERGY_LEFT_X;
         int y1 = this.topPos + 27;
@@ -740,8 +758,11 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
     }
 
     private LavaGeneratorGuiStatus getGeneratorStatus() {
-        long freeSpace = this.menu.getEnergyCapacity() - this.menu.getEnergyStored();
+        if (this.menu.isRedstoneBlocked()) {
+            return LavaGeneratorGuiStatus.REDSTONE_DISABLED;
+        }
 
+        long freeSpace = this.menu.getEnergyCapacity() - this.menu.getEnergyStored();
         if (freeSpace < LavaGeneratorBlockEntity.ENERGY_GENERATION_PER_TICK) {
             return LavaGeneratorGuiStatus.BUFFER_FULL;
         }
@@ -762,11 +783,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         };
     }
 
-    private void renderLavaTooltip(
-        @NonNull GuiGraphics graphics,
-        int mouseX,
-        int mouseY
-    )
+    private void renderLavaTooltip(@NonNull GuiGraphics graphics, int mouseX, int mouseY)
     {
         if (!this.isLavaTankHovered(mouseX, mouseY)) {
             return;
@@ -781,11 +798,7 @@ public class LavaGeneratorScreen extends AbstractContainerScreen<LavaGeneratorMe
         graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
     }
 
-    private void renderEnergyTooltip(
-        @NonNull GuiGraphics graphics,
-        int mouseX,
-        int mouseY
-    )
+    private void renderEnergyTooltip(@NonNull GuiGraphics graphics, int mouseX, int mouseY)
     {
         if (!this.isEnergyTankHovered(mouseX, mouseY)) {
             return;

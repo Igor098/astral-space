@@ -170,8 +170,10 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             GuiPortModeOption option = options.get(i);
             int optionY = dropdownY + 1 + i * PORT_MODE_HEIGHT;
 
-            boolean hovered = mouseX >= dropdownX + 1 && mouseX < dropdownX + dropdownWidth - 1 &&
-                mouseY >= optionY && mouseY < optionY + PORT_MODE_HEIGHT;
+            boolean hovered = mouseX >= dropdownX + 1 &&
+                mouseX < dropdownX + dropdownWidth - 1 &&
+                mouseY >= optionY &&
+                mouseY < optionY + PORT_MODE_HEIGHT;
             if (hovered) {
                 graphics.fill(
                     dropdownX + 1,
@@ -226,11 +228,7 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         return this.machinePreview.mouseClicked(event, previewX, previewY, PREVIEW_SIZE);
     }
 
-    public boolean mouseDragged(
-        @NonNull MouseButtonEvent event,
-        double dragX,
-        double dragY
-    )
+    public boolean mouseDragged(@NonNull MouseButtonEvent event, double dragX, double dragY)
     {
         boolean fullyExpanded = this.isOpen() && this.getRenderedWidth() == PANEL_WIDTH;
 
@@ -310,9 +308,10 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             this.getRenderedHeight() - BORDER_SIZE - PORT_LIST_TOP
         );
 
-        boolean insideViewport =
-            mouseX >= viewportX && mouseX < viewportX + viewportWidth && mouseY >= viewportY &&
-                mouseY < viewportY + viewportHeight;
+        boolean insideViewport = mouseX >= viewportX &&
+            mouseX < viewportX + viewportWidth &&
+            mouseY >= viewportY &&
+            mouseY < viewportY + viewportHeight;
 
         if (!insideViewport) {
             return false;
@@ -348,17 +347,20 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             return false;
         }
 
-        boolean clickedTrigger =
-            event.x() >= layout.x() && event.x() < layout.x() + layout.width() &&
-                event.y() >= layout.triggerY() && event.y() < layout.triggerY() + PORT_MODE_HEIGHT;
+        boolean clickedTrigger = event.x() >= layout.x() &&
+            event.x() < layout.x() + layout.width() &&
+            event.y() >= layout.triggerY() &&
+            event.y() < layout.triggerY() + PORT_MODE_HEIGHT;
 
         if (clickedTrigger) {
             this.expandedPortType = null;
             return true;
         }
 
-        boolean inside = event.x() >= layout.x() && event.x() < layout.x() + layout.width() &&
-            event.y() >= layout.y() && event.y() < layout.y() + layout.height();
+        boolean inside = event.x() >= layout.x() &&
+            event.x() < layout.x() + layout.width() &&
+            event.y() >= layout.y() &&
+            event.y() < layout.y() + layout.height();
         if (!inside) {
             this.expandedPortType = null;
             return false;
@@ -409,8 +411,17 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
 
         this.drawDivider(graphics, panelX, panelY, width);
 
-        boolean fullyExpanded = this.isOpen() && this.getRenderedWidth() == PANEL_WIDTH;
-        if (fullyExpanded) {
+        int clipLeft = panelX + BORDER_SIZE;
+        int clipTop = panelY + BORDER_SIZE;
+        int clipRight = panelX + width - BORDER_SIZE;
+        int clipBottom = panelY + height - BORDER_SIZE;
+
+        boolean previewVisible = previewX < clipRight &&
+            previewX + PREVIEW_SIZE > clipLeft &&
+            previewY < clipBottom &&
+            previewY + PREVIEW_SIZE > clipTop;
+
+        if (previewVisible) {
             this.machinePreview.render(
                 previewX,
                 previewY,
@@ -419,20 +430,19 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
                 blockState,
                 this.selectedSide
             );
+        }
 
-            this.drawSelectedSideInfo(graphics, panelX, previewY);
-            this.drawScrollablePortEntries(panelX, panelY, height, previewY, graphics, data);
+        this.drawSelectedSideInfo(graphics, panelX, previewY);
+        this.drawScrollablePortEntries(panelX, panelY, height, previewY, graphics, data);
+
+        if (height > PORT_LIST_TOP) {
             this.drawScrollbar(panelX, panelY, height, graphics, data);
         }
 
         graphics.disableScissor();
     }
 
-    private void drawSelectedSideInfo(
-        @NonNull GuiGraphics graphics,
-        int panelX,
-        int previewY
-    )
+    private void drawSelectedSideInfo(@NonNull GuiGraphics graphics, int panelX, int previewY)
     {
         int textY = previewY + PREVIEW_SIZE + 8;
 
@@ -480,8 +490,8 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
             int modeX = panelX + PORT_HORIZONTAL_INSET;
             int modeWidth = PANEL_WIDTH - PORT_HORIZONTAL_INSET - this.getPortModeRightInset(data);
 
-            Component typeName = Component.translatable(
-                "gui.astralspace.port_type." + entry.type().name().toLowerCase(Locale.ROOT));
+            Component typeName = Component.translatable("gui.astralspace.port_type." +
+                entry.type().name().toLowerCase(Locale.ROOT));
 
             GuiTextRenderer.drawScaledText(
                 graphics,
@@ -676,8 +686,10 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
 
         int thumbY = anchorY + PORT_LIST_TOP + thumbOffset;
 
-        boolean hovered = event.x() >= trackX && event.x() < trackX + PORT_SCROLLBAR_WIDTH &&
-            event.y() >= thumbY && event.y() < thumbY + thumbHeight;
+        boolean hovered = event.x() >= trackX &&
+            event.x() < trackX + PORT_SCROLLBAR_WIDTH &&
+            event.y() >= thumbY &&
+            event.y() < thumbY + thumbHeight;
 
         if (!hovered) {
             return false;
@@ -728,10 +740,7 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
                 event.x() >= modeX && event.x() < modeX + modeWidth && event.y() >= Math.max(
                     modeY,
                     visibleTop
-                ) && event.y() < Math.min(
-                    modeY + PORT_MODE_HEIGHT,
-                    visibleBottom
-                );
+                ) && event.y() < Math.min(modeY + PORT_MODE_HEIGHT, visibleBottom);
 
             if (!hovered) {
                 continue;
@@ -755,8 +764,8 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
 
         double deltaY = event.y() - this.scrollbarDragStartY;
 
-        int deltaScroll = Math.round(
-            (float) deltaY / this.scrollbarDragThumbTravel * this.scrollbarDragMaxScroll);
+        int deltaScroll = Math.round((float) deltaY / this.scrollbarDragThumbTravel *
+            this.scrollbarDragMaxScroll);
 
         this.scrollOffset = Math.clamp(
             this.scrollbarDragStartOffset + deltaScroll,
@@ -774,7 +783,9 @@ public final class GuiSideConfigTab extends GuiAnimatedTab {
         @NonNull GuiSideConfigData data
     )
     {
-        if (!this.isOpen() || this.getRenderedWidth() != PANEL_WIDTH || this.selectedSide == null ||
+        if (!this.isOpen() ||
+            this.getRenderedWidth() != PANEL_WIDTH ||
+            this.selectedSide == null ||
             this.expandedPortType == null)
         {
             return null;

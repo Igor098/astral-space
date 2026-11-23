@@ -41,6 +41,7 @@ import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankRole;
 import ru.greatdragonx.astralspace.common.fluid.storage.MachineFluidStorage;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
+import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.serialization.MachinePortDataCodec;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortId;
@@ -74,7 +75,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     public static final int DATA_TRANSFER = 7;
     public static final int DATA_ENERGY_PORT_START = 8;
     public static final int DATA_FLUID_PORT_START = 14;
-    public static final int DATA_COUNT = 20;
+    public static final int DATA_REDSTONE_MODE = 20;
+    public static final int DATA_REDSTONE_BLOCKED = 21;
+    public static final int DATA_REDSTONE_SIGNAL = 22;
+    public static final int DATA_COUNT = 23;
 
     public static final ModelProperty<LavaGeneratorFrontState> FRONT_STATE = new ModelProperty<>();
     public static final ModelProperty<List<VisualPort>> VISUAL_PORTS = new ModelProperty<>();
@@ -148,6 +152,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private int burnDuration;
     private int currentProductionRate;
     private LavaGeneratorFrontState frontState = LavaGeneratorFrontState.OFF;
+    private RedstoneControlMode redstoneControlMode = RedstoneControlMode.IGNORE;
 
     private final ContainerData data = new ContainerData() {
         @Override
@@ -159,7 +164,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 return getEnergyPortData(side);
             }
 
-            if (index >= DATA_FLUID_PORT_START && index < DATA_COUNT) {
+            if (index >= DATA_FLUID_PORT_START && index < DATA_REDSTONE_MODE) {
                 int offset = index - DATA_FLUID_PORT_START;
                 MachineSide side = MachinePortDataCodec.decodeSide(offset);
 
@@ -180,15 +185,30 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
                 case DATA_FRONT_STATE -> LavaGeneratorBlockEntity.this.frontState.ordinal();
                 case DATA_PRODUCTION -> LavaGeneratorBlockEntity.this.getCurrentProductionRate();
                 case DATA_TRANSFER -> LavaGeneratorBlockEntity.this.getCurrentTransferRate();
+                case DATA_REDSTONE_MODE ->
+                    LavaGeneratorBlockEntity.this.redstoneControlMode.ordinal();
+                case DATA_REDSTONE_BLOCKED -> {
+                    Level level = LavaGeneratorBlockEntity.this.getLevel();
+                    if (level == null) {
+                        yield 0;
+                    }
+
+                    boolean hasSignal = level.hasNeighborSignal(worldPosition);
+                    boolean canOperate =
+                        LavaGeneratorBlockEntity.this.redstoneControlMode.allowsOperation(hasSignal);
+
+                    yield canOperate ? 0 : 1;
+                }
+                case DATA_REDSTONE_SIGNAL -> {
+                    Level level = LavaGeneratorBlockEntity.this.getLevel();
+                    yield level != null && level.hasNeighborSignal(worldPosition) ? 1 : 0;
+                }
                 default -> 0;
             };
         }
 
         @Override
-        public void set(
-            int index,
-            int value
-        )
+        public void set(int index, int value)
         {
             // Изменение данных через GUI не предусмотрено.
         }
@@ -199,10 +219,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         }
     };
 
-    public LavaGeneratorBlockEntity(
-        BlockPos pos,
-        BlockState state
-    )
+    public LavaGeneratorBlockEntity(BlockPos pos, BlockState state)
     {
         super(EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(), pos, state);
 
@@ -306,12 +323,10 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         super.saveAdditional(output);
 
         output.putInt("burn_time", this.burnTime);
-
         output.putInt("burn_duration", this.burnDuration);
-
         output.putLong("energy_stored", this.energyComponent.getStoredEnergy());
-
         output.putString("front_state", this.frontState.name());
+        output.putString("redstone_control_mode", this.redstoneControlMode.name());
 
         this.saveEnergyPorts(output);
         this.saveFluidPorts(output);
@@ -336,6 +351,17 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             default -> LavaGeneratorFrontState.OFF;
         };
 
+        String savedMode = input.getStringOr(
+            "redstone_control_mode",
+            RedstoneControlMode.IGNORE.name()
+        );
+
+        try {
+            this.redstoneControlMode = RedstoneControlMode.valueOf(savedMode);
+        } catch (IllegalArgumentException e) {
+            this.redstoneControlMode = RedstoneControlMode.IGNORE;
+        }
+
         this.loadEnergyPorts(input);
         this.loadFluidPorts(input);
         this.fluidStorage.deserialize(input.childOrEmpty("fluid_storage"));
@@ -355,10 +381,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     }
 
     @Override
-    public void onDataPacket(
-        @NonNull Connection connection,
-        @NonNull ValueInput input
-    )
+    public void onDataPacket(@NonNull Connection connection, @NonNull ValueInput input)
     {
         LavaGeneratorFrontState previousState = this.getFrontState();
         Set<VisualPort> previousPortsState = Set.copyOf(this.createVisualPortsSnapshot());
@@ -414,6 +437,25 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         );
     }
 
+    public RedstoneControlMode getRedstoneControlMode() {
+        return this.redstoneControlMode;
+    }
+
+    public void setRedstoneControlMode(@NonNull RedstoneControlMode mode) {
+        Objects.requireNonNull(mode, "mode cannot be null");
+
+        if (this.level == null || this.level.isClientSide()) {
+            return;
+        }
+
+        if (this.redstoneControlMode == mode) {
+            return;
+        }
+
+        this.redstoneControlMode = mode;
+        this.setChanged();
+    }
+
     public static void serverTick(
         @NonNull Level level,
         @NonNull BlockPos pos,
@@ -423,13 +465,20 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     {
         blockEntity.currentProductionRate = 0;
         blockEntity.pushEnergyToNeighbors(level, pos);
-        long freeSpace = ENERGY_CAPACITY - blockEntity.getEnergyStored();
 
+        long freeSpace = ENERGY_CAPACITY - blockEntity.getEnergyStored();
         if (freeSpace < ENERGY_GENERATION_PER_TICK) {
             blockEntity.updateFrontState(false);
             return;
         }
 
+        boolean hasSignal = level.hasNeighborSignal(pos);
+        boolean canOperate = blockEntity.redstoneControlMode.allowsOperation(hasSignal);
+
+        if (!canOperate) {
+            blockEntity.updateFrontState(false);
+            return;
+        }
 
         if (blockEntity.burnTime <= 0) {
             boolean isBurningStarted = blockEntity.tryStartBurning();
@@ -498,10 +547,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return this.fluidPortConfiguration.getMode(portId);
     }
 
-    public boolean changeEnergyPortMode(
-        @NonNull MachineSide side,
-        @NonNull EnergyPortMode newMode
-    )
+    public boolean changeEnergyPortMode(@NonNull MachineSide side, @NonNull EnergyPortMode newMode)
     {
         Objects.requireNonNull(side, "side cannot be null");
 
@@ -519,10 +565,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return this.energyPortConfiguration.changeMode(portId, newMode, this.energyPortPolicy);
     }
 
-    public boolean changeFluidPortMode(
-        @NonNull MachineSide side,
-        @NonNull FluidPortMode newMode
-    )
+    public boolean changeFluidPortMode(@NonNull MachineSide side, @NonNull FluidPortMode newMode)
     {
         Objects.requireNonNull(side, "side cannot be null");
 
@@ -847,10 +890,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
         return accepted;
     }
 
-    private void pushEnergyToNeighbors(
-        @NonNull Level level,
-        BlockPos pos
-    )
+    private void pushEnergyToNeighbors(@NonNull Level level, BlockPos pos)
     {
         Map<EnergyPortId, Integer> discoveryNeighbours = new LinkedHashMap<>();
 
