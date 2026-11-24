@@ -75,15 +75,20 @@
 
 ```text
 BlockEntity
-└── AbstractEnergyMachineBlockEntity (единственный EnergyComponent)
-    └── AbstractGeneratorBlockEntity (FE OUTPUT, общий производственный тик)
-        ├── CoalGeneratorBlockEntity
-        └── LavaGeneratorBlockEntity
+└── AbstractEnergyMachineBlockEntity (один EnergyComponent)
+    ├── AbstractGeneratorBlockEntity (FE OUTPUT, генерация)
+    │   ├── CoalGeneratorBlockEntity
+    │   └── LavaGeneratorBlockEntity
+    ├── AbstractEnergyConsumerBlockEntity (FE INPUT, расход на работу)
+    │   ├── ElectricCompressorBlockEntity
+    │   ├── ElectricCrusherBlockEntity
+    │   └── ElectricFurnaceBlockEntity
+    └── EnergyStorageBlockEntity (FE INPUT + OUTPUT, общий буфер)
 ```
 
 Это **целевая иерархия**, не реализованная полностью в `main`. Обязательная энергетическая база не знает о топливе, Fluid, Push, рецептах и портах; генераторный слой подключает отдельный `EnergyOutputController`. Независимый `EnergyInputController` предназначен для входящих контуров потребителей/накопителей. Для совместимости с текущим `EnergyPortHandler` используется тонкий `EnergyPortDispatcher` — без дублирования алгоритмов. `AbstractMachineBlockEntity` и `AbstractFuelCycleGeneratorBlockEntity` не вводим.
 
-**Потребитель (Consumer)** использует входящие FE-порты с общим входным бюджетом и внутренний расход FE для полностью оплаченного рабочего тика, **не** выходной распределитель. **Накопитель (Energy Storage)** использует входной и выходной контроллеры **над одним EnergyComponent**, с независимыми бюджетами направления, не производит FE и не наследуется от генератора ради возможного Push. Наличие общих `AbstractEnergyConsumerBlockEntity` или `AbstractEnergyStorageBlockEntity` пока **не утверждено** — они появятся только при реально доказанном повторении lifecycle; целевые правила см. [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
+**Потребитель (Consumer)** использует входящие FE-порты с общим входным бюджетом и внутренний расход FE для полностью оплаченного рабочего тика, **не** выходной распределитель. **Накопитель (Energy Storage)** использует входной и выходной контроллеры **над одним EnergyComponent**, с независимыми бюджетами направления, не производит FE и не наследуется от генератора ради возможного Push. **`AbstractEnergyConsumerBlockEntity` входит в утверждённую иерархию**; для накопителя определено прямое наследование от общей FE-базы, а отдельный `AbstractEnergyStorageBlockEntity` пока не нужен. Точные конструкторы Consumer и Input-контроллера ещё не согласованы; см. [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
 
 Производственный алгоритм, состояние топлива и конкретная физическая топология разделены: см. [общую FE-базу](decisions/AS-MACHINE-023.md), [конфигурацию и топологию](decisions/AS-MACHINE-024.md) и [Strategy/топливный цикл](decisions/AS-MACHINE-025.md).
 
