@@ -2,7 +2,7 @@
 
 > **Статус документации:** утверждённая архитектура и актуальная фиксация реализованных FE-компонентов; остальные ресурсные системы проектируются поэтапно.  
 > **Базовая платформа:** Minecraft 1.21.11 / NeoForge 1.21.11 / Java 21.  
-> **Первоначальная фиксация:** 2026-11-01; актуализация FE и визуализации: 2026-11-05; порты/жидкости: 2026-11-08; генераторная архитектура и мультиблокные правила: 2026-11-24.  
+> **Первоначальная фиксация:** 2026-11-01; FE и визуализация: 2026-11-05; порты/жидкости: 2026-11-08; генераторы, потребители, накопители и мультиблоки: 2026-11-24.  
 > **Язык:** русский.  
 > **Внимание:** утверждённые ADR — правила проектирования, а не свидетельство завершения всех функциональных возможностей. Статус уже написанного FE-кода отдельно отмечен в [energy-system.md](energy-system.md).
 
@@ -21,6 +21,7 @@
 | [decisions/AS-MACHINE-024.md](decisions/AS-MACHINE-024.md) | Конфигурация FE-портов, физическая топология и runtime-доступность |
 | [decisions/AS-MACHINE-025.md](decisions/AS-MACHINE-025.md) | `GenerationProcess`, `FuelCycleComponent`, транзакционный расход топлива и NBT |
 | [decisions/AS-MACHINE-026.md](decisions/AS-MACHINE-026.md) | Мультиблокные хэтчи, `assemblyId`, lifecycle и fail-closed |
+| [decisions/AS-MACHINE-027.md](decisions/AS-MACHINE-027.md) | Consumer, Energy Storage, INPUT/OUTPUT бюджеты и внутреннее потребление FE |
 | [decisions/AS-MACHINE-021.md](decisions/AS-MACHINE-021.md) | Независимая визуализация портов и необязательная 3D-анимация механизмов |
 | [decisions/AS-MACHINE-022.md](decisions/AS-MACHINE-022.md) | Несколько наших коммуникаций в одной клетке, автоматическая обёртка и совместимость |
 | [visual-model-prototype.md](visual-model-prototype.md) | Локально проверенный VisualTestBlock, ModelData и DynamicBlockStateModel |
@@ -75,6 +76,7 @@
 | [AS-MACHINE-024](decisions/AS-MACHINE-024.md) | FE-конфигурация, топология и runtime-политика | **Утверждена целевая архитектура; реализация впереди** |
 | [AS-MACHINE-025](decisions/AS-MACHINE-025.md) | `GenerationProcess`, `FuelCycleComponent`, транзакционный топливный цикл, NBT | **Утверждены Java-контракты; реализация впереди** |
 | [AS-MACHINE-026](decisions/AS-MACHINE-026.md) | Мультиблочные хэтчи, `assemblyId`, lifecycle и инвалидация | **Утверждены принципы; реализация впереди** |
+| [AS-MACHINE-027](decisions/AS-MACHINE-027.md) | FE Consumer и Energy Storage: входящий/исходящий контуры и один буфер | **Утверждены архитектурные роли; точные Java API открыты** |
 
 ### Статусы
 - **Утверждено** — правило явно согласовано и подлежит соблюдению при реализации.
@@ -89,7 +91,7 @@
 4. Результаты **одной операции** атомарны; разные операции могут быть независимы.
 5. Не навязывать одну модель рецептов/инвентаря/камер всем типам машин.
 6. Композиция предпочтительнее преждевременно разрастающейся иерархии `BlockEntity`.
-7. Согласованные 26 ADR не означают 26 классов: существующие FE-классы учитываем, остальные модели Java вводим по мере подтверждения потребностей.
+7. Согласованные 27 ADR не означают 27 классов: существующие FE-классы учитываем, остальные модели Java вводим по мере подтверждения потребностей.
 8. Совместимость со старыми сохранениями **не требуется**: мод пока не выпущен; допускается создание нового мира без миграций.
 
 ## Устройство каталога в репозитории
@@ -118,7 +120,7 @@ docs/architecture/machines/
 └── decisions/
     ├── AS-MACHINE-001.md
     ├── ...
-    └── AS-MACHINE-026.md
+    └── AS-MACHINE-027.md
 ```
 
 **Новые целевые Java-контракты явно отделены от реально существующих классов.** `EnergyPortHandler` и `EnergyTransferCoordinator` уже реализованы. Локально проверен экспериментальный динамический рендерер, но конфигурация FE-портов внутри BlockEntity и внедрение динамической отрисовки в production Coal Generator Mk I остаются следующими этапами.
@@ -141,6 +143,6 @@ docs/architecture/machines/
 
 ## Решения о генераторах и мультиблоках от 2026-11-24
 
-Новые [AS-MACHINE-023](decisions/AS-MACHINE-023.md)–[AS-MACHINE-026](decisions/AS-MACHINE-026.md) систематизируют согласованную архитектуру без копирования рабочего журнала: независимые FE-контроллеры, единую генераторную последовательность, Strategy и транзакционный топливный цикл, отдельные правила/топологию портов, а также идентичность и fail-closed физического мультиблока. В [energy-system.md](energy-system.md), [machine-architecture.md](machine-architecture.md), [persistence-and-networking.md](persistence-and-networking.md), [resource-connections.md](resource-connections.md), [implementation-plan.md](implementation-plan.md) и [open-questions.md](open-questions.md) отражены последствия этих решений.
+Новые [AS-MACHINE-023](decisions/AS-MACHINE-023.md)–[AS-MACHINE-027](decisions/AS-MACHINE-027.md) систематизируют согласованную архитектуру без дублирования решений: независимые FE-контроллеры, единую генераторную последовательность, Strategy и транзакционный топливный цикл, отдельные правила/топологию портов, а также идентичность и fail-closed физического мультиблока. Потребители и накопители FE используют отдельные контроллеры с одним буфером и без фиктивных зависимостей. В [energy-system.md](energy-system.md), [machine-architecture.md](machine-architecture.md), [persistence-and-networking.md](persistence-and-networking.md), [resource-connections.md](resource-connections.md), [implementation-plan.md](implementation-plan.md) и [open-questions.md](open-questions.md) отражены последствия этих решений.
 
 **Все изменения 2026-11-24 — только документация.** Coal/Lava, новые BlockEntity, `FuelCycleComponent` и FE-контроллеры ещё не переписаны в `main`; рабочая Lava-ветка выступает эталоном динамической визуализации. Существующие ADR 001–022 остаются в силе и не продублированы.
