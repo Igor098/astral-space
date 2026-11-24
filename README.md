@@ -1,25 +1,63 @@
+# Astral Space
 
-Installation information
-=======
+**Технологический космический мод для Minecraft Java Edition.**
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+Minecraft **1.21.11** · NeoForge **21.11.45** · Java **21** · В активной разработке
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+Astral Space — проект о развитии промышленности и космических технологий: от добычи и обработки ресурсов, энергетики и производственных машин до сборки модульных ракет, исследования планет, орбитальных станций и дальнейших экспедиций. Новые миры должны открывать возможности для развития технологий, а не только новые локации.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+Главная концепция и согласованные направления развития описаны в [едином дизайн-документе](docs/design/astral_space_game_design_v0_2.md). Перечисленные там будущие механики не следует считать уже доступными в игре.
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+## Состояние проекта
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+- **В `main`:** базовые материалы алюминия и олова, руды, металлообработка, Coal Generator Mk I и базовая FE-инфраструктура.
+- **В рабочей ветке `feature/lava-generator-mk1`:** Lava Generator Mk I, жидкостное хранилище, конфигурация портов внутри BlockEntity и динамическая визуализация.
+- **Согласовано, предстоит реализация:** общая архитектура энергетических машин, независимые FE-контроллеры, топливный цикл, потребители, накопители и физические хэтчи мультиблоков.
+- Мод пока не опубликован; игровые характеристики, рецепты и совместимость сохранений на этом этапе могут изменяться.
+
+## Документация
+
+| Документ | Назначение |
+|---|---|
+| [Главный концепт](docs/design/astral_space_game_design_v0_2.md) | Каноническое описание игрового дизайна |
+| [Архитектура машин](docs/architecture/machines/README.md) | Точка входа в техническую документацию и реестр ADR |
+| [Энергетическая система](docs/architecture/energy/AstralSpace_Energy_Architecture_Decisions.md) | FE-принципы, реализованные компоненты и целевые контракты |
+| [План внедрения](docs/architecture/machines/implementation-plan.md) | Этапы реализации |
+| [Матрица тестов](docs/architecture/machines/test-matrix.md) | Проектные и регрессионные сценарии |
+| [Открытые вопросы](docs/architecture/machines/open-questions.md) | Неутверждённые технические детали |
+
+Архитектурные решения и фактически реализованный код различаются. Наличие ADR или строки в тестовой матрице не означает готовой реализации.
+
+## Разработка
+
+Требуются JDK 21 и IDE с поддержкой Gradle (например, IntelliJ IDEA). Клонируйте репозиторий, откройте его как Gradle-проект и используйте включённый Gradle Wrapper.
+
+В Windows:
+
+```powershell
+.\gradlew.bat runClient
+.\gradlew.bat test
+.\gradlew.bat build
+```
+
+В Linux/macOS:
+
+```bash
+./gradlew runClient
+./gradlew test
+./gradlew build
+```
+
+При необходимости обновить зависимости: `gradlew --refresh-dependencies` (через Wrapper соответствующей ОС).
+
+Используются официальные имена отображений Mojang и дополнительные Parchment mappings, заданные в `gradle.properties`. Учитывайте условия [Mojang mappings](https://github.com/NeoForged/NeoForm/blob/main/Mojang.md) и [документацию NeoForge](https://docs.neoforged.net/).
+
+## Аддоны и условия использования
+
+Расширения Astral Space приветствуются: можно создавать и распространять аддоны, интеграции, дополнения и использовать отдельные оригинальные элементы мода в рамках разрешения на расширения с указанием источника.
+
+Запрещено использовать это разрешение для полного или существенного копирования оригинального мода, его охраняемых материалов и воспроизведения его функционала как самостоятельной замены. Все остальные права сохранены. Обычные общие идеи, стандартные интерфейсы и независимо созданные решения этим запретом не охватываются.
+
+Полные условия: **[LICENSE.md](LICENSE.md)**. Это собственная ограничительная лицензия, а не open-source лицензия. MIT-лицензия исходного шаблона NeoForge находится отдельно в [TEMPLATE_LICENSE.txt](TEMPLATE_LICENSE.txt) и сохраняет силу для материалов шаблона.
+
+Проект находится в разработке. Официальный репозиторий: [Igor098/astral-space](https://github.com/Igor098/astral-space).
