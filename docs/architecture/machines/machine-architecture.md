@@ -2,7 +2,7 @@
 
 **Статус:** утверждённые принципы, целевая FE-архитектура генераторов и отдельно помеченные будущие возможности.  
 **Актуализировано:** 2026-11-24.  
-**Источник:** [реестр ADR](README.md#реестр-решений), [AS-MACHINE-023](decisions/AS-MACHINE-023.md), [AS-MACHINE-024](decisions/AS-MACHINE-024.md), [AS-MACHINE-025](decisions/AS-MACHINE-025.md), [AS-MACHINE-026](decisions/AS-MACHINE-026.md).
+**Источник:** [реестр ADR](README.md#реестр-решений), [AS-MACHINE-023](decisions/AS-MACHINE-023.md), [AS-MACHINE-024](decisions/AS-MACHINE-024.md), [AS-MACHINE-025](decisions/AS-MACHINE-025.md), [AS-MACHINE-026](decisions/AS-MACHINE-026.md), [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
 
 ## Для чего нужна архитектура
 
@@ -82,6 +82,8 @@ BlockEntity
 ```
 
 Это **целевая иерархия**, не реализованная полностью в `main`. Обязательная энергетическая база не знает о топливе, Fluid, Push, рецептах и портах; генераторный слой подключает отдельный `EnergyOutputController`. Независимый `EnergyInputController` предназначен для входящих контуров потребителей/накопителей. Для совместимости с текущим `EnergyPortHandler` используется тонкий `EnergyPortDispatcher` — без дублирования алгоритмов. `AbstractMachineBlockEntity` и `AbstractFuelCycleGeneratorBlockEntity` не вводим.
+
+**Потребитель (Consumer)** использует входящие FE-порты с общим входным бюджетом и внутренний расход FE для полностью оплаченного рабочего тика, **не** выходной распределитель. **Накопитель (Energy Storage)** использует входной и выходной контроллеры **над одним EnergyComponent**, с независимыми бюджетами направления, не производит FE и не наследуется от генератора ради возможного Push. Наличие общих `AbstractEnergyConsumerBlockEntity` или `AbstractEnergyStorageBlockEntity` пока **не утверждено** — они появятся только при реально доказанном повторении lifecycle; целевые правила см. [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
 
 Производственный алгоритм, состояние топлива и конкретная физическая топология разделены: см. [общую FE-базу](decisions/AS-MACHINE-023.md), [конфигурацию и топологию](decisions/AS-MACHINE-024.md) и [Strategy/топливный цикл](decisions/AS-MACHINE-025.md).
 
