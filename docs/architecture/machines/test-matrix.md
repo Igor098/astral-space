@@ -161,27 +161,27 @@
 | MB-FE-03 | Невалидные `assemblyId` и перепривязка хэтча после смены сборки не дают доступа к старому контроллеру | 026 |
 | MB-FE-04 | Инвалидация capabilities происходит по позициям затронутых загруженных хэтчей, а не только контроллера | 026 |
 
-## Точечные проверки восстановленных контрактов журнала (2026-11-24)
+## Дополнительные регрессии FE-контроллеров, портов и lifecycle
 
 Этот набор дополняет, **не заменяет**, существующие FE/FC/MB-FE строки выше.
 
-| ID | Сценарий | Основание журнала |
+| ID | Сценарий | ADR |
 |---|---|---|
-| GEN-06 | Конфигурация с `generationPerTick <= 0` либо `generationPerTick > capacity` отклоняется до начала работы; границы свободного места `0`, `1`, `generationPerTick-1`, `generationPerTick`, `generationPerTick+1` | §§14–15 |
-| GEN-07 | Первый Push освобождает место под полную порцию и производство происходит **в том же тике**; на паузе показатель `currentProductionRate=0`, визуальное состояние не показывает работу | §§14–17 |
-| FE-GEN-07 | `EnergyPortDispatcher.getStoredEnergy/getCapacity` читает общий `EnergyComponent`; без input-контроллера `insert=0`, без output-контроллера `extract=0`; внешний Pull не становится Push | §§26–28 |
-| FE-GEN-08 | `EnergyOutputController.extract(portId,amount,tx)` учитывает Pull-спрос; `extract(portId,amount,tx,ExtractionOrigin.PUSH)` **не** регистрирует Pull-спрос; обе ветки сохраняют квоты и общий лимит | §81 |
-| FE-GEN-09 | Неизвестный ID, выключенный режим либо неготовый мир → `0` без вызова `LongSupplier`, без регистрации запросов и изменения FE/бюджета; неверные аргументы не маскируются под обычный отказ | §§82–83, 87–88 |
-| FE-GEN-10 | Порядок `List<EnergyPortId>` сохраняется при фильтрации; внешний список копируется, повторы и `null` запрещены; производный `Set` не меняет порядок | §§76–77, 83 |
-| FE-GEN-11 | Изменение доступности **внутри** FE-транзакции немедленно закрывает политику, но `updateAvailablePorts` выполняется в ближайшей контролируемой безопасной точке **после** транзакции | §§78–80 |
-| PORT-05 | `GeneratorEnergySpec` содержит capacity/output FE/t, а производство FE/t ограничено отдельно `0 < generationPerTick <= capacity`; `FIXED`/ `CONFIGURABLE` проверяет `allowedModes` и `defaultMode` | §§55–61 |
-| PORT-06 | NORTH/EAST/SOUTH/WEST вращают local offset и face согласованно; `MachineSide.LEFT` при NORTH — EAST; одноблочная опорная позиция — его BlockEntity | §§35–40 |
-| PORT-07 | При CONFIGURABLE `canChangeMode` отвергает запрос или режим уже равен текущему: нет пересчёта, `setChanged`, инвалидации или hook; FIXED пользователь не изменяет | §§60–65 |
-| LIFE-01 | Конструкторы компонентов/BE не обращаются к `Level`, не вызывают callbacks или override-методы; `loadAdditional` тихий, `onLoad` идемпотентен, первый тик обычный | §§67–74, 101 |
-| LIFE-02 | Runtime-изменение FE вызывает FE-пересчёт и необходимую инвалидацию; изменение Fluid не вызывает FE-hook; клиентскую модель обновляет конкретный Lava | §§63–65, 91–92 |
-| MB-FE-05 | Прокси-хэтч при каждом использовании сверяет тип/позицию контроллера, `assemblyId`, `portId`, `worldPos/worldFace`, статус `FORMED` и текущую политику | §§41–43 |
-| MB-FE-06 | Рестарт сохранённой `FORMED`-сборки начинается с запрета FE до повторной валидации; неизвестные чанки → `SUSPENDED`, прежний ID; подтверждённое разрушение → новый ID только после восстановления структуры | §§44–49 |
-| MB-FE-07 | Отсутствие обязательного чанка не запускает force-load и не приводит к частичной работе хэтчей; валидация событийная, полный скан не выполняется на каждом FE-вызове | §§46, 51–54 |
+| GEN-06 | Конфигурация с `generationPerTick <= 0` либо `generationPerTick > capacity` отклоняется до начала работы; границы свободного места `0`, `1`, `generationPerTick-1`, `generationPerTick`, `generationPerTick+1` | [023](decisions/AS-MACHINE-023.md), [024](decisions/AS-MACHINE-024.md) |
+| GEN-07 | Первый Push освобождает место под полную порцию и производство происходит **в том же тике**; на паузе показатель `currentProductionRate=0`, визуальное состояние не показывает работу | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-07 | `EnergyPortDispatcher.getStoredEnergy/getCapacity` читает общий `EnergyComponent`; без input-контроллера `insert=0`, без output-контроллера `extract=0`; внешний Pull не становится Push | [023](decisions/AS-MACHINE-023.md), [027](decisions/AS-MACHINE-027.md) |
+| FE-GEN-08 | `EnergyOutputController.extract(portId,amount,tx)` учитывает Pull-спрос; `extract(portId,amount,tx,ExtractionOrigin.PUSH)` **не** регистрирует Pull-спрос; обе ветки сохраняют квоты и общий лимит | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-09 | Неизвестный ID, выключенный режим либо неготовый мир → `0` без вызова `LongSupplier`, без регистрации запросов и изменения FE/бюджета; неверные аргументы не маскируются под обычный отказ | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-10 | Порядок `List<EnergyPortId>` сохраняется при фильтрации; внешний список копируется, повторы и `null` запрещены; производный `Set` не меняет порядок | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-11 | Изменение доступности **внутри** FE-транзакции немедленно закрывает политику, но `updateAvailablePorts` выполняется в ближайшей контролируемой безопасной точке **после** транзакции | [023](decisions/AS-MACHINE-023.md), [024](decisions/AS-MACHINE-024.md) |
+| PORT-05 | `GeneratorEnergySpec` содержит capacity/output FE/t, а производство FE/t ограничено отдельно `0 < generationPerTick <= capacity`; `FIXED`/ `CONFIGURABLE` проверяет `allowedModes` и `defaultMode` | [024](decisions/AS-MACHINE-024.md) |
+| PORT-06 | NORTH/EAST/SOUTH/WEST вращают local offset и face согласованно; `MachineSide.LEFT` при NORTH — EAST; одноблочная опорная позиция — его BlockEntity | [024](decisions/AS-MACHINE-024.md) |
+| PORT-07 | При CONFIGURABLE `canChangeMode` отвергает запрос или режим уже равен текущему: нет пересчёта, `setChanged`, инвалидации или hook; FIXED пользователь не изменяет | [024](decisions/AS-MACHINE-024.md) |
+| LIFE-01 | Конструкторы компонентов/BE не обращаются к `Level`, не вызывают callbacks или override-методы; `loadAdditional` тихий, `onLoad` идемпотентен, первый тик обычный | [023](decisions/AS-MACHINE-023.md), [025](decisions/AS-MACHINE-025.md) |
+| LIFE-02 | Runtime-изменение FE вызывает FE-пересчёт и необходимую инвалидацию; изменение Fluid не вызывает FE-hook; клиентскую модель обновляет конкретный Lava | [023](decisions/AS-MACHINE-023.md) |
+| MB-FE-05 | Прокси-хэтч при каждом использовании сверяет тип/позицию контроллера, `assemblyId`, `portId`, `worldPos/worldFace`, статус `FORMED` и текущую политику | [026](decisions/AS-MACHINE-026.md) |
+| MB-FE-06 | Рестарт сохранённой `FORMED`-сборки начинается с запрета FE до повторной валидации; неизвестные чанки → `SUSPENDED`, прежний ID; подтверждённое разрушение → новый ID только после восстановления структуры | [026](decisions/AS-MACHINE-026.md) |
+| MB-FE-07 | Отсутствие обязательного чанка не запускает force-load и не приводит к частичной работе хэтчей; валидация событийная, полный скан не выполняется на каждом FE-вызове | [026](decisions/AS-MACHINE-026.md) |
 
 ## Consumer и Energy Storage: проектные регрессии (ещё не выполнены)
 
