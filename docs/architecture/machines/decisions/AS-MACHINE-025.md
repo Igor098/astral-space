@@ -16,18 +16,18 @@
 ## Утверждённые Java-контракты
 
 ```java
-interface GenerationProcess {
+public interface GenerationProcess {
     boolean prepareProductionTick();
     void onProductionTickCompleted();
 }
 
-interface PersistentGenerationProcess extends GenerationProcess {
+public interface PersistentGenerationProcess extends GenerationProcess {
     void saveState(ValueOutput output);
     void restoreState(ValueInput input);
 }
 
 @FunctionalInterface
-interface FuelConsumption {
+public interface FuelConsumption {
     OptionalInt tryConsume(TransactionContext transaction);
 }
 ```
@@ -37,24 +37,30 @@ interface FuelConsumption {
 - `PersistentGenerationProcess` **необязателен**: процесс без сохраняемого состояния не реализует его. Базовый генератор при наличии этого контракта делегирует сохранение/восстановление в `generation_process`.
 - `FuelConsumption.tryConsume(tx)` работает в предоставленном контексте и возвращает **строго положительную** длительность только при полном успешном извлечении требуемого топлива; `OptionalInt.empty()` означает неуспех. Источник **не открывает и не коммитит собственную корневую транзакцию**. Не вводить иерархию `FuelSource`/адаптеры без доказанной необходимости; смысловой интерфейс предпочтительнее сырого `Function`.
 
+Двухметодного `GenerationProcess` достаточно: не вводить обязательные `GenerationContext`, универсальный менеджер процессов или фабрики процессов без доказанной необходимости. Конкретный Coal/Lava может передать `FuelConsumption` ссылкой на собственный метод (например, `this::tryConsumeFuel`, имя иллюстративное) либо лямбдой с уже созданным хранилищем. Отдельные обязательные классы `CoalFuelSource`, `LavaFuelSource` и фабрики не требуются.
+
 ## FuelCycleComponent
 
-Согласован минимальный контракт:
+Согласован минимальный публичный контракт **final-класса** (эскиз сигнатур, без тел методов):
 
 ```java
-public FuelCycleComponent(Runnable onCycleChanged);
+public final class FuelCycleComponent {
+    public FuelCycleComponent(Runnable onCycleChanged);
 
-public boolean isActive();
-public int getRemainingTicks();
-public int getTotalTicks();
-public void start(int durationTicks, TransactionContext transaction);
-public void completeProductionTick();
+    public boolean isActive();
+    public int getRemainingTicks();
+    public int getTotalTicks();
+    public void start(int durationTicks, TransactionContext transaction);
+    public void completeProductionTick();
 
-public void serialize(ValueOutput output);
-public void deserialize(ValueInput input);
+    public void serialize(ValueOutput output);
+    public void deserialize(ValueInput input);
+}
 ```
 
-- Конструктор требует ненулевой callback (при null — `NullPointerException`), устанавливает `remainingTicks=0` и `totalTicks=0`, **не вызывает callback** и не принимает `Level`, хранилище или начальную длительность.
+Наследование от компонента не предусмотрено; расширение алгоритма выполняется через `GenerationProcess` и композицию.
+
+- Конструктор проверяет переданный `Runnable` через `Objects.requireNonNull()` (при null — `NullPointerException`) и сохраняет ссылку на него. Устанавливает `remainingTicks=0` и `totalTicks=0`, **не вызывает callback**. Не принимает `Level`, `BlockEntity`, `TransactionContext`, `EnergyComponent`, хранилище, конкретный вид топлива, начальную или максимальную длительность.
 - `isActive()` истинно ровно при `remainingTicks>0`.
 - `start(duration, tx)`: `duration>0` (иначе **`IllegalArgumentException`**), ненулевой `TransactionContext` (**`NullPointerException`**), запуск **поверх активного** цикла запрещён (**`IllegalStateException`**). Метод возвращает **`void`**, не превращает ошибки программного контракта в `false`. Неактивное завершённое `0 / total` допускает новый запуск. При старте **оба значения становятся равны `durationTicks`**; компонент регистрирует **совместный снимок обоих int** через `SnapshotJournal` до изменения.
 - `completeProductionTick()` — нетранзакционный декремент `remainingTicks` **ровно на 1**, только при активном цикле; вызов при нуле — **`IllegalStateException`** и отсутствие изменений. `totalTicks` при завершении остаётся положительным для GUI; метод не открывает транзакцию. Обычные чтения `isActive/getRemainingTicks/getTotalTicks` **не вызывают callbacks**.
@@ -75,7 +81,7 @@ public void deserialize(ValueInput input);
 3. Конкретный генератор создаёт `FuelCycleComponent` и `FuelCycleGenerationProcess`.
 4. Через **защищённый final-метод однократно привязывает** готовый `GenerationProcess` к базовому генератору.
 
-Повторная привязка и горячая замена запрещены; перед любым использованием проверяется наличие процесса. Его отсутствие — ошибка инициализации, а не штатный результат false. Привязка сама не запускает генерацию, восстановление NBT или клиентскую синхронизацию. Ссылка базового генератора может быть не `final` — принятый компромисс. Из родительского конструктора не вызывать переопределяемые методы, не обращаться к ещё не заданному `Level`, не вызывать callback компонентов. Точное имя метода привязки не утверждено.
+К завершению конструктора конкретной BlockEntity процесс обязан быть привязан; откладывать привязку до `onLoad()` нельзя. Повторная привязка и горячая замена запрещены; перед любым использованием проверяется наличие процесса. Его отсутствие — ошибка инициализации, а не штатный результат false. Привязка сама не запускает генерацию, восстановление NBT или клиентскую синхронизацию. Ссылка базового генератора может быть не `final` — принятый компромисс. Из родительского конструктора не вызывать переопределяемые методы, не обращаться к ещё не заданному `Level`, не вызывать callback компонентов. Точное имя метода привязки не утверждено.
 
 ## NBT и восстановление
 
@@ -120,7 +126,7 @@ public void restoreState(ValueInput input) {
 
 Базовый генератор создаёт и передаёт секцию `generation_process` только для процесса, реализующего `PersistentGenerationProcess`. `serialize()` не меняет состояние и не вызывает callback. Восстановление выполняется до штатной работы, при отсутствии незавершённой транзакции над состоянием цикла.
 
-`FuelConsumption` определяет пригодность ресурса, количество порции и длительность, но не управляет `FuelCycleComponent`. `OptionalInt.of(durationTicks)` означает полное извлечение внутри ещё открытой транзакции, а не окончательное подтверждение расхода. При активном цикле источник повторно не вызывается. При empty (включая частичное извлечение) либо недопустимой длительности корневая транзакция не подтверждается; изменения откатываются. Предметный и жидкостный источники также не должны публиковать успешное изменение, клиентские уведомления или инвалидации, основанные на неподтверждённом состоянии, до root commit.
+`FuelConsumption` определяет пригодность ресурса, количество порции и длительность, но не управляет `FuelCycleComponent`. `OptionalInt.of(durationTicks)` означает полное извлечение внутри ещё открытой транзакции, а не окончательное подтверждение расхода. При активном цикле источник повторно не вызывается. При empty (включая частичное извлечение) либо недопустимой длительности корневая транзакция не подтверждается; изменения откатываются. Предметный и жидкостный источники также не должны вызывать `setChanged()` в связи с ещё неподтверждённым списанием, публиковать успешное изменение, клиентские уведомления или инвалидации, основанные на неподтверждённом состоянии, до root commit. Конкретное согласование callbacks с `onRootCommit()` остаётся задачей реализации, а не новым утверждённым Java API.
 
 ## Не путать целевую модель с реализованной
 
