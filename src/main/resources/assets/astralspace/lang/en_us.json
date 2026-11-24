@@ -11,7 +11,6 @@
   "gui.astralspace.coal_generator.statistics.generation": "Generation",
   "gui.astralspace.coal_generator.statistics.max_generation": "Max. generation",
   "gui.astralspace.coal_generator.statistics.transfer": "Transfer",
-  "gui.astralspace.coal_generator.production_rate.tooltip": "%s FE/t",
   "gui.astralspace.coal_generator.info.name": "Coal Generator Mk I",
   "gui.astralspace.coal_generator.info.description": "A basic generator that converts energy from burning fuel into FE.",
   "gui.astralspace.coal_generator.info.fuel.title": "Fuel",

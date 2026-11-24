@@ -11,7 +11,6 @@
   "gui.astralspace.coal_generator.statistics.generation": "Генерация",
   "gui.astralspace.coal_generator.statistics.max_generation": "Макс. генерация",
   "gui.astralspace.coal_generator.statistics.transfer": "Передача",
-  "gui.astralspace.coal_generator.panel.tooltip": "%s FE/t",
   "gui.astralspace.coal_generator.info.name": "Угольный генератор Mk I",
   "gui.astralspace.coal_generator.info.description": "Простой генератор, преобразующий энергию сгорания топлива в FE.",
   "gui.astralspace.coal_generator.info.fuel.title": "Топливо",

@@ -3,7 +3,6 @@ package ru.greatdragonx.astralspace.modules.energy.blocks;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -24,9 +23,6 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
-import ru.greatdragonx.astralspace.common.machine.MachineSide;
-import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockTypes;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
@@ -37,11 +33,7 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
     public LavaGeneratorBlock(BlockBehaviour.Properties properties) {
         super(properties);
 
-        this.registerDefaultState(this.stateDefinition.any()
-            .setValue(
-                FACING,
-                Direction.NORTH
-            ));
+        this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
     @Override
@@ -55,10 +47,7 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
         @NonNull BlockState state
     )
     {
-        return new LavaGeneratorBlockEntity(
-            pos,
-            state
-        );
+        return new LavaGeneratorBlockEntity(pos, state);
     }
 
     @Override
@@ -74,36 +63,22 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
         @NonNull BlockPlaceContext context
     )
     {
-        return this.defaultBlockState()
-            .setValue(
-                FACING,
-                context.getHorizontalDirection()
-                    .getOpposite()
-            );
-    }
-
-    @Override
-    protected @NonNull BlockState rotate(
-        @NonNull BlockState state,
-        @NonNull Rotation rotation
-    )
-    {
-        return state.setValue(
+        return this.defaultBlockState().setValue(
             FACING,
-            rotation.rotate(state.getValue(FACING))
+            context.getHorizontalDirection().getOpposite()
         );
     }
 
     @Override
-    protected @NonNull BlockState mirror(
-        @NonNull BlockState state,
-        @NonNull Mirror mirror
-    )
+    protected @NonNull BlockState rotate(@NonNull BlockState state, @NonNull Rotation rotation)
     {
-        return this.rotate(
-            state,
-            mirror.getRotation(state.getValue(FACING))
-        );
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected @NonNull BlockState mirror(@NonNull BlockState state, @NonNull Mirror mirror)
+    {
+        return this.rotate(state, mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
@@ -121,45 +96,6 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof LavaGeneratorBlockEntity entity) {
-            if (player.isShiftKeyDown()) {
-                Direction direction = hitResult.getDirection();
-                Direction facing = state.getValue(FACING);
-                MachineSide side = MachineSideDirections.fromWorld(
-                    direction,
-                    facing
-                );
-                if (side == MachineSide.FRONT) {
-                    return InteractionResult.SUCCESS;
-                }
-
-                EnergyPortMode currentMode = entity.getEnergyPortMode(side);
-                EnergyPortMode mode =
-                    currentMode == EnergyPortMode.DISABLED ? EnergyPortMode.OUTPUT :
-                        EnergyPortMode.DISABLED;
-
-                boolean changed = entity.changeEnergyPortMode(
-                    side,
-                    mode
-                );
-
-                if (changed) {
-                    String text = "Энергетический порт %s: %s".formatted(
-                        side,
-                        mode.name()
-                    );
-                    player.displayClientMessage(
-                        Component.literal(text),
-                        false
-                    );
-                } else {
-                    player.displayClientMessage(
-                        Component.literal("Не удалось изменить режим порта"),
-                        false
-                    );
-                }
-
-                return InteractionResult.SUCCESS;
-            }
             if (player instanceof ServerPlayer serverPlayer) {
                 serverPlayer.openMenu(entity);
                 return InteractionResult.SUCCESS;
@@ -178,7 +114,7 @@ public class LavaGeneratorBlock extends BaseEntityBlock {
     )
     {
         if (level.isClientSide()) return null;
-        
+
         return LavaGeneratorBlock.createTickerHelper(
             blockEntityType,
             EnergyBlockEntities.LAVA_GENERATOR_BLOCK_ENTITY.get(),
