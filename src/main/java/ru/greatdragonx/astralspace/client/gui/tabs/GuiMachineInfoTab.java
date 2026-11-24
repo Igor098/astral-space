@@ -16,12 +16,12 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
     private static final float ANIMATION_STEP = 0.15f;
 
     private static final int PANEL_WIDTH = 128;
-    private static final int PANEL_HEIGHT = 116;
+    private static final int PANEL_HEIGHT = 124;
 
     private static final int DESCRIPTION_TEXT_WIDTH = 104;
 
     private static final int DESCRIPTION_START_X = 8;
-    private static final int DESCRIPTION_START_Y = 29;
+    private static final int DESCRIPTION_START_Y = 37;
     private static final int DESCRIPTION_VIEWPORT_HEIGHT = 76;
 
     private static final int LINE_SPACING = 2;
@@ -109,8 +109,10 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int renderedWidth = this.getRenderedWidth();
         int renderedHeight = this.getRenderedHeight();
 
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !this.isOpen() ||
-            renderedWidth < PANEL_WIDTH || renderedHeight < PANEL_HEIGHT)
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
+            !this.isOpen() ||
+            renderedWidth < PANEL_WIDTH ||
+            renderedHeight < PANEL_HEIGHT)
         {
             return false;
         }
@@ -129,8 +131,10 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int trackX = x + SCROLLBAR_OFFSET_X;
         int trackY = anchorY + DESCRIPTION_START_Y;
 
-        boolean inArea = mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH &&
-            mouseY >= trackY + thumbOffset && mouseY < trackY + thumbOffset + thumbHeight;
+        boolean inArea = mouseX >= trackX &&
+            mouseX < trackX + SCROLLBAR_WIDTH &&
+            mouseY >= trackY + thumbOffset &&
+            mouseY < trackY + thumbOffset + thumbHeight;
 
         if (!inArea) {
             return false;
@@ -163,8 +167,10 @@ public final class GuiMachineInfoTab extends GuiAnimatedTab {
         int viewportX = x + DESCRIPTION_START_X;
         int viewportY = anchorY + DESCRIPTION_START_Y;
 
-        boolean canScroll = mouseX >= viewportX && mouseX < viewportX + DESCRIPTION_TEXT_WIDTH &&
-            mouseY >= viewportY && mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
+        boolean canScroll = mouseX >= viewportX &&
+            mouseX < viewportX + DESCRIPTION_TEXT_WIDTH &&
+            mouseY >= viewportY &&
+            mouseY < viewportY + DESCRIPTION_VIEWPORT_HEIGHT;
 
         if (!canScroll) {
             return false;

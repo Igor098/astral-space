@@ -41,10 +41,21 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
     /**
      * Создаёт политику настраиваемых энергетических портов.
      *
-     * <p>Конфигурация допустимых режимов копируется
-     * в неизменяемые коллекции. Провайдер текущих режимов
-     * и проверка доступности сохраняются для динамического
-     * обращения во время работы механизма.</p>
+     * <p>Каждому зарегистрированному порту назначается
+     * неизменяемый набор допустимых режимов работы.</p>
+     *
+     * <p>Переданная конфигурация копируется
+     * в неизменяемую карту с неизменяемыми наборами
+     * режимов. Изменение исходных коллекций
+     * после создания политики не влияет на её состояние.</p>
+     *
+     * <p>Пустая конфигурация допускается. В этом случае
+     * все идентификаторы портов считаются неизвестными.</p>
+     *
+     * <p>Провайдер текущих режимов и функция проверки
+     * доступности сохраняются для динамического
+     * обращения во время работы механизма.
+     * При создании политики они не вызываются.</p>
      *
      * @param allowedModes допустимые режимы для каждого порта
      * @param modeProvider функция получения текущего режима порта
@@ -63,17 +74,17 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
     {
         Objects.requireNonNull(
             modeProvider,
-            "modeProvider cannot be null"
+            "Energy modeProvider cannot be null"
         );
 
         Objects.requireNonNull(
             availability,
-            "availability cannot be null"
+            "Energy availability cannot be null"
         );
 
         this.allowedModes = Objects.requireNonNull(
                 allowedModes,
-                "allowedModes cannot be null"
+                "Energy allowedModes cannot be null"
             )
             .entrySet()
             .stream()

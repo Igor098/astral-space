@@ -1,6 +1,7 @@
 package ru.greatdragonx.astralspace.modules.energy.client.screens;
 
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.NonNull;
 
 public enum CoalGeneratorGuiStatus {
     RUNNING(
@@ -37,13 +38,14 @@ public enum CoalGeneratorGuiStatus {
         String translationKey,
         int color,
         int iconU
-    ) {
+    )
+    {
         this.translationKey = translationKey;
         this.color = color;
         this.iconU = iconU;
     }
 
-    public Component getLabel() {
+    public @NonNull Component getLabel() {
         return Component.translatable(this.translationKey);
     }
 

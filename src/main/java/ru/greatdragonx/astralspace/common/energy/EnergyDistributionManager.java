@@ -122,7 +122,6 @@ public final class EnergyDistributionManager {
     };
 
     private final SnapshotJournal<DemandSnapshot> demandJournal = new SnapshotJournal<>() {
-
         @Override
         protected @NonNull DemandSnapshot createSnapshot() {
             return new DemandSnapshot(
@@ -172,7 +171,6 @@ public final class EnergyDistributionManager {
     };
 
     private final SnapshotJournal<FairnessSnapshot> fairnessJournal = new SnapshotJournal<>() {
-
         @Override
         protected @NonNull FairnessSnapshot createSnapshot() {
             return new FairnessSnapshot(
@@ -228,10 +226,7 @@ public final class EnergyDistributionManager {
      * @throws IllegalArgumentException если один идентификатор встречается несколько раз
      */
     public void updateAvailablePorts(List<EnergyPortId> portIds) {
-        Objects.requireNonNull(
-            portIds,
-            "portIds must not be null"
-        );
+        Objects.requireNonNull(portIds, "portIds must not be null");
 
         if (this.availablePorts.equals(portIds)) {
             return;
@@ -312,10 +307,7 @@ public final class EnergyDistributionManager {
         if (this.lastDemandTick == currentTick && Objects.equals(
             this.lastRequestTicks.get(portId),
             currentTick
-        ) && requested <= this.maxRequestedByPort.getOrDefault(
-            portId,
-            0
-        ))
+        ) && requested <= this.maxRequestedByPort.getOrDefault(portId, 0))
         {
             return;
         }
@@ -335,43 +327,20 @@ public final class EnergyDistributionManager {
             this.maxRequestedByPort.clear();
         }
 
-        if (!this.isActive(
-            portId,
-            currentTick
-        ))
-        {
-            if (this.getPreviousPushAvailability(
-                portId,
-                currentTick
-            ) <= 0)
-            {
+        if (!this.isActive(portId, currentTick)) {
+            if (this.getPreviousPushAvailability(portId, currentTick) <= 0) {
                 this.fairnessJournal.updateSnapshots(transaction);
                 this.fairnessCredits.remove(portId);
             }
 
-            this.activeSinceTicks.put(
-                portId,
-                currentTick
-            );
+            this.activeSinceTicks.put(portId, currentTick);
         }
 
-        int maxRequested = this.maxRequestedByPort.getOrDefault(
-            portId,
-            0
-        );
+        int maxRequested = this.maxRequestedByPort.getOrDefault(portId, 0);
 
-        this.maxRequestedByPort.put(
-            portId,
-            Math.max(
-                maxRequested,
-                requested
-            )
-        );
+        this.maxRequestedByPort.put(portId, Math.max(maxRequested, requested));
 
-        this.lastRequestTicks.put(
-            portId,
-            currentTick
-        );
+        this.lastRequestTicks.put(portId, currentTick);
     }
 
     /**
@@ -405,8 +374,7 @@ public final class EnergyDistributionManager {
 
         if (!this.isPortAvailable(portId)) {
             throw new IllegalStateException(
-                "Cannot record energy extraction from unavailable port: " +
-                    portId);
+                "Cannot record energy extraction from unavailable port: " + portId);
         }
 
         this.journal.updateSnapshots(transaction);
@@ -426,14 +394,8 @@ public final class EnergyDistributionManager {
             this.extractedByPort.clear();
         }
 
-        int alreadyExtracted = this.getExtractedByPort(
-            portId,
-            currentTick
-        );
-        this.extractedByPort.put(
-            portId,
-            alreadyExtracted + extracted
-        );
+        int alreadyExtracted = this.getExtractedByPort(portId, currentTick);
+        this.extractedByPort.put(portId, alreadyExtracted + extracted);
     }
 
     /**
@@ -484,10 +446,7 @@ public final class EnergyDistributionManager {
                 continue;
             }
 
-            this.pushAvailabilityByPort.put(
-                portId,
-                available
-            );
+            this.pushAvailabilityByPort.put(portId, available);
         }
 
         this.lastPushAvailabilityTick = currentTick;
@@ -539,11 +498,7 @@ public final class EnergyDistributionManager {
         int count = 0;
 
         for (EnergyPortId portId : this.availablePorts) {
-            if (this.isActive(
-                portId,
-                currentTick
-            ))
-            {
+            if (this.isActive(portId, currentTick)) {
                 count++;
             }
         }
@@ -567,10 +522,7 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        boolean isActive = this.isActive(
-            portId,
-            currentTick
-        );
+        boolean isActive = this.isActive(portId, currentTick);
         if (!isActive) {
             return 0;
         }
@@ -592,22 +544,13 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        int quota = this.getBaseQuota(
-            portId,
-            currentTick
-        );
+        int quota = this.getBaseQuota(portId, currentTick);
 
-        int extracted = this.getExtractedByPort(
-            portId,
-            currentTick
-        );
+        int extracted = this.getExtractedByPort(portId, currentTick);
 
         int remains = quota - extracted;
 
-        return Math.max(
-            0,
-            remains
-        );
+        return Math.max(0, remains);
     }
 
     /**
@@ -637,11 +580,7 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        if (!this.isEligibleForQuota(
-            portId,
-            currentTick
-        ))
-        {
+        if (!this.isEligibleForQuota(portId, currentTick)) {
             return 0;
         }
 
@@ -672,15 +611,9 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
-        int remainingQuota = this.getRemainingBaseQuota(
-            portId,
-            currentTick
-        );
+        int remainingQuota = this.getRemainingBaseQuota(portId, currentTick);
 
-        return Math.min(
-            remainingQuota,
-            requested
-        );
+        return Math.min(remainingQuota, requested);
     }
 
     /**
@@ -704,10 +637,7 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
-        return this.extractedByPort.getOrDefault(
-            portId,
-            0
-        );
+        return this.extractedByPort.getOrDefault(portId, 0);
     }
 
     /**
@@ -730,17 +660,11 @@ public final class EnergyDistributionManager {
         }
 
         if (this.lastUsageTick == currentTick - 1) {
-            return this.extractedByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.extractedByPort.getOrDefault(portId, 0);
         }
 
         if (this.previousUsageTick == currentTick - 1) {
-            return this.previousExtractedByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.previousExtractedByPort.getOrDefault(portId, 0);
         }
 
         return 0;
@@ -767,10 +691,7 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
-        return this.maxRequestedByPort.getOrDefault(
-            portId,
-            0
-        );
+        return this.maxRequestedByPort.getOrDefault(portId, 0);
     }
 
     /**
@@ -793,17 +714,11 @@ public final class EnergyDistributionManager {
         }
 
         if (this.lastDemandTick == currentTick - 1) {
-            return this.maxRequestedByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.maxRequestedByPort.getOrDefault(portId, 0);
         }
 
         if (this.previousDemandTick == currentTick - 1) {
-            return this.previousMaxRequestedByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.previousMaxRequestedByPort.getOrDefault(portId, 0);
         }
 
         return 0;
@@ -830,30 +745,14 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        int baseQuota = this.getBaseQuotaForSupply(
-            portId,
-            effectiveSupply,
-            currentTick
-        );
-        int previousMaxRequested = this.getPreviousMaxRequestedByPort(
-            portId,
-            currentTick
-        );
-        int currentMaxRequested = this.getMaxRequestedByPort(
-            portId,
-            currentTick
-        );
+        int baseQuota = this.getBaseQuotaForSupply(portId, effectiveSupply, currentTick);
+        int previousMaxRequested = this.getPreviousMaxRequestedByPort(portId, currentTick);
+        int currentMaxRequested = this.getMaxRequestedByPort(portId, currentTick);
 
-        int pushAvailability = this.getPushAvailability(
-            portId,
-            currentTick
-        );
+        int pushAvailability = this.getPushAvailability(portId, currentTick);
 
         int maxRequested = Math.max(
-            Math.max(
-                previousMaxRequested,
-                currentMaxRequested
-            ),
+            Math.max(previousMaxRequested, currentMaxRequested),
             pushAvailability
         );
 
@@ -862,21 +761,12 @@ public final class EnergyDistributionManager {
         if (maxRequested == 0) {
             reserve = baseQuota;
         } else {
-            reserve = Math.min(
-                maxRequested,
-                baseQuota
-            );
+            reserve = Math.min(maxRequested, baseQuota);
         }
 
-        int finalQuota = reserve - this.getExtractedByPort(
-            portId,
-            currentTick
-        );
+        int finalQuota = reserve - this.getExtractedByPort(portId, currentTick);
 
-        return Math.max(
-            0,
-            finalQuota
-        );
+        return Math.max(0, finalQuota);
     }
 
 
@@ -941,10 +831,9 @@ public final class EnergyDistributionManager {
             this.updateFairnessCredits(currentTick);
         }
 
-        if (!this.fairnessCredits.isEmpty() &&
-            this.countActivePorts(currentTick) <= 1 &&
-            this.countEligibleForQuota(currentTick) <= 1 &&
-            this.countDemandingPortsPreviousTick(currentTick) <= 1)
+        if (!this.fairnessCredits.isEmpty() && this.countActivePorts(currentTick) <= 1 &&
+            this.countEligibleForQuota(currentTick) <= 1 && this.countDemandingPortsPreviousTick(
+            currentTick) <= 1)
         {
             this.fairnessJournal.updateSnapshots(transaction);
             this.fairnessCredits.clear();
@@ -956,15 +845,9 @@ public final class EnergyDistributionManager {
 
         int alreadyExtracted = this.maxTransferPerTick - remainingGlobalBudget;
 
-        int effectiveSupply = Math.min(
-            this.maxTransferPerTick,
-            alreadyExtracted + storedEnergy
-        );
+        int effectiveSupply = Math.min(this.maxTransferPerTick, alreadyExtracted + storedEnergy);
 
-        int maxLimit = Math.min(
-            storedEnergy,
-            remainingGlobalBudget
-        );
+        int maxLimit = Math.min(storedEnergy, remainingGlobalBudget);
 
         int protectedFromOtherPorts = this.getAdaptiveProtectedRemainingForOtherPorts(
             portId,
@@ -975,10 +858,7 @@ public final class EnergyDistributionManager {
 
         int allowed = maxLimit - protectedFromOtherPorts;
 
-        return Math.min(
-            allowed,
-            requested
-        );
+        return Math.min(allowed, requested);
     }
 
     /**
@@ -1002,10 +882,7 @@ public final class EnergyDistributionManager {
             return 0;
         }
 
-        return this.pushAvailabilityByPort.getOrDefault(
-            portId,
-            0
-        );
+        return this.pushAvailabilityByPort.getOrDefault(portId, 0);
     }
 
     /**
@@ -1030,17 +907,11 @@ public final class EnergyDistributionManager {
         long targetTick = currentTick - 1;
 
         if (this.lastPushAvailabilityTick == targetTick) {
-            return this.pushAvailabilityByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.pushAvailabilityByPort.getOrDefault(portId, 0);
         }
 
         if (this.previousPushAvailabilityTick == targetTick) {
-            return this.previousPushAvailabilityByPort.getOrDefault(
-                portId,
-                0
-            );
+            return this.previousPushAvailabilityByPort.getOrDefault(portId, 0);
         }
 
         return 0;
@@ -1083,13 +954,8 @@ public final class EnergyDistributionManager {
         long currentTick
     )
     {
-        return this.isActive(
-            portId,
-            currentTick
-        ) || this.getPushAvailability(
-            portId,
-            currentTick
-        ) > 0 || (
+        return this.isActive(portId, currentTick) || this.getPushAvailability(portId, currentTick) >
+            0 || (
             this.lastPushAvailabilityTick != currentTick && this.getPreviousPushAvailability(
                 portId,
                 currentTick
@@ -1110,11 +976,7 @@ public final class EnergyDistributionManager {
         int count = 0;
 
         for (EnergyPortId portId : this.availablePorts) {
-            if (this.isEligibleForQuota(
-                portId,
-                currentTick
-            ))
-            {
+            if (this.isEligibleForQuota(portId, currentTick)) {
                 count++;
             }
         }
@@ -1140,19 +1002,9 @@ public final class EnergyDistributionManager {
     {
         return Math.max(
             Math.max(
-                this.getPreviousMaxRequestedByPort(
-                    portId,
-                    currentTick
-                ),
-                this.getPreviousExtractedByPort(
-                    portId,
-                    currentTick
-                )
-            ),
-            this.getPreviousPushAvailability(
-                portId,
-                currentTick
-            )
+                this.getPreviousMaxRequestedByPort(portId, currentTick),
+                this.getPreviousExtractedByPort(portId, currentTick)
+            ), this.getPreviousPushAvailability(portId, currentTick)
         );
     }
 
@@ -1167,10 +1019,7 @@ public final class EnergyDistributionManager {
         int count = 0;
 
         for (EnergyPortId portId : this.availablePorts) {
-            int previousDemand = this.getEffectivePreviousDemand(
-                portId,
-                currentTick
-            );
+            int previousDemand = this.getEffectivePreviousDemand(portId, currentTick);
 
             if (previousDemand > 0) {
                 count++;
@@ -1224,16 +1073,10 @@ public final class EnergyDistributionManager {
         for (int i = 0; i < n; i++) {
             EnergyPortId port = this.availablePorts.get(i);
 
-            int demand = this.getEffectivePreviousDemand(
-                port,
-                currentTick
-            );
+            int demand = this.getEffectivePreviousDemand(port, currentTick);
 
             demands[i] = demand;
-            actual[i] = this.getPreviousExtractedByPort(
-                port,
-                currentTick
-            );
+            actual[i] = this.getPreviousExtractedByPort(port, currentTick);
 
             totalExtracted += actual[i];
 
@@ -1243,10 +1086,7 @@ public final class EnergyDistributionManager {
 
             demandingCount++;
 
-            boolean hadPush = this.getPreviousPushAvailability(
-                port,
-                currentTick
-            ) > 0;
+            boolean hadPush = this.getPreviousPushAvailability(port, currentTick) > 0;
 
             Long activeSince = this.activeSinceTicks.get(port);
 
@@ -1267,15 +1107,9 @@ public final class EnergyDistributionManager {
                 continue;
             }
 
-            targets[i] = Math.min(
-                demands[i],
-                fairShare
-            );
+            targets[i] = Math.min(demands[i], fairShare);
 
-            remaining += Math.max(
-                0,
-                fairShare - demands[i]
-            );
+            remaining += Math.max(0, fairShare - demands[i]);
         }
 
         while (remaining > 0) {
@@ -1291,26 +1125,14 @@ public final class EnergyDistributionManager {
                 break;
             }
 
-            int portion = Math.max(
-                1,
-                remaining / count
-            );
+            int portion = Math.max(1, remaining / count);
 
-            int startIndex = Math.floorMod(
-                previousTick,
-                count
-            );
+            int startIndex = Math.floorMod(previousTick, count);
 
             for (int j = 0; j < count; j++) {
                 int i = eligible[(startIndex + j) % count];
 
-                int addition = Math.min(
-                    portion,
-                    Math.min(
-                        demands[i] - targets[i],
-                        remaining
-                    )
-                );
+                int addition = Math.min(portion, Math.min(demands[i] - targets[i], remaining));
 
                 if (addition <= 0) {
                     continue;
@@ -1328,10 +1150,7 @@ public final class EnergyDistributionManager {
 
             EnergyPortId port = this.availablePorts.get(i);
 
-            long balance = this.fairnessCredits.getOrDefault(
-                port,
-                0L
-            );
+            long balance = this.fairnessCredits.getOrDefault(port, 0L);
 
             int delta = targets[i] - actual[i];
 
@@ -1396,16 +1215,9 @@ public final class EnergyDistributionManager {
                     adjustment += increase ? 1L : -1L;
                 }
 
-                long updated = Math.clamp(
-                    current + adjustment,
-                    -limit,
-                    limit
-                );
+                long updated = Math.clamp(current + adjustment, -limit, limit);
 
-                this.fairnessCredits.put(
-                    portId,
-                    updated
-                );
+                this.fairnessCredits.put(portId, updated);
 
                 sum += updated - current;
             }
@@ -1469,11 +1281,7 @@ public final class EnergyDistributionManager {
         for (int i = 0; i < reserves.length; i++) {
             EnergyPortId port = this.availablePorts.get(i);
 
-            if (!this.isEligibleForQuota(
-                port,
-                currentTick
-            ))
-            {
+            if (!this.isEligibleForQuota(port, currentTick)) {
                 continue;
             }
 
@@ -1483,50 +1291,25 @@ public final class EnergyDistributionManager {
 
             int demand = Math.max(
                 Math.max(
-                    this.getPreviousMaxRequestedByPort(
-                        port,
-                        currentTick
-                    ),
-                    this.getMaxRequestedByPort(
-                        port,
-                        currentTick
-                    )
-                ),
-                Math.max(
-                    this.getPushAvailability(
-                        port,
-                        currentTick
-                    ),
-                    this.getPreviousPushAvailability(
-                        port,
-                        currentTick
-                    )
+                    this.getPreviousMaxRequestedByPort(port, currentTick),
+                    this.getMaxRequestedByPort(port, currentTick)
+                ), Math.max(
+                    this.getPushAvailability(port, currentTick),
+                    this.getPreviousPushAvailability(port, currentTick)
                 )
             );
 
             int target = Math.clamp(
-                (long) baseQuota + this.fairnessCredits.getOrDefault(
-                    port,
-                    0L
-                ),
+                (long) baseQuota + this.fairnessCredits.getOrDefault(port, 0L),
                 0,
                 demand == 0 ? effectiveSupply : demand
             );
 
-            int reserve = Math.max(
-                0,
-                target - this.getExtractedByPort(
-                    port,
-                    currentTick
-                )
-            );
+            int reserve = Math.max(0, target - this.getExtractedByPort(port, currentTick));
 
             reserves[i] = reserve;
             total += reserve;
-            maximum = Math.max(
-                maximum,
-                reserve
-            );
+            maximum = Math.max(maximum, reserve);
         }
 
         int ownReserve = targetIndex < 0 ? 0 : reserves[targetIndex];
@@ -1543,10 +1326,7 @@ public final class EnergyDistributionManager {
             long reducedTotal = 0;
 
             for (int reserve : reserves) {
-                reducedTotal += Math.max(
-                    0,
-                    reserve - reduction
-                );
+                reducedTotal += Math.max(0, reserve - reduction);
             }
 
             if (reducedTotal > availableNow) {
@@ -1571,28 +1351,15 @@ public final class EnergyDistributionManager {
                 eligibleRemainders++;
             }
 
-            total += Math.max(
-                0,
-                reserves[i] - reduction
-            );
+            total += Math.max(0, reserves[i] - reduction);
         }
 
-        ownReserve = Math.max(
-            0,
-            ownReserve - reduction
-        );
+        ownReserve = Math.max(0, ownReserve - reduction);
 
         int remainder = (int) (availableNow - total);
-        int shift = Math.floorMod(
-            currentTick,
-            eligibleRemainders
-        );
+        int shift = Math.floorMod(currentTick, eligibleRemainders);
 
-        if (ownRank >= 0 && Math.floorMod(
-            ownRank - shift,
-            eligibleRemainders
-        ) < remainder)
-        {
+        if (ownRank >= 0 && Math.floorMod(ownRank - shift, eligibleRemainders) < remainder) {
             ownReserve++;
         }
 
@@ -1627,10 +1394,7 @@ public final class EnergyDistributionManager {
     )
     {
         for (int i = 0; i < values.length; i += 2) {
-            target.put(
-                (EnergyPortId) values[i],
-                (V) values[i + 1]
-            );
+            target.put((EnergyPortId) values[i], (V) values[i + 1]);
         }
     }
 

@@ -1,0 +1,7 @@
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "astralspace_gametest"
+version = "1.0.0"
+displayName = "Astral Space GameTests"
+description = '''Development-only integration tests for Astral Space.'''

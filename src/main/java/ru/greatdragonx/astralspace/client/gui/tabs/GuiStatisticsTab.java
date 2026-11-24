@@ -16,9 +16,9 @@ public final class GuiStatisticsTab extends GuiAnimatedTab {
     private static final float STATISTIC_TEXT_SCALE = 0.65f;
 
     private static final int PANEL_WIDTH = 100;
-    private static final int BASE_PANEL_HEIGHT = 46;
+    private static final int BASE_PANEL_HEIGHT = 54;
 
-    private static final int FIRST_ENTRY_Y = 27;
+    private static final int FIRST_ENTRY_Y = 35;
     private static final int ENTRY_SPACING = 15;
 
     private final Font font;
@@ -122,7 +122,7 @@ public final class GuiStatisticsTab extends GuiAnimatedTab {
             graphics,
             this.font,
             label,
-            anchorX + 6,
+            anchorX + 9,
             anchorY,
             STATISTIC_TEXT_SCALE,
             0xFFD6DCE1
