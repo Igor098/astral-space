@@ -240,24 +240,15 @@ public final class EnergyDistributionManager {
             throw new IllegalArgumentException("duplicated ports not allowed");
         }
 
-        this.lastRequestTicks.keySet()
-            .retainAll(uniquePorts);
-        this.extractedByPort.keySet()
-            .retainAll(uniquePorts);
-        this.maxRequestedByPort.keySet()
-            .retainAll(uniquePorts);
-        this.previousMaxRequestedByPort.keySet()
-            .retainAll(uniquePorts);
-        this.previousExtractedByPort.keySet()
-            .retainAll(uniquePorts);
-        this.fairnessCredits.keySet()
-            .retainAll(uniquePorts);
-        this.activeSinceTicks.keySet()
-            .retainAll(uniquePorts);
-        this.pushAvailabilityByPort.keySet()
-            .retainAll(uniquePorts);
-        this.previousPushAvailabilityByPort.keySet()
-            .retainAll(uniquePorts);
+        this.lastRequestTicks.keySet().retainAll(uniquePorts);
+        this.extractedByPort.keySet().retainAll(uniquePorts);
+        this.maxRequestedByPort.keySet().retainAll(uniquePorts);
+        this.previousMaxRequestedByPort.keySet().retainAll(uniquePorts);
+        this.previousExtractedByPort.keySet().retainAll(uniquePorts);
+        this.fairnessCredits.keySet().retainAll(uniquePorts);
+        this.activeSinceTicks.keySet().retainAll(uniquePorts);
+        this.pushAvailabilityByPort.keySet().retainAll(uniquePorts);
+        this.previousPushAvailabilityByPort.keySet().retainAll(uniquePorts);
 
         this.availablePorts = ports;
 
@@ -304,10 +295,9 @@ public final class EnergyDistributionManager {
             return;
         }
 
-        if (this.lastDemandTick == currentTick && Objects.equals(
-            this.lastRequestTicks.get(portId),
-            currentTick
-        ) && requested <= this.maxRequestedByPort.getOrDefault(portId, 0))
+        if (this.lastDemandTick == currentTick &&
+            Objects.equals(this.lastRequestTicks.get(portId), currentTick) &&
+            requested <= this.maxRequestedByPort.getOrDefault(portId, 0))
         {
             return;
         }
@@ -464,10 +454,7 @@ public final class EnergyDistributionManager {
      * @return {@code true}, если порт доступен и его последний Pull-запрос
      * находится в окне активности
      */
-    public boolean isActive(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public boolean isActive(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return false;
@@ -517,10 +504,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return базовая квота в FE/t либо {@code 0} для неактивного порта
      */
-    public int getBaseQuota(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getBaseQuota(EnergyPortId portId, long currentTick)
     {
         boolean isActive = this.isActive(portId, currentTick);
         if (!isActive) {
@@ -539,10 +523,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return {@code max(0, базовая квота - уже передано в текущем тике)}, FE
      */
-    public int getRemainingBaseQuota(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getRemainingBaseQuota(EnergyPortId portId, long currentTick)
     {
         int quota = this.getBaseQuota(portId, currentTick);
 
@@ -574,11 +555,7 @@ public final class EnergyDistributionManager {
      * @return базовая равная доля, FE; {@code 0}, если порт не участвует
      * в распределении
      */
-    private int getBaseQuotaForSupply(
-        EnergyPortId portId,
-        int effectiveSupply,
-        long currentTick
-    )
+    private int getBaseQuotaForSupply(EnergyPortId portId, int effectiveSupply, long currentTick)
     {
         if (!this.isEligibleForQuota(portId, currentTick)) {
             return 0;
@@ -601,11 +578,7 @@ public final class EnergyDistributionManager {
      * @return разрешённый объём в пределах базовой квоты, FE;
      * {@code 0} при неположительном запросе
      */
-    public int getAllowedBaseAmount(
-        EnergyPortId portId,
-        int requested,
-        long currentTick
-    )
+    public int getAllowedBaseAmount(EnergyPortId portId, int requested, long currentTick)
     {
         if (requested <= 0) {
             return 0;
@@ -624,10 +597,7 @@ public final class EnergyDistributionManager {
      * @return суммарно переданное количество, FE; {@code 0}, если порт недоступен
      * или статистика текущего тика отсутствует
      */
-    public int getExtractedByPort(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getExtractedByPort(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -650,10 +620,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return фактическая передача за предыдущий тик, FE, или {@code 0}
      */
-    public int getPreviousExtractedByPort(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getPreviousExtractedByPort(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -678,10 +645,7 @@ public final class EnergyDistributionManager {
      * @return максимум одного Pull-запроса, FE, либо {@code 0}
      * при отсутствии данных или недоступном порте
      */
-    public int getMaxRequestedByPort(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getMaxRequestedByPort(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -704,10 +668,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return максимум Pull-запроса за {@code currentTick - 1}, FE, или {@code 0}
      */
-    public int getPreviousMaxRequestedByPort(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getPreviousMaxRequestedByPort(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -780,14 +741,16 @@ public final class EnergyDistributionManager {
      * подтверждённый спрос и Push-доступность предыдущего тика.</p>
      *
      * <p>Накопленные кредиты очищаются, если одновременно выполняются
-     * следующие условия:
+     * следующие условия:</p>
+     *
      * <ul>
      *   <li>активных Pull-портов не больше одного;</li>
      *   <li>портов, участвующих в расчёте квот, не больше одного;</li>
      *   <li>портов с положительным спросом предыдущего тика
      *       не больше одного.</li>
      * </ul>
-     * Это предотвращает сохранение накопленного преимущества одного порта,
+     *
+     * <p>Это предотвращает сохранение накопленного преимущества одного порта,
      * когда конкуренция за энергию фактически отсутствует.</p>
      *
      * <p>Допустимая передача рассчитывается с учётом оставшегося глобального
@@ -831,9 +794,10 @@ public final class EnergyDistributionManager {
             this.updateFairnessCredits(currentTick);
         }
 
-        if (!this.fairnessCredits.isEmpty() && this.countActivePorts(currentTick) <= 1 &&
-            this.countEligibleForQuota(currentTick) <= 1 && this.countDemandingPortsPreviousTick(
-            currentTick) <= 1)
+        if (!this.fairnessCredits.isEmpty() &&
+            this.countActivePorts(currentTick) <= 1 &&
+            this.countEligibleForQuota(currentTick) <= 1 &&
+            this.countDemandingPortsPreviousTick(currentTick) <= 1)
         {
             this.fairnessJournal.updateSnapshots(transaction);
             this.fairnessCredits.clear();
@@ -869,10 +833,7 @@ public final class EnergyDistributionManager {
      * @return наблюдаемая возможность передачи, FE, или {@code 0}, если порт
      * недоступен либо наблюдение относится к другому тику
      */
-    public int getPushAvailability(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getPushAvailability(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -895,10 +856,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return Push-доступность за {@code currentTick - 1}, FE, или {@code 0}
      */
-    public int getPreviousPushAvailability(
-        EnergyPortId portId,
-        long currentTick
-    )
+    public int getPreviousPushAvailability(EnergyPortId portId, long currentTick)
     {
         if (!this.isPortAvailable(portId)) {
             return 0;
@@ -949,10 +907,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return {@code true}, если порт участвует в распределении квот
      */
-    private boolean isEligibleForQuota(
-        EnergyPortId portId,
-        long currentTick
-    )
+    private boolean isEligibleForQuota(EnergyPortId portId, long currentTick)
     {
         return this.isActive(portId, currentTick) || this.getPushAvailability(portId, currentTick) >
             0 || (
@@ -995,10 +950,7 @@ public final class EnergyDistributionManager {
      * @param currentTick текущий игровой тик
      * @return эффективный спрос за предыдущий тик, FE
      */
-    private int getEffectivePreviousDemand(
-        EnergyPortId portId,
-        long currentTick
-    )
+    private int getEffectivePreviousDemand(EnergyPortId portId, long currentTick)
     {
         return Math.max(
             Math.max(
