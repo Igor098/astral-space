@@ -1,6 +1,6 @@
 # Энергетическая подсистема (FE)
 
-**Актуализировано:** 2026-11-24 (целевая архитектура); состояние кода `main` исторически сверено по коммиту `3c1ddff` от 2026-11-05, а современная интеграция Lava — по `feature/lava-generator-mk1` на 2026-11-24. Локальные результаты тестов отмечены отдельно.  
+**Актуализировано:** 2026-11-24 (целевая архитектура); историческая интеграция Coal сверена по `3c1ddff` от 2026-11-05, актуальная интеграция Coal/Lava в `main` — по `3216128` после слияния PR #3. Локальные результаты тестов отмечены отдельно.  
 **Связано:** [ADR-ENERGY-001/002 и статус миграции `EnergyPortId`](../energy/AstralSpace_Energy_Architecture_Decisions.md), [AS-MACHINE-003](decisions/AS-MACHINE-003.md), [AS-MACHINE-011](decisions/AS-MACHINE-011.md), [AS-MACHINE-023](decisions/AS-MACHINE-023.md), [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
 
 > Различать три состояния: **существует в Java**, **интегрировано в конкретный генератор**, **утверждено как целевая архитектура**. Это разные уровни готовности.
@@ -9,21 +9,21 @@
 
 | Компонент | Что уже реализовано | Ограничение текущего этапа |
 |---|---|---|
-| `EnergyComponent` | FE-хранилище `long`, `storeProducedEnergy`, транзакционные `insertEnergy`/`extractEnergy`/`tryConsumeForWork`, восстановление состояния | В Coal Generator Mk I используется для хранения FE; координация портов и лимитов вынесена в `EnergyTransferCoordinator` |
+| `EnergyComponent` | FE-хранилище `long`, `storeProducedEnergy`, транзакционные `insertEnergy`/`extractEnergy`/`tryConsumeForWork`, восстановление состояния | В Coal/Lava Generator Mk I используется для хранения FE; координация портов и лимитов вынесена в `EnergyTransferCoordinator` |
 | `EnergyPortId` | Уникальный логический ID **в пределах механизма**, не мировой ID | Привязку к физической стороне обеспечивает машина/порт |
 | `EnergyPortMode` | `INPUT`, `OUTPUT`, `DISABLED`; без `BOTH` | Подключение общей политики в каждый механизм — отдельная задача |
-| `EnergyPortPolicy`, `FixedEnergyPortPolicy`, `ConfigurableEnergyPortPolicy` | Правила режимов, доступности, перенастройки | В Coal Generator Mk I используется общий `EnergyPortHandler` |
-| `EnergyPortConfiguration`, `EnergyPortConfigurationSerializer` | Конфигурация режимов и чтение/запись | Coal Generator Mk I пока использует прежние флаги `BlockState` для выходов |
+| `EnergyPortPolicy`, `FixedEnergyPortPolicy`, `ConfigurableEnergyPortPolicy` | Правила режимов, доступности, перенастройки | В обоих генераторах используется общий `EnergyPortHandler` |
+| `EnergyPortConfiguration`, `EnergyPortConfigurationSerializer` | Конфигурация режимов и чтение/запись | Coal пока использует прежние флаги `BlockState` для выходов; Lava хранит конфигурацию в BE |
 | `EnergyDistributionManager` | Спрос Pull, наблюдение Push, учёт выдачи, адаптивные квоты, `fairnessCredits` по `EnergyPortId` | Не перемещает FE и не применяет бюджет самостоятельно |
-| `EnergyTransferBudget` | Транзакционный лимит передачи FE за тик | Выходной бюджет `80 FE/t` разделяют Push и Pull; бюджет приёма существует отдельно |
-| `EnergyTransferCoordinator` | Координация буфера, распределителя, бюджетов и статистики | Интегрирован в Coal Generator Mk I |
-| `EnergyPushTransfer` | Активная отправка энергии соседям | Интегрирован в Coal Generator Mk I |
+| `EnergyTransferBudget` | Транзакционный лимит передачи FE за тик | Push и Pull разделяют выходной бюджет (Coal 80 FE/t, Lava 120 FE/t); бюджет приёма существует отдельно |
+| `EnergyTransferCoordinator` | Координация буфера, распределителя, бюджетов и статистики | Интегрирован в Coal/Lava Generator Mk I |
+| `EnergyPushTransfer` | Активная отправка энергии соседям | Интегрирован в Coal/Lava Generator Mk I |
 | `EnergyTransferTracker` | Учёт фактической выдачи для статистики | Это не источник авторизации передачи |
-| `EnergyPortHandler` | **Реализован** как обработчик конкретного `EnergyPortId` | Coal Generator Mk I кеширует экземпляры по `EnergyPortId`, проверки разрешений производятся при операции |
+| `EnergyPortHandler` | **Реализован** как обработчик конкретного `EnergyPortId` | Coal/Lava кешируют экземпляры по `EnergyPortId`, проверки разрешений производятся при операции |
 
 Ранее восемь компонентов базовой FE-модели имели **125 проходящих тестов** (исторический результат из архитектурной документации; не утверждение об актуальном полном прогоне). Отдельно после миграции и оптимизации распределителя локально прошли **66/66** тестов `EnergyDistributionManagerTest` и `EnergyLifecycleRegressionTest`.
 
-**Синхронизация исходников:** сведения о базовой интеграции `main` подтверждены коммитом `3c1ddff`; новые схемы Coal/Lava и разделённые FE-контроллеры ещё не перенесены в `main`. Проверенная в feature-ветке Lava конфигурация внутри BE и визуализация не считаются частью `main`. Исторический прогон 66/66 не является подтверждением нового полного прогона.
+**Синхронизация исходников:** базовая интеграция Coal (`3c1ddff`) и интеграция Lava (`3216128`, PR #3) присутствуют в `main`. BE-конфигурация Lava, динамическая модель и оптимизация снимков распределителя включены в текущую реализацию. Разделённые FE-контроллеры и миграция обоих генераторов на новую общую архитектуру ещё предстоят. Исторические 66/66 не являются новым прогоном; успешный CI PR #3 и подтверждённые владельцем 37 GameTest относятся к завершению Lava, а не к будущей архитектуре.
 
 ## Инварианты энергетических портов
 

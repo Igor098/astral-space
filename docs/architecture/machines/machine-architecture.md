@@ -94,7 +94,7 @@ BlockEntity
 
 ## Граница текущего этапа
 
-`EnergyComponent`, `EnergyPortId`, политики, `EnergyPortHandler`, `EnergyTransferCoordinator`, `EnergyDistributionManager` и другие FE-узлы **реализованы**. Выделение `EnergyInputController`, `EnergyOutputController`, `EnergyPortDispatcher` и общей генераторной иерархии **согласовано, но ещё не реализовано**. `LavaGeneratorBlockEntity` в рабочей feature-ветке демонстрирует современную BE-конфигурацию и динамический рендеринг; Coal пока использует старую схему BlockState-флагов. Газовое API остаётся отдельной будущей задачей. См. [энергетическую систему](energy-system.md) и [открытые вопросы](open-questions.md).
+`EnergyComponent`, `EnergyPortId`, политики, `EnergyPortHandler`, `EnergyTransferCoordinator`, `EnergyDistributionManager` и другие FE-узлы **реализованы**. Выделение `EnergyInputController`, `EnergyOutputController`, `EnergyPortDispatcher` и общей генераторной иерархии **согласовано, но ещё не реализовано**. `LavaGeneratorBlockEntity` в `main` демонстрирует современную BE-конфигурацию и динамический рендеринг; Coal пока использует старую схему BlockState-флагов. Газовое API остаётся отдельной будущей задачей. См. [энергетическую систему](energy-system.md) и [открытые вопросы](open-questions.md).
 
 
 ## Дополнение 2026-11-05: визуальное состояние и физические коммуникации

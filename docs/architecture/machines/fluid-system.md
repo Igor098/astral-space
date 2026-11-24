@@ -2,6 +2,10 @@
 
 ADR: [003](decisions/AS-MACHINE-003.md), [005](decisions/AS-MACHINE-005.md), [013](decisions/AS-MACHINE-013.md), [017](decisions/AS-MACHINE-017.md), [018](decisions/AS-MACHINE-018.md), [019](decisions/AS-MACHINE-019.md), [020](decisions/AS-MACHINE-020.md).
 
+## Состояние реализации
+
+После слияния PR #3 (`3216128`) в `main` реализованы `FluidTankId`, `FluidTankRole`, `FluidTankDefinition`, `MachineFluidStorage`, жидкостные политики и конфигурация, `FluidPortRoute`, `FluidPortRouting`, `FluidPortRoutingValidator` и `FluidPortHandler`. Lava Generator использует один входной резервуар на 8 000 mB, принимающий только лаву, и режимы INPUT/SERVICE/DISABLED через `Capabilities.Fluid.BLOCK`. Общий режим OUTPUT существует в инфраструктуре, но не разрешён для Lava. Собственные жидкостные сети, автоматическая выдача производственных результатов и интеграция рецептов/мультиблоков остаются целевыми задачами.
+
 ## Хранилища
 
 - Один резервуар содержит **один тип жидкости** одновременно; самопроизвольное смешивание не допускается.
@@ -45,6 +49,6 @@ ADR: [003](decisions/AS-MACHINE-003.md), [005](decisions/AS-MACHINE-005.md), [01
 
 `MachineFluidStorage` и правила расходования конкретной жидкости принадлежат **Lava Generator**. Общая энергетическая база не содержит ни резервуаров, ни Fluid-портов. При новом `FuelCycleGenerationProcess` Lava предоставляет реализацию `FuelConsumption.tryConsume(TransactionContext)`, которая в предоставленной NeoForge-транзакции извлекает **всю порцию топлива** и сообщает положительную длительность. Частичное извлечение либо ошибка должны откатываться вместе с попыткой запуска `FuelCycleComponent` при неподтверждённой корневой транзакции. Исходные Fluid-алгоритмы не переписываются ради общего процесса.
 
-**Технический долг рабочей Lava-ветки:** `EnergyPortConfiguration` и `FluidPortConfiguration` используют общий `onPortConfigurationChanged()`, который вызывает `syncAvailableEnergyPorts()`, `setChanged()`, инвалидацию capabilities, `sendBlockUpdated()` и `updateNeighborsAt()`. Поэтому изменение Fluid-конфигурации вызывает лишнее FE-согласование. При миграции разделить FE- и Fluid-реакции, сохранив нужные эффекты конкретной машины.
+**Технический долг Lava Generator в `main`:** `EnergyPortConfiguration` и `FluidPortConfiguration` используют общий `onPortConfigurationChanged()`, который вызывает `syncAvailableEnergyPorts()`, `setChanged()`, инвалидацию capabilities, `sendBlockUpdated()` и `updateNeighborsAt()`. Поэтому изменение Fluid-конфигурации вызывает лишнее FE-согласование. При миграции разделить FE- и Fluid-реакции, сохранив нужные эффекты конкретной машины.
 
 **Разделённые реакции:** изменение настройки жидкостного порта не означает изменение `EnergyPortConfiguration` и не запускает без необходимости `EnergyOutputController.refreshAvailablePorts()`; NeoForge-инвалидация capability по мировой позиции может затрагивать все типы на ней, поэтому **разделение FE/Fluid-колбэков означает отсутствие лишнего FE-пересчёта**, а не обещание выборочной инвалидации только Fluid; динамическая `ModelData`-визуализация и Fluid-синхронизация остаются задачами конкретной Lava BlockEntity. Во время паузы по FE-буферу/редстоуну лавовый топливный цикл сохраняет остаток, **новая порция не расходуется**. См. [AS-MACHINE-023](decisions/AS-MACHINE-023.md) и [AS-MACHINE-025](decisions/AS-MACHINE-025.md).
