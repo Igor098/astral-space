@@ -172,7 +172,7 @@
 | FE-GEN-07 | `EnergyPortDispatcher.getStoredEnergy/getCapacity` читает общий `EnergyComponent`; без input-контроллера `insert=0`, без output-контроллера `extract=0`; внешний Pull не становится Push | [023](decisions/AS-MACHINE-023.md), [027](decisions/AS-MACHINE-027.md) |
 | FE-GEN-08 | `EnergyOutputController.extract(portId,amount,tx)` учитывает Pull-спрос; `extract(portId,amount,tx,ExtractionOrigin.PUSH)` **не** регистрирует Pull-спрос; обе ветки сохраняют квоты и общий лимит | [023](decisions/AS-MACHINE-023.md) |
 | FE-GEN-09 | Неизвестный ID, выключенный режим либо неготовый мир → `0` без вызова `LongSupplier`, без регистрации запросов и изменения FE/бюджета; неверные аргументы не маскируются под обычный отказ | [023](decisions/AS-MACHINE-023.md) |
-| FE-GEN-10 | Порядок `List<EnergyPortId>` сохраняется при фильтрации; внешний список копируется, повторы и `null` запрещены; производный `Set` не меняет порядок | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-10 | Порядок `List<EnergyPortId>` сохраняется при фильтрации; внешний список копируется, повторы и `null` запрещены; обязательный неизменяемый `knownPorts` (`Set`) формируется из проверенного списка, не меняет порядок | [023](decisions/AS-MACHINE-023.md) |
 | FE-GEN-11 | Изменение доступности **внутри** FE-транзакции немедленно закрывает политику, но `updateAvailablePorts` выполняется в ближайшей контролируемой безопасной точке **после** транзакции | [023](decisions/AS-MACHINE-023.md), [024](decisions/AS-MACHINE-024.md) |
 | PORT-05 | `GeneratorEnergySpec` содержит capacity/output FE/t, а производство FE/t ограничено отдельно `0 < generationPerTick <= capacity`; `FIXED`/ `CONFIGURABLE` проверяет `allowedModes` и `defaultMode` | [024](decisions/AS-MACHINE-024.md) |
 | PORT-06 | NORTH/EAST/SOUTH/WEST вращают local offset и face согласованно; `MachineSide.LEFT` при NORTH — EAST; одноблочная опорная позиция — его BlockEntity | [024](decisions/AS-MACHINE-024.md) |
@@ -197,3 +197,29 @@
 | FE-STOR-03 | Если у накопителя есть активный Push, он и внешний Pull используют **один** OUTPUT-бюджет; Push не регистрирует фиктивный Pull-спрос | [023](decisions/AS-MACHINE-023.md), [027](decisions/AS-MACHINE-027.md) |
 | FE-STOR-04 | Откат или simulate не оставляет подтверждённого изменения FE, budgets и статистики; запрещённые режимы отсекаются живой политикой | [027](decisions/AS-MACHINE-027.md) |
 | FE-STOR-05 | Сохранение/восстановление не создаёт независимые FE-запасы у Input/Output-контроллеров; вне открытого доступа старый handler остаётся fail-closed | [027](decisions/AS-MACHINE-027.md) |
+
+
+## Регрессии привязки процесса, сериализации и физических выходов
+
+Все сценарии ниже — требования к будущим тестам, а не подтверждение их реализации или прохождения.
+
+| ID | Сценарий | ADR |
+|---|---|---|
+| GEN-08 | Однократная привязка GenerationProcess: повторная привязка и обращение к отсутствующему процессу являются ошибками инициализации; привязка сама не запускает производство, NBT-восстановление или синхронизацию | [025](decisions/AS-MACHINE-025.md) |
+| GEN-09 | Stateless GenerationProcess не обязан реализовывать PersistentGenerationProcess; базовый генератор не создаёт и не восстанавливает секцию generation_process для такого процесса | [025](decisions/AS-MACHINE-025.md) |
+| GEN-10 | Нетопливный генератор использует общий производственный тик без фиктивного FuelCycleComponent и без FuelConsumption | [025](decisions/AS-MACHINE-025.md) |
+| FC-09 | Активный топливный цикл разрешает подготовку тика без повторного вызова FuelConsumption | [025](decisions/AS-MACHINE-025.md) |
+| FC-10 | serialize() сохраняет оба счётчика без изменения состояния и без вызова callback | [025](decisions/AS-MACHINE-025.md) |
+| FC-11 | Неположительная длительность, возвращённая источником топлива, не приводит к подтверждению корневой транзакции; списание откатывается | [025](decisions/AS-MACHINE-025.md) |
+| FC-12 | Конструктор FuelCycleComponent с null callback выбрасывает NullPointerException | [025](decisions/AS-MACHINE-025.md) |
+| FC-13 | До root commit ни Item/Fluid-источник, ни FuelCycleComponent не публикуют уведомлений об успешном списании или старте; при rollback такие уведомления отсутствуют | [025](decisions/AS-MACHINE-025.md) |
+| FE-GEN-12 | При готовой инфраструктуре вне транзакции пересчёт выполняется сразу; при отсутствии разрешённых выходов менеджеру передаётся пустой список | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-13 | OUTPUT → DISABLED → OUTPUT: история исключённого порта не восстанавливается, история остальных портов сохраняется | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-14 | Все handlers одной машины используют общий dispatcher, живую policy, контроллер, буфер и бюджет; отдельного бюджета на порт нет | [023](decisions/AS-MACHINE-023.md) |
+| FE-GEN-15 | Pull и Push транзакционно учитывают фактическое извлечение в distribution manager; tracker уведомляется после root commit; rollback восстанавливает учёт, бюджет и FE | [023](decisions/AS-MACHINE-023.md) |
+| LIFE-03 | Необязательный визуальный hook не влияет на обязательную общую реакцию: без override и с override без super выполняются пересчёт, маркировка и необходимая инвалидация ровно по одному общему пути | [023](decisions/AS-MACHINE-023.md) |
+| LIFE-04 | FE и режимы восстанавливаются через тихие restoreStoredEnergy и restoreModes; пользовательские callbacks не вызываются; сериализация не меняет состояние | [023](decisions/AS-MACHINE-023.md), [сохранение](persistence-and-networking.md) |
+| LIFE-05 | Конкретный генератор передаёт единый GeneratorConfiguration базовому классу; сборка FE-инфраструктуры не вызывает виртуальные методы потомка | [023](decisions/AS-MACHINE-023.md), [024](decisions/AS-MACHINE-024.md) |
+| MB-FE-08 | Push обращается к соседям реальных физических хэтчей через противоположную грань соседа, а не к соседям контроллера; два одинаково направленных хэтча используют общий OUTPUT-бюджет | [026](decisions/AS-MACHINE-026.md) |
+| MB-FE-09 | После загрузки действующий assemblyId означает SUSPENDED до валидации, отсутствие действующего ID — UNFORMED; сохранённый FORMED не открывает FE сам по себе | [026](decisions/AS-MACHINE-026.md) |
+| MB-FE-10 | Значимое изменение в удалённой обязательной позиции структуры инициирует перепроверку, даже если оно произошло не рядом с контроллером | [026](decisions/AS-MACHINE-026.md) |
