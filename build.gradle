@@ -35,11 +35,11 @@ base {
 }
 
 tasks.named('jar', Jar) {
-    from(
+    from([
         'LICENSE.md',
         'LICENSE.en.md',
         'TEMPLATE_LICENSE.txt'
-    ) {
+    ]) {
         into 'META-INF'
     }
 }
