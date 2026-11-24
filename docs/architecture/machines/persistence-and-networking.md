@@ -22,7 +22,7 @@
 
 ## BlockState как визуальная проекция
 
-В текущем Coal Generator Mk I пять `OUTPUT_*`-флагов BlockState используются для отображения подключений. **Целевой источник истины — `EnergyPortConfiguration` в BlockEntity**. Рабочая ветка Lava Generator уже использует BE-конфигурацию и динамический `ModelData` / `DynamicBlockStateModel`. Новая общая архитектура не должна возвращать режимы в BlockState как независимый источник истины. Не переносить старую визуальную схему Coal в общую базу.
+В текущем Coal Generator Mk I пять `OUTPUT_*`-флагов BlockState используются для отображения подключений. **Целевой источник истины — `EnergyPortConfiguration` в BlockEntity**. Lava Generator в `main` уже использует BE-конфигурацию и динамический `ModelData` / `DynamicBlockStateModel`. Новая общая архитектура не должна возвращать режимы в BlockState как независимый источник истины. Не переносить старую визуальную схему Coal в общую базу.
 
 ## Сетевое взаимодействие
 

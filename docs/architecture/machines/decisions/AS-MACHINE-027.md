@@ -118,4 +118,4 @@ extract(id,...,tx) ──► EnergyOutputController    (если подключ�
 
 **Место `AbstractEnergyConsumerBlockEntity` в иерархии утверждено**, но **не фиксировались точные Java-сигнатуры** его конструктора, `EnergyInputController`, возможного `AbstractEnergyStorageBlockEntity`, фабрик Input/Output, схемы NPC/GUI для аккумулятора, конкретные игровые FE/t значения, рецепты и общая система процессинга. Эти вопросы нельзя оформлять как уже готовый production-контракт.
 
-**Реализация:** в `main` уже существуют общие FE-компоненты и действующий Coal Generator; описанное разделение контроллеров, Consumer/Storage и их integration tests — целевая архитектура и план внедрения, а не утверждение готовых классов.
+**Реализация:** в `main` уже существуют общие FE-компоненты и действующие Coal Generator Mk I и Lava Generator Mk I; описанное разделение контроллеров, Consumer/Storage и их integration tests — целевая архитектура и план внедрения, а не утверждение готовых классов.

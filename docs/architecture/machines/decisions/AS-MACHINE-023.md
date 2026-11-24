@@ -160,7 +160,7 @@ public EnergyOutputController(
 
 ## Граница решения и миграция
 
-Это **утверждённый проект**, а не сообщение о наличии `AbstractEnergyMachineBlockEntity`, `AbstractGeneratorBlockEntity`, `EnergyInputController`, `EnergyOutputController` и `EnergyPortDispatcher` в `main`. Работающий `LavaGeneratorBlockEntity` в ветке `feature/lava-generator-mk1` — ориентир по BE-owned конфигурации портов и динамической модели; Coal пока использует более старую `BlockState.OUTPUT_*`-схему. Не переносить эту старую визуальную схему в новую базу.
+Это **утверждённый проект**, а не сообщение о наличии `AbstractEnergyMachineBlockEntity`, `AbstractGeneratorBlockEntity`, `EnergyInputController`, `EnergyOutputController` и `EnergyPortDispatcher` в `main`. Работающий `LavaGeneratorBlockEntity` в `main` — ориентир по BE-owned конфигурации портов и динамической модели; Coal пока использует более старую `BlockState.OUTPUT_*`-схему. Не переносить эту старую визуальную схему в новую базу.
 
 Сопутствующие правила конфигурации и физической топологии — [AS-MACHINE-024](AS-MACHINE-024.md); топливный процесс — [AS-MACHINE-025](AS-MACHINE-025.md).
 
