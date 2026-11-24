@@ -16,12 +16,18 @@ BlockEntity
     ├── AbstractGeneratorBlockEntity
     │   ├── CoalGeneratorBlockEntity
     │   └── LavaGeneratorBlockEntity
-    └── [будущие потребители/накопители: иерархия ещё не определена]
+    ├── AbstractEnergyConsumerBlockEntity
+    │   ├── ElectricCompressorBlockEntity
+    │   ├── ElectricCrusherBlockEntity
+    │   └── ElectricFurnaceBlockEntity
+    └── EnergyStorageBlockEntity
 ```
 
-- `AbstractEnergyMachineBlockEntity` владеет **одним** `EnergyComponent`, связывает изменения с Minecraft lifecycle и отвечает за его сохранение/восстановление. Сам буфер **не означает** открытие FE capability. Базовый класс не навязывает топливо, рецепты, GUI, модель, Fluid, контроллеры ввода/вывода, бюджеты, Push, редстоун или общую производственную логику.
+- `AbstractEnergyMachineBlockEntity` владеет **одним** `EnergyComponent`, связывает изменения с Minecraft lifecycle и отвечает за его сохранение/восстановление; накопление FE и возможность внутреннего расходования обеспечиваются этим общим компонентом. Конкретный механизм определяет, **производит, потребляет на работу или отдаёт** запасённую энергию. Сам буфер **не означает** открытие FE capability, наличие производственного рецепта или обязательный расход FE за каждый тик. Базовый класс не навязывает топливо, рецепты, GUI, модель, Fluid, контроллеры ввода/вывода, бюджеты, Push, редстоун или общую производственную логику.
 - `AbstractGeneratorBlockEntity` координирует общую последовательность генерации и **выходной** энергетический контур. Не хранит счётчики топлива, не создаёт общего класса `AbstractFuelCycleGeneratorBlockEntity` и не содержит предметных/жидкостных правил.
-- Ввод `AbstractMachineBlockEntity` и новых базовых классов для потребителей/накопителей отложен до реального сценария. Не вводить промежуточные классы только ради симметрии имён.
+- **`AbstractEnergyConsumerBlockEntity` — принятый специализированный уровень иерархии** для механизмов с внешним FE-вводом и расходом накопленной энергии на работу. Он собирает входной энергетический контур над тем же `EnergyComponent`, не создаёт фиктивные OUTPUT-бюджет, `EnergyDistributionManager`, tracker или Push; не реализует конкретные рецепты/камеры. **Точный конструктор и Java-сигнатуры этого базового класса пока не закреплены** — это не означает, что его место в иерархии открыто.
+- **`EnergyStorageBlockEntity` напрямую наследуется от `AbstractEnergyMachineBlockEntity`** и подключает оба FE-контроллера к одному буферу с независимыми бюджетами INPUT и OUTPUT. Отдельный `AbstractEnergyStorageBlockEntity` пока **не вводим**, поскольку особый общий жизненный цикл нескольких накопителей ещё не подтверждён. Таким образом, место накопителя в текущей иерархии **определено**.
+- `AbstractMachineBlockEntity` пока не вводим; не создавать дополнительные уровни без реальной общей обязанности.
 - Существующие `EnergyComponent`, `EnergyDistributionManager`, `EnergyTransferBudget`, `EnergyTransferTracker`, `EnergyPushTransfer`, `EnergyPortPolicy` и `EnergyPortHandler` **сохраняются**, их алгоритмы не дублируются в BlockEntity.
 
 ## Независимые направления передачи
