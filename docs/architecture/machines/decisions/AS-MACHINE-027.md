@@ -66,13 +66,19 @@ AbstractEnergyConsumerBlockEntity собирает INPUT-контур:
 - **Внешний OUTPUT:** собственный `EnergyOutputController`, `EnergyDistributionManager`, `EnergyTransferTracker` и **общий OUTPUT-бюджет** за тик. Внешний Pull разрешён OUTPUT-политикой; собственный Push **опционален** и использует переиспользуемый `EnergyPushTransfer`, а не наследование от генератора.
 
 ```text
-EnergyStorageBlockEntity
-└── AbstractEnergyMachineBlockEntity
-    ├── EnergyComponent (ровно один: общая фактическая FE-ёмкость)
-    ├── EnergyInputController  ── input FE/t budget
-    ├── EnergyOutputController ── output FE/t budget + distribution + tracker
-    └── EnergyPortDispatcher  ── getStoredEnergy/getCapacity/insert/extract
-                               (один внешний FE-фасад на оба направления)
+Наследование:
+AbstractEnergyMachineBlockEntity
+└── EnergyStorageBlockEntity
+
+Владение компонентами:
+AbstractEnergyMachineBlockEntity:
+  EnergyComponent (единственный FE-буфер)
+EnergyStorageBlockEntity:
+  EnergyInputController  ── INPUT budget
+  EnergyOutputController ── OUTPUT budget + distribution + tracker
+  EnergyPortDispatcher  ── getStoredEnergy/getCapacity/insert/extract
+
+Оба контроллера работают с унаследованным EnergyComponent.
 ```
 
 **Бюджеты входа и выхода — независимые экземпляры и независимые лимиты.** Они **не объединяются** в один двунаправленный бюджет и **не дублируют** энергетический запас. Если накопитель поддерживает Push, Push и внешний Pull расходуют **один общий OUTPUT-бюджет**, точно так же, как у генератора; Push не регистрируется как Pull-спрос.
@@ -93,6 +99,8 @@ extract(id,...,tx) ──► EnergyOutputController    (если подключ�
 ```
 
 Если соответствующий контур отсутствует, операция `insert`/`extract` возвращает `0`. Это **не** разрешает обходить `EnergyPortPolicy`: она проверяется в `EnergyPortHandler` при каждом внешнем вызове, а контроллеры не должны позволять обход соответствующих направлений при прямых вызовах. Начальное получение capability и повторное использование выданного обработчика должны одинаково соблюдать текущую доступность порта.
+
+Внешний `EnergyPortHandler.insert()` сохраняет возможность частичного приёма FE в пределах свободного места, разрешений и входного бюджета. `FULL-TICK-OR-PAUSE` относится к генерации, а не к внешней вставке: при свободных 30 FE запрос на 40 FE может принять 30 FE, если политика и бюджет разрешают.
 
 **Портовый режим и бюджет — отдельные ограничения.** Например, INPUT-порт накопителя может быть разрешён, но вставка вернёт `0`, если общий FE-буфер заполнен или израсходован входной лимит. OUTPUT может быть доступен, но FE не выдаётся, если запас пуст или исчерпан исходящий лимит.
 
