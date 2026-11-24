@@ -19,7 +19,8 @@ public class AstralSpace {
     public AstralSpace(
         IEventBus modEventBus,
         ModContainer modContainer
-    ) {
+    )
+    {
         EnergyBlockTypes.BLOCK_TYPES.register(modEventBus);
         EnergyBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
         EnergyBlocks.BLOCKS.register(modEventBus);

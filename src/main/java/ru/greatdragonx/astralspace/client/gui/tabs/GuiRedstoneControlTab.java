@@ -22,28 +22,42 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
     private static final int MODE_BUTTON_SIZE = 20;
     private static final int MODE_ICON_SIZE = 12;
     private static final int MODE_BUTTON_GAP = 4;
-    private static final int MODE_BUTTONS_Y = 28;
+    private static final int MODE_BUTTONS_Y = 31;
+    private static final int MODE_BUTTON_SOURCE_SIZE = 80;
+    private static final int MODE_ICON_SOURCE_SIZE = 48;
 
-    private static final Identifier MODE_BUTTONS_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
+    private static final int CONTENT_HORIZONTAL_INSET = 8;
+
+    private static final int STATUS_ROW_Y = 64;
+    private static final int SIGNAL_ROW_Y = 76;
+
+    private static final float INFO_LABEL_SCALE = 0.7f;
+    private static final float INFO_VALUE_SCALE = 0.6f;
+
+    private static final int INFO_LABEL_COLOR = 0xFFA9B9CA;
+
+    private static final Identifier MODE_BUTTONS_TEXTURE = Identifier.fromNamespaceAndPath(AstralSpace.MOD_ID,
         "textures/gui/common/redstone/redstone_mode_buttons.png"
     );
 
-    private static final Identifier MODE_ICONS_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/redstone/redstone_mode_icons.png"
-    );
+    private static final Identifier MODE_ICONS_TEXTURE =
+        Identifier.fromNamespaceAndPath(
+            AstralSpace.MOD_ID,
+            "textures/gui/common/redstone/redstone_mode_icons.png"
+        );
 
-    private static final Identifier ICON_TEXTURE = Identifier.fromNamespaceAndPath(
-        AstralSpace.MOD_ID,
-        "textures/gui/common/tabs/redstone_control.png"
-    );
+    private static final Identifier ICON_TEXTURE =
+        Identifier.fromNamespaceAndPath(
+            AstralSpace.MOD_ID,
+            "textures/gui/common/tabs/redstone_control.png"
+        );
 
-    private static final List<RedstoneControlMode> DISPLAY_MODES = List.of(
-        RedstoneControlMode.IGNORE,
-        RedstoneControlMode.WHEN_UNPOWERED,
-        RedstoneControlMode.WHEN_POWERED
-    );
+    private static final List<RedstoneControlMode> DISPLAY_MODES =
+        List.of(
+            RedstoneControlMode.IGNORE,
+            RedstoneControlMode.WHEN_UNPOWERED,
+            RedstoneControlMode.WHEN_POWERED
+        );
 
     private final Font font;
 
@@ -51,12 +65,7 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         Font font
     )
     {
-        super(
-            false,
-            ANIMATION_STEP,
-            PANEL_WIDTH,
-            PANEL_HEIGHT
-        );
+        super(false, ANIMATION_STEP, PANEL_WIDTH, PANEL_HEIGHT);
         this.font = font;
     }
 
@@ -64,17 +73,13 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         @NonNull GuiGraphics graphics,
         @NonNull RedstoneControlMode selectedMode,
         boolean redstoneBlocked,
+        boolean hasSignal,
         int anchorX,
         int anchorY,
         float partialTick
     )
     {
-        float progress = this.renderPanelBackground(
-            graphics,
-            anchorX,
-            anchorY,
-            partialTick
-        );
+        float progress = this.renderPanelBackground(graphics, anchorX, anchorY, partialTick);
 
         int width = this.getRenderedWidth();
         int height = this.getRenderedHeight();
@@ -85,19 +90,14 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
             graphics,
             selectedMode,
             redstoneBlocked,
+            hasSignal,
             x,
             anchorY,
             width,
             height
         );
 
-        this.drawTabIcon(
-            graphics,
-            ICON_TEXTURE,
-            x,
-            anchorY,
-            progress
-        );
+        this.drawTabIcon(graphics, ICON_TEXTURE, x, anchorY, progress);
     }
 
     public @Nullable RedstoneControlMode getHoveredMode(
@@ -116,7 +116,9 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
 
         int panelX = this.getPanelX(anchorX);
 
-        if (mouseX < panelX || mouseX >= panelX + renderedWidth || mouseY < anchorY + TAB_HEIGHT ||
+        if (mouseX < panelX ||
+            mouseX >= panelX + renderedWidth ||
+            mouseY < anchorY + TAB_HEIGHT ||
             mouseY >= anchorY + renderedHeight)
         {
             return null;
@@ -131,9 +133,10 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
             RedstoneControlMode mode = DISPLAY_MODES.get(i);
 
             int buttonX = startX + i * (MODE_BUTTON_SIZE + MODE_BUTTON_GAP);
-            boolean isButtonClicked =
-                mouseX >= buttonX && mouseX < buttonX + MODE_BUTTON_SIZE && mouseY >= buttonY &&
-                    mouseY < buttonY + MODE_BUTTON_SIZE;
+            boolean isButtonClicked = mouseX >= buttonX &&
+                mouseX < buttonX + MODE_BUTTON_SIZE &&
+                mouseY >= buttonY &&
+                mouseY < buttonY + MODE_BUTTON_SIZE;
             if (isButtonClicked) {
                 return mode;
             }
@@ -151,12 +154,7 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         RedstoneControlMode selectedMode
     )
     {
-        RedstoneControlMode hoveredMode = this.getHoveredMode(
-            mouseX,
-            mouseY,
-            anchorX,
-            anchorY
-        );
+        RedstoneControlMode hoveredMode = this.getHoveredMode(mouseX, mouseY, anchorX, anchorY);
 
         boolean headerHovered = this.isFullyClosed() && this.isHeaderHovered(
             mouseX,
@@ -174,25 +172,21 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         Component tooltip = switch (mode) {
             case IGNORE ->
                 Component.translatable("gui.astralspace.redstone_control.tooltip.ignore");
-            case WHEN_UNPOWERED ->
-                Component.translatable("gui.astralspace.redstone_control.tooltip.when_unpowered");
-            case WHEN_POWERED ->
-                Component.translatable("gui.astralspace.redstone_control.tooltip.when_powered");
+            case WHEN_UNPOWERED -> Component.translatable(
+                "gui.astralspace.redstone_control.tooltip.when_unpowered");
+            case WHEN_POWERED -> Component.translatable(
+                "gui.astralspace.redstone_control.tooltip.when_powered");
         };
 
         if (headerHovered) {
-            tooltip = Component.translatable(
-                "gui.astralspace.redstone_control.tooltip.current_mode",
-                tooltip
-            );
+            tooltip =
+                Component.translatable(
+                    "gui.astralspace.redstone_control.tooltip.current_mode",
+                    tooltip
+                );
         }
 
-        graphics.setTooltipForNextFrame(
-            this.font,
-            tooltip,
-            mouseX,
-            mouseY
-        );
+        graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
     }
 
     private void drawModeButtons(
@@ -204,8 +198,10 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
     {
         int totalWidth =
             DISPLAY_MODES.size() * MODE_BUTTON_SIZE + (DISPLAY_MODES.size() - 1) * MODE_BUTTON_GAP;
+
         int startX = anchorX + (PANEL_WIDTH - totalWidth) / 2;
         int buttonY = anchorY + MODE_BUTTONS_Y;
+
         int iconOffset = (MODE_BUTTON_SIZE - MODE_ICON_SIZE) / 2;
 
         for (int i = 0; i < DISPLAY_MODES.size(); i++) {
@@ -213,8 +209,9 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
 
             int buttonX = startX + i * (MODE_BUTTON_SIZE + MODE_BUTTON_GAP);
 
-            int buttonU = mode == selectedMode ? MODE_BUTTON_SIZE : 0;
-            int iconU = i * MODE_ICON_SIZE;
+            int buttonU = mode == selectedMode ? MODE_BUTTON_SOURCE_SIZE : 0;
+
+            int iconU = i * MODE_ICON_SOURCE_SIZE;
 
             int iconX = buttonX + iconOffset;
             int iconY = buttonY + iconOffset;
@@ -228,9 +225,12 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
                 0,
                 MODE_BUTTON_SIZE,
                 MODE_BUTTON_SIZE,
-                MODE_BUTTON_SIZE * 2,
-                MODE_BUTTON_SIZE
+                MODE_BUTTON_SOURCE_SIZE,
+                MODE_BUTTON_SOURCE_SIZE,
+                MODE_BUTTON_SOURCE_SIZE * 2,
+                MODE_BUTTON_SOURCE_SIZE
             );
+
             graphics.blit(
                 RenderPipelines.GUI_TEXTURED,
                 MODE_ICONS_TEXTURE,
@@ -240,84 +240,62 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
                 0,
                 MODE_ICON_SIZE,
                 MODE_ICON_SIZE,
-                MODE_ICON_SIZE * DISPLAY_MODES.size(),
-                MODE_ICON_SIZE
+                MODE_ICON_SOURCE_SIZE,
+                MODE_ICON_SOURCE_SIZE,
+                MODE_ICON_SOURCE_SIZE * DISPLAY_MODES.size(),
+                MODE_ICON_SOURCE_SIZE
             );
         }
     }
 
-    private void drawStatus(
-        GuiGraphics graphics,
-        int anchorX,
-        int anchorY,
-        boolean redstoneBlocked
-    )
-    {
-        int textX = anchorX + 6;
-        int titleY = anchorY + 54;
-        int statusValueY = anchorY + 62;
-
-        Component title = Component.translatable("gui.astralspace.redstone_control.status");
-        Component statusValue =
-            redstoneBlocked ? Component.translatable("gui.astralspace.redstone_control.blocked") :
-                Component.translatable("gui.astralspace.redstone_control.allowed");
-
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            title,
-            textX,
-            titleY,
-            0.7f,
-            0xFFA9B9CA
-        );
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            statusValue,
-            textX,
-            statusValueY,
-            0.6f,
-            0xFFE0E5EA
-        );
-    }
-
-    private void drawSignal(
+    private void drawInfoRow(
         @NonNull GuiGraphics graphics,
-        @NonNull RedstoneControlMode selectedMode,
-        int anchorX,
-        int anchorY
+        int panelX,
+        int panelY,
+        int rowCenterY,
+        @NonNull Component label,
+        @NonNull Component value,
+        int valueColor
     )
     {
-        int textX = anchorX + 6;
-        int titleY = anchorY + 74;
-        int signalValueY = anchorY + 82;
-        String translationKey = switch (selectedMode) {
-            case IGNORE -> "gui.astralspace.redstone_control.signal_ignored";
-            case WHEN_POWERED -> "gui.astralspace.redstone_control.signal_present";
-            case WHEN_UNPOWERED -> "gui.astralspace.redstone_control.signal_absent";
-        };
+        float leftX = panelX + CONTENT_HORIZONTAL_INSET;
+        float rightX = panelX + PANEL_WIDTH - CONTENT_HORIZONTAL_INSET;
 
-        Component title = Component.translatable("gui.astralspace.redstone_control.signal");
-        Component signalValue = Component.translatable(translationKey);
+        float labelWidth = this.font.width(label) * INFO_LABEL_SCALE;
 
-        GuiTextRenderer.drawScaledText(
-            graphics,
-            this.font,
-            title,
-            textX,
-            titleY,
-            0.7f,
-            0xFFA9B9CA
+        float availableWidth = Math.max(1.0f, rightX - leftX - labelWidth - 4.0f);
+
+        float valueScale = Math.min(
+            INFO_VALUE_SCALE,
+            availableWidth / Math.max(1, this.font.width(value))
         );
+
+        float valueWidth = this.font.width(value) * valueScale;
+
+        float centerY = panelY + rowCenterY;
+
+        float labelY = centerY - (this.font.lineHeight * INFO_LABEL_SCALE) / 2.0f;
+
+        float valueY = centerY - (this.font.lineHeight * valueScale) / 2.0f;
+
         GuiTextRenderer.drawScaledText(
             graphics,
             this.font,
-            signalValue,
-            textX,
-            signalValueY,
-            0.6f,
-            0xFFE0E5EA
+            label,
+            leftX,
+            labelY,
+            INFO_LABEL_SCALE,
+            INFO_LABEL_COLOR
+        );
+
+        GuiTextRenderer.drawScaledText(
+            graphics,
+            this.font,
+            value,
+            rightX - valueWidth,
+            valueY,
+            valueScale,
+            valueColor
         );
     }
 
@@ -325,6 +303,7 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
         @NonNull GuiGraphics graphics,
         @NonNull RedstoneControlMode selectedMode,
         boolean redstoneBlocked,
+        boolean hasSignal,
         int panelX,
         int panelY,
         int width,
@@ -340,40 +319,31 @@ public final class GuiRedstoneControlTab extends GuiAnimatedTab {
             panelY + height - BORDER_SIZE
         );
 
-        this.drawTitle(
-            graphics,
-            this.font,
-            title,
-            panelX,
-            panelY
-        );
+        this.drawTitle(graphics, this.font, title, panelX, panelY);
+        this.drawDivider(graphics, panelX, panelY, width);
+        this.drawModeButtons(graphics, panelX, panelY, selectedMode);
 
-        this.drawDivider(
+        this.drawInfoRow(
             graphics,
             panelX,
             panelY,
-            width
+            STATUS_ROW_Y,
+            Component.translatable("gui.astralspace.redstone_control.work"),
+            Component.translatable(
+                redstoneBlocked ? "gui.astralspace.redstone_control.work_blocked" :
+                    "gui.astralspace.redstone_control.work_allowed"),
+            redstoneBlocked ? 0xFFEE8A7A : 0xFF87CDAA
         );
 
-        this.drawModeButtons(
+        this.drawInfoRow(
             graphics,
             panelX,
             panelY,
-            selectedMode
-        );
-
-        this.drawStatus(
-            graphics,
-            panelX,
-            panelY,
-            redstoneBlocked
-        );
-
-        this.drawSignal(
-            graphics,
-            selectedMode,
-            panelX,
-            panelY
+            SIGNAL_ROW_Y,
+            Component.translatable("gui.astralspace.redstone_control.signal"),
+            Component.translatable(hasSignal ? "gui.astralspace.redstone_control.signal_on" :
+                "gui.astralspace.redstone_control.signal_off"),
+            hasSignal ? 0xFFFFB267 : 0xFFBAC4CF
         );
 
         graphics.disableScissor();

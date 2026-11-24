@@ -1,0 +1,24 @@
+{
+  "textures": {
+    "front": "astralspace:block/lava_generator/front_off"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#front"
+        }
+      }
+    }
+  ]
+}

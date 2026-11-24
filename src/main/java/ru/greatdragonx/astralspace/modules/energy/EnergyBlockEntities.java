@@ -5,6 +5,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
+import ru.greatdragonx.astralspace.modules.energy.blockentities.LavaGeneratorBlockEntity;
 
 import java.util.function.Supplier;
 
@@ -21,6 +22,15 @@ public final class EnergyBlockEntities {
             CoalGeneratorBlockEntity::new,
             false,
             EnergyBlocks.COAL_GENERATOR.get()
+        )
+    );
+    public static final Supplier<BlockEntityType<LavaGeneratorBlockEntity>>
+        LAVA_GENERATOR_BLOCK_ENTITY = BLOCK_ENTITY_TYPES.register(
+        "lava_generator_entity",
+        () -> new BlockEntityType<>(
+            LavaGeneratorBlockEntity::new,
+            false,
+            EnergyBlocks.LAVA_GENERATOR.get()
         )
     );
 

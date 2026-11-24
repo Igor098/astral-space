@@ -1,5 +1,6 @@
 package ru.greatdragonx.astralspace.modules.energy.menus;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
@@ -9,6 +10,7 @@ import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.SideConfiguration;
+import ru.greatdragonx.astralspace.common.machine.menu.RedstoneConfigurableMenu;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
@@ -16,14 +18,11 @@ import ru.greatdragonx.astralspace.modules.energy.config.CoalGeneratorEnergyOutp
 
 import java.util.function.Consumer;
 
-public class CoalGeneratorMenu extends AbstractContainerMenu {
+public class CoalGeneratorMenu extends AbstractContainerMenu implements RedstoneConfigurableMenu {
     private final ContainerLevelAccess access;
     private final ContainerData data;
 
-    public CoalGeneratorMenu(
-        int containerId,
-        Inventory playerInventory
-    ) {
+    public CoalGeneratorMenu(int containerId, Inventory playerInventory) {
         this(
             containerId,
             playerInventory,
@@ -39,11 +38,9 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         ItemStacksResourceHandler fuelInventory,
         ContainerLevelAccess access,
         ContainerData data
-    ) {
-        super(
-            EnergyMenus.COAL_GENERATOR_MENU.get(),
-            containerId
-        );
+    )
+    {
+        super(EnergyMenus.COAL_GENERATOR_MENU.get(), containerId);
 
         this.access = access;
         this.addSlot(new ResourceHandlerSlot(
@@ -53,19 +50,20 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
             23,
             36
         ));
-        this.addStandardInventorySlots(
-            playerInventory,
-            8,
-            84
-        );
+        this.addStandardInventorySlots(playerInventory, 8, 84);
 
-        AbstractContainerMenu.checkContainerDataCount(
-            data,
-            CoalGeneratorBlockEntity.DATA_COUNT
-        );
+        AbstractContainerMenu.checkContainerDataCount(data, CoalGeneratorBlockEntity.DATA_COUNT);
 
         this.addDataSlots(data);
         this.data = data;
+    }
+
+    @Override
+    public void setRedstoneControlMode(ServerPlayer player, RedstoneControlMode mode) {
+        if (!this.stillValid(player)) {
+            return;
+        }
+        this.withGenerator(entity -> entity.setRedstoneControlMode(mode));
     }
 
     public int getEnergyStored() {
@@ -111,6 +109,10 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
         return blocked == 1;
     }
 
+    public boolean hasRedstoneSignal() {
+        return this.data.get(CoalGeneratorBlockEntity.DATA_REDSTONE_SIGNAL) == 1;
+    }
+
     public RedstoneControlMode getRedstoneControlMode() {
         int mode = this.data.get(CoalGeneratorBlockEntity.DATA_REDSTONE_MODE);
         RedstoneControlMode[] modeValues = RedstoneControlMode.values();
@@ -145,10 +147,7 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public @NonNull ItemStack quickMoveStack(
-        @NonNull Player player,
-        int index
-    ) {
+    public @NonNull ItemStack quickMoveStack(@NonNull Player player, int index) {
         Slot slot = this.slots.get(index);
 
         if (!slot.hasItem()) {
@@ -160,19 +159,9 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
 
         boolean hasMoved;
         if (index == CoalGeneratorBlockEntity.FUEL_SLOT) {
-            hasMoved = this.moveItemStackTo(
-                stack,
-                1,
-                37,
-                true
-            );
+            hasMoved = this.moveItemStackTo(stack, 1, 37, true);
         } else {
-            hasMoved = this.moveItemStackTo(
-                stack,
-                0,
-                1,
-                false
-            );
+            hasMoved = this.moveItemStackTo(stack, 0, 1, false);
         }
         if (!hasMoved) {
             return ItemStack.EMPTY;
@@ -184,10 +173,7 @@ public class CoalGeneratorMenu extends AbstractContainerMenu {
             slot.setChanged();
         }
 
-        slot.onTake(
-            player,
-            stack
-        );
+        slot.onTake(player, stack);
 
         return originalStack;
     }
