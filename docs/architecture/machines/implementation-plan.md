@@ -44,10 +44,11 @@
 
 - [x] Согласованы **роли и границы** Consumer (INPUT + внутренний расход FE без внешнего OUTPUT) и Energy Storage (INPUT + OUTPUT без собственной генерации) — [AS-MACHINE-027](decisions/AS-MACHINE-027.md).
 - [ ] Реализовать `EnergyInputController` с единым INPUT-бюджетом, транзакционной вставкой FE и соблюдением живой политики портов; **не** навязывать входящему контуру выходной `EnergyDistributionManager` и `EnergyPushTransfer`.
-- [ ] Ввести первую конкретную Consumer BlockEntity, подключающую INPUT-порты к одному `EnergyComponent`; внутреннюю производственную операцию спроектировать отдельно, с полным расходом FE за тик либо паузой без прогресса.
+- [ ] Реализовать утверждённый специализированный `AbstractEnergyConsumerBlockEntity` с INPUT-контуром над одним `EnergyComponent`, затем первую конкретную Consumer BlockEntity; внутреннюю производственную операцию спроектировать отдельно, с полным расходом FE за тик либо паузой без прогресса.
 - [ ] Ввести первую конкретную Energy Storage BlockEntity с обоими контроллерами над одним буфером и **независимыми** INPUT/OUTPUT бюджетами; проверить параллельную вставку и выдачу в пределах соответствующих лимитов.
 - [ ] В случае активного Push накопителя использовать общий `EnergyPushTransfer` и тот же OUTPUT-бюджет Pull/Push; **не** наследовать накопитель от генератора ради Push.
-- [ ] Только при подтверждённом дублировании нескольких потребителей или накопителей решать вопрос отдельных `AbstractEnergyConsumerBlockEntity`/`AbstractEnergyStorageBlockEntity`; точные конструкторы не предрешены.
+- [x] Целевая иерархия потребителей определена: `AbstractEnergyConsumerBlockEntity` — прямой наследник общей FE-базы. Накопитель пока наследует `AbstractEnergyMachineBlockEntity` напрямую, без `AbstractEnergyStorageBlockEntity`.
+- [ ] Утвердить точные конструкторы Consumer-базы и входного контроллера перед кодированием. Отдельный `AbstractEnergyStorageBlockEntity` рассматривать только при появлении уникальной общей логики накопителей.
 - [ ] Добавить проверки rollback, `DISABLED`, устаревших внешних handlers, отсутствующего направления и NBT/GUI, не заявляя ещё не реализованный Consumer/Storage готовым.
 
 ## Этап 2. Конфигурация и визуализация Coal Generator Mk I — впереди
