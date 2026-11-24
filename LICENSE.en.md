@@ -2,7 +2,7 @@
 
 **Astral Space License 1.0 — November 24, 2026**
 
-© 2026 Astral Space rights holders. All rights reserved except as expressly granted below.
+© 2026 Новожилов Игорь Сергеевич (GreatDragonX), Astral Space. All rights reserved except as expressly granted below.
 
 [Russian version](LICENSE.md)
 
