@@ -3,6 +3,7 @@ package ru.greatdragonx.astralspace.common.energy;
 import net.neoforged.neoforge.transfer.TransferPreconditions;
 import net.neoforged.neoforge.transfer.transaction.RootCommitJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
+import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.energy.component.EnergyComponent;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortId;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortOperations;
@@ -32,33 +33,16 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
         LongSupplier currentTickSupplier
     )
     {
-        Objects.requireNonNull(
-            insertionBudget,
-            "insertionBudget cannot be null"
-        );
-        Objects.requireNonNull(
-            extractionBudget,
-            "extractionBudget cannot be null"
-        );
-        Objects.requireNonNull(
-            energy,
-            "energy cannot be null"
-        );
-        Objects.requireNonNull(
-            distribution,
-            "distribution cannot be null"
-        );
-        Objects.requireNonNull(
-            transferTracker,
-            "transferTracker cannot be null"
-        );
-        Objects.requireNonNull(
-            currentTickSupplier,
-            "currentTickSupplier cannot be null"
-        );
+        Objects.requireNonNull(insertionBudget, "insertionBudget cannot be null");
+        Objects.requireNonNull(extractionBudget, "extractionBudget cannot be null");
+        Objects.requireNonNull(energy, "energy cannot be null");
+        Objects.requireNonNull(distribution, "distribution cannot be null");
+        Objects.requireNonNull(transferTracker, "transferTracker cannot be null");
+        Objects.requireNonNull(currentTickSupplier, "currentTickSupplier cannot be null");
 
         if (insertionBudget == extractionBudget) {
-            throw new IllegalArgumentException("Insertion and extraction budgets must be distinct instances");
+            throw new IllegalArgumentException(
+                "Insertion and extraction budgets must be distinct instances");
         }
 
         this.insertionBudget = insertionBudget;
@@ -81,19 +65,13 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
 
     @Override
     public int insert(
-        EnergyPortId portId,
+        @NonNull EnergyPortId portId,
         int amount,
-        TransactionContext transaction
+        @NonNull TransactionContext transaction
     )
     {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
-        Objects.requireNonNull(
-            transaction,
-            "transaction cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
+        Objects.requireNonNull(transaction, "transaction cannot be null");
         TransferPreconditions.checkNonNegative(amount);
 
         if (amount == 0) {
@@ -102,26 +80,16 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
 
         long currentTick = this.currentTickSupplier.getAsLong();
 
-        int allowed = this.insertionBudget.getAllowedAmount(
-            amount,
-            currentTick
-        );
+        int allowed = this.insertionBudget.getAllowedAmount(amount, currentTick);
 
         if (allowed == 0) {
             return 0;
         }
 
-        int inserted = this.energy.insertEnergy(
-            allowed,
-            transaction
-        );
+        int inserted = this.energy.insertEnergy(allowed, transaction);
 
         if (inserted > 0) {
-            this.insertionBudget.recordTransfer(
-                inserted,
-                currentTick,
-                transaction
-            );
+            this.insertionBudget.recordTransfer(inserted, currentTick, transaction);
         }
 
         return inserted;
@@ -129,17 +97,12 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
 
     @Override
     public int extract(
-        EnergyPortId portId,
+        @NonNull EnergyPortId portId,
         int amount,
-        TransactionContext transaction
+        @NonNull TransactionContext transaction
     )
     {
-        return this.extract(
-            portId,
-            amount,
-            transaction,
-            ExtractionOrigin.PULL
-        );
+        return this.extract(portId, amount, transaction, ExtractionOrigin.PULL);
     }
 
     public int extract(
@@ -149,18 +112,9 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
         ExtractionOrigin origin
     )
     {
-        Objects.requireNonNull(
-            origin,
-            "origin cannot be null"
-        );
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
-        Objects.requireNonNull(
-            transaction,
-            "transaction cannot be null"
-        );
+        Objects.requireNonNull(origin, "origin cannot be null");
+        Objects.requireNonNull(portId, "portId cannot be null");
+        Objects.requireNonNull(transaction, "transaction cannot be null");
         TransferPreconditions.checkNonNegative(amount);
 
         if (amount == 0) {
@@ -170,18 +124,10 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
         long currentTick = this.currentTickSupplier.getAsLong();
 
         if (origin == ExtractionOrigin.PULL) {
-            this.distribution.recordRequest(
-                portId,
-                amount,
-                currentTick,
-                transaction
-            );
+            this.distribution.recordRequest(portId, amount, currentTick, transaction);
         }
 
-        int availableEnergy = (int) Math.min(
-            this.energy.getStoredEnergy(),
-            Integer.MAX_VALUE
-        );
+        int availableEnergy = (int) Math.min(this.energy.getStoredEnergy(), Integer.MAX_VALUE);
         int remainingBudget = this.extractionBudget.getRemaining(currentTick);
         int adaptiveLimit = this.distribution.getAllowedAdaptiveAmount(
             portId,
@@ -192,36 +138,18 @@ public final class EnergyTransferCoordinator implements EnergyPortOperations {
             transaction
         );
 
-        int allowed = this.extractionBudget.getAllowedAmount(
-            adaptiveLimit,
-            currentTick
-        );
+        int allowed = this.extractionBudget.getAllowedAmount(adaptiveLimit, currentTick);
 
         if (allowed == 0) {
             return 0;
         }
 
-        int extracted = this.energy.extractEnergy(
-            allowed,
-            transaction
-        );
+        int extracted = this.energy.extractEnergy(allowed, transaction);
         if (extracted > 0) {
-            this.extractionBudget.recordTransfer(
-                extracted,
-                currentTick,
-                transaction
-            );
-            this.distribution.recordExtraction(
-                portId,
-                extracted,
-                currentTick,
-                transaction
-            );
+            this.extractionBudget.recordTransfer(extracted, currentTick, transaction);
+            this.distribution.recordExtraction(portId, extracted, currentTick, transaction);
             new RootCommitJournal(() -> {
-                this.transferTracker.recordTransfer(
-                    extracted,
-                    currentTick
-                );
+                this.transferTracker.recordTransfer(extracted, currentTick);
             }).updateSnapshots(transaction);
         }
 
