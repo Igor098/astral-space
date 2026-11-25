@@ -397,9 +397,10 @@ public final class EnergyOutputController {
         if (extracted > 0) {
             this.outputBudget.recordTransfer(extracted, currentTick, transaction);
             this.distribution.recordExtraction(portId, extracted, currentTick, transaction);
-            new RootCommitJournal(() -> {
-                this.tracker.recordTransfer(extracted, currentTick);
-            }).updateSnapshots(transaction);
+            new RootCommitJournal(() -> this.tracker.recordTransfer(
+                extracted,
+                currentTick
+            )).updateSnapshots(transaction);
         }
 
         return extracted;
