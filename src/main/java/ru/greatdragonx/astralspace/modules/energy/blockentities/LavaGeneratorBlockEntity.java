@@ -145,7 +145,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private final EnergyTransferBudget extractionBudget;
     private final EnergyDistributionManager distributionManager;
     private final EnergyTransferCoordinator transferCoordinator;
-    private final EnergyPushTransfer energyPushTransfer;
+    private final EnergyPushTransferOld energyPushTransfer;
     private final Map<EnergyPortId, EnergyPortHandler> outputHandlers = new HashMap<>();
 
     private int burnTime;
@@ -262,7 +262,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
             portId -> true
         );
 
-        this.energyPushTransfer = new EnergyPushTransfer(
+        this.energyPushTransfer = new EnergyPushTransferOld(
             this.transferCoordinator,
             this.energyPortPolicy
         );

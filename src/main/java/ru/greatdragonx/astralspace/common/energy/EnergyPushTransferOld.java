@@ -12,25 +12,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public final class EnergyPushTransfer {
+public final class EnergyPushTransferOld {
     private final EnergyTransferCoordinator coordinator;
     private final EnergyPortPolicy policy;
     private final Map<EnergyPortId, EnergyHandler> sourceHandlers = new HashMap<>();
 
-    public EnergyPushTransfer(
-        EnergyTransferCoordinator coordinator,
-        EnergyPortPolicy policy
-    )
+    public EnergyPushTransferOld(EnergyTransferCoordinator coordinator, EnergyPortPolicy policy)
     {
-        this.coordinator = Objects.requireNonNull(
-            coordinator,
-            "coordinator cannot be null"
-        );
+        this.coordinator = Objects.requireNonNull(coordinator, "coordinator cannot be null");
 
-        this.policy = Objects.requireNonNull(
-            policy,
-            "policy cannot be null"
-        );
+        this.policy = Objects.requireNonNull(policy, "policy cannot be null");
     }
 
     public int push(
@@ -40,18 +31,9 @@ public final class EnergyPushTransfer {
         TransactionContext transaction
     )
     {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
-        Objects.requireNonNull(
-            target,
-            "target cannot be null"
-        );
-        Objects.requireNonNull(
-            transaction,
-            "transaction cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
+        Objects.requireNonNull(target, "target cannot be null");
+        Objects.requireNonNull(transaction, "transaction cannot be null");
         TransferPreconditions.checkNonNegative(maxAmount);
 
         if (maxAmount == 0) {
@@ -66,46 +48,35 @@ public final class EnergyPushTransfer {
             this::createSourceHandler
         );
 
-        return EnergyHandlerUtil.move(
-            source,
-            target,
-            maxAmount,
-            transaction
-        );
+        return EnergyHandlerUtil.move(source, target, maxAmount, transaction);
     }
 
     private @NonNull EnergyHandler createSourceHandler(EnergyPortId portId) {
         return new EnergyHandler() {
             @Override
             public long getAmountAsLong() {
-                return EnergyPushTransfer.this.coordinator.getStoredEnergy();
+                return EnergyPushTransferOld.this.coordinator.getStoredEnergy();
             }
 
             @Override
             public long getCapacityAsLong() {
-                return EnergyPushTransfer.this.coordinator.getCapacity();
+                return EnergyPushTransferOld.this.coordinator.getCapacity();
             }
 
             @Override
-            public int insert(
-                int amount,
-                @NonNull TransactionContext transaction
-            )
+            public int insert(int amount, @NonNull TransactionContext transaction)
             {
                 return 0;
             }
 
             @Override
-            public int extract(
-                int amount,
-                @NonNull TransactionContext transaction
-            )
+            public int extract(int amount, @NonNull TransactionContext transaction)
             {
-                if (!EnergyPushTransfer.this.policy.allowsExtract(portId)) {
+                if (!EnergyPushTransferOld.this.policy.allowsExtract(portId)) {
                     return 0;
                 }
 
-                return EnergyPushTransfer.this.coordinator.extract(
+                return EnergyPushTransferOld.this.coordinator.extract(
                     portId,
                     amount,
                     transaction,
