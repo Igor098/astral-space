@@ -47,12 +47,7 @@ class EnergyDistributionManagerTest {
     )
     {
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                portId,
-                requested,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(portId, requested, currentTick, tx);
             tx.commit();
         }
     }
@@ -86,79 +81,28 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         for (long tick = 99; tick <= 100; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_EAST,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
+            recordCommittedRequest(manager, PORT_EAST, 80, tick);
         }
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_SOUTH,
-                10,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, tx);
+            manager.recordExtraction(PORT_SOUTH, 10, 100, tx);
             tx.commit();
         }
 
-        getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            80,
-            80,
-            80,
-            101
-        );
+        getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 80, 101);
 
-        assertTrue(fairnessCredits(manager).getOrDefault(
-            PORT_EAST,
-            0L
-        ) > 0);
+        assertTrue(fairnessCredits(manager).getOrDefault(PORT_EAST, 0L) > 0);
 
         for (long tick : new long[]{110, 119}) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
         }
 
-        assertFalse(manager.isActive(
-            PORT_EAST,
-            120
-        ));
-        assertEquals(
-            2,
-            manager.countActivePorts(120)
-        );
+        assertFalse(manager.isActive(PORT_EAST, 120));
+        assertEquals(2, manager.countActivePorts(120));
 
         return manager;
     }
@@ -189,18 +133,11 @@ class EnergyDistributionManagerTest {
         EnergyPortId portB = new EnergyPortId("b");
         EnergyPortId portC = new EnergyPortId("c");
 
-        List<EnergyPortId> expected = List.of(
-            portB,
-            portA,
-            portC
-        );
+        List<EnergyPortId> expected = List.of(portB, portA, portC);
 
         manager.updateAvailablePorts(expected);
 
-        assertEquals(
-            expected,
-            getAvailablePorts(manager)
-        );
+        assertEquals(expected, getAvailablePorts(manager));
     }
 
     @Test
@@ -213,10 +150,7 @@ class EnergyDistributionManagerTest {
         EnergyPortId portA = new EnergyPortId("a");
         EnergyPortId portB = new EnergyPortId("b");
 
-        List<EnergyPortId> initialPorts = List.of(
-            portA,
-            portB
-        );
+        List<EnergyPortId> initialPorts = List.of(portA, portB);
 
         manager.updateAvailablePorts(initialPorts);
 
@@ -228,10 +162,7 @@ class EnergyDistributionManagerTest {
             ))
         );
 
-        assertEquals(
-            initialPorts,
-            getAvailablePorts(manager)
-        );
+        assertEquals(initialPorts, getAvailablePorts(manager));
     }
 
     @Test
@@ -250,13 +181,7 @@ class EnergyDistributionManagerTest {
 
         source.clear();
 
-        assertEquals(
-            List.of(
-                portA,
-                portB
-            ),
-            getAvailablePorts(manager)
-        );
+        assertEquals(List.of(portA, portB), getAvailablePorts(manager));
     }
 
     @Test
@@ -267,10 +192,7 @@ class EnergyDistributionManagerTest {
 
         List<EnergyPortId> stored = getAvailablePorts(manager);
 
-        assertThrows(
-            UnsupportedOperationException.class,
-            () -> stored.add(new EnergyPortId("b"))
-        );
+        assertThrows(UnsupportedOperationException.class, () -> stored.add(new EnergyPortId("b")));
     }
 
     @Test
@@ -283,15 +205,9 @@ class EnergyDistributionManagerTest {
 
         manager.updateAvailablePorts(initialPorts);
 
-        assertThrows(
-            NullPointerException.class,
-            () -> manager.updateAvailablePorts(null)
-        );
+        assertThrows(NullPointerException.class, () -> manager.updateAvailablePorts(null));
 
-        assertEquals(
-            initialPorts,
-            getAvailablePorts(manager)
-        );
+        assertEquals(initialPorts, getAvailablePorts(manager));
     }
 
     @Test
@@ -307,15 +223,9 @@ class EnergyDistributionManagerTest {
         invalidPorts.add(new EnergyPortId("b"));
         invalidPorts.add(null);
 
-        assertThrows(
-            NullPointerException.class,
-            () -> manager.updateAvailablePorts(invalidPorts)
-        );
+        assertThrows(NullPointerException.class, () -> manager.updateAvailablePorts(invalidPorts));
 
-        assertEquals(
-            initialPorts,
-            getAvailablePorts(manager)
-        );
+        assertEquals(initialPorts, getAvailablePorts(manager));
     }
 
     @Test
@@ -334,18 +244,12 @@ class EnergyDistributionManagerTest {
 
         EnergyDistributionManager manager = new EnergyDistributionManager(80);
 
-        List<EnergyPortId> ports = List.of(
-            new EnergyPortId("a"),
-            new EnergyPortId("b")
-        );
+        List<EnergyPortId> ports = List.of(new EnergyPortId("a"), new EnergyPortId("b"));
 
         manager.updateAvailablePorts(ports);
         manager.updateAvailablePorts(ports);
 
-        assertEquals(
-            ports,
-            getAvailablePorts(manager)
-        );
+        assertEquals(ports, getAvailablePorts(manager));
     }
 
 
@@ -382,242 +286,92 @@ class EnergyDistributionManagerTest {
         EnergyPortId portA = new EnergyPortId("a");
         EnergyPortId portB = new EnergyPortId("b");
 
-        manager.updateAvailablePorts(List.of(
-            portA,
-            portB
-        ));
+        manager.updateAvailablePorts(List.of(portA, portB));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                portA,
-                80,
-                100L,
-                tx
-            );
+            manager.recordRequest(portA, 80, 100L, tx);
             tx.commit();
         }
 
-        assertTrue(manager.isActive(
-            portA,
-            100L
-        ));
+        assertTrue(manager.isActive(portA, 100L));
 
         manager.updateAvailablePorts(List.of(portB));
 
-        assertFalse(manager.isActive(
-            portA,
-            100L
-        ));
+        assertFalse(manager.isActive(portA, 100L));
 
-        manager.updateAvailablePorts(List.of(
-            portA,
-            portB
-        ));
+        manager.updateAvailablePorts(List.of(portA, portB));
 
         assertFalse(
-            manager.isActive(
-                portA,
-                101L
-            ),
+            manager.isActive(portA, 101L),
             "Повторно включённый порт не должен наследовать старую активность"
         );
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                portA,
-                40,
-                101L,
-                tx
-            );
+            manager.recordRequest(portA, 40, 101L, tx);
             tx.commit();
         }
 
-        assertTrue(manager.isActive(
-            portA,
-            101L
-        ));
+        assertTrue(manager.isActive(portA, 101L));
     }
 
     @Test
     void shouldTrackActivePort() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        assertTrue(manager.isActive(
-            PORT_NORTH,
-            100
-        ));
-        assertTrue(manager.isActive(
-            PORT_NORTH,
-            119
-        ));
-        assertFalse(manager.isActive(
-            PORT_NORTH,
-            120
-        ));
+        assertTrue(manager.isActive(PORT_NORTH, 100));
+        assertTrue(manager.isActive(PORT_NORTH, 119));
+        assertFalse(manager.isActive(PORT_NORTH, 120));
 
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            100
-        ));
+        assertFalse(manager.isActive(PORT_SOUTH, 100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_EAST,
-            0,
-            100
-        );
+        recordCommittedRequest(manager, PORT_EAST, 0, 100);
 
-        assertFalse(manager.isActive(
-            PORT_EAST,
-            100
-        ));
+        assertFalse(manager.isActive(PORT_EAST, 100));
     }
 
     @Test
     void shouldCountActivePorts() {
         EnergyDistributionManager manager = newManager(80);
-        assertEquals(
-            0,
-            manager.countActivePorts(100)
-        );
+        assertEquals(0, manager.countActivePorts(100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        assertEquals(
-            1,
-            manager.countActivePorts(100)
-        );
+        assertEquals(1, manager.countActivePorts(100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            105
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 105);
 
-        assertEquals(
-            2,
-            manager.countActivePorts(105)
-        );
+        assertEquals(2, manager.countActivePorts(105));
 
-        assertTrue(manager.isActive(
-            PORT_NORTH,
-            119
-        ));
-        assertTrue(manager.isActive(
-            PORT_SOUTH,
-            119
-        ));
-        assertEquals(
-            2,
-            manager.countActivePorts(119)
-        );
+        assertTrue(manager.isActive(PORT_NORTH, 119));
+        assertTrue(manager.isActive(PORT_SOUTH, 119));
+        assertEquals(2, manager.countActivePorts(119));
 
-        assertFalse(manager.isActive(
-            PORT_NORTH,
-            120
-        ));
-        assertEquals(
-            1,
-            manager.countActivePorts(120)
-        );
+        assertFalse(manager.isActive(PORT_NORTH, 120));
+        assertEquals(1, manager.countActivePorts(120));
 
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            125
-        ));
-        assertEquals(
-            0,
-            manager.countActivePorts(125)
-        );
+        assertFalse(manager.isActive(PORT_SOUTH, 125));
+        assertEquals(0, manager.countActivePorts(125));
     }
 
     @Test
     void shouldCalculateBaseQuota() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        assertEquals(
-            80,
-            manager.getBaseQuota(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getBaseQuota(
-                PORT_SOUTH,
-                100
-            )
-        );
+        assertEquals(80, manager.getBaseQuota(PORT_NORTH, 100));
+        assertEquals(0, manager.getBaseQuota(PORT_SOUTH, 100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            40,
-            105
-        );
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                PORT_NORTH,
-                105
-            )
-        );
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                PORT_SOUTH,
-                105
-            )
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 40, 105);
+        assertEquals(40, manager.getBaseQuota(PORT_NORTH, 105));
+        assertEquals(40, manager.getBaseQuota(PORT_SOUTH, 105));
 
-        recordCommittedRequest(
-            manager,
-            PORT_EAST,
-            20,
-            108
-        );
-        assertEquals(
-            26,
-            manager.getBaseQuota(
-                PORT_NORTH,
-                108
-            )
-        );
-        assertEquals(
-            26,
-            manager.getBaseQuota(
-                PORT_SOUTH,
-                108
-            )
-        );
-        assertEquals(
-            26,
-            manager.getBaseQuota(
-                PORT_EAST,
-                108
-            )
-        );
+        recordCommittedRequest(manager, PORT_EAST, 20, 108);
+        assertEquals(26, manager.getBaseQuota(PORT_NORTH, 108));
+        assertEquals(26, manager.getBaseQuota(PORT_SOUTH, 108));
+        assertEquals(26, manager.getBaseQuota(PORT_EAST, 108));
     }
 
     @Test
@@ -625,62 +379,22 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                tx
-            );
-            assertEquals(
-                30,
-                manager.getExtractedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, tx);
+            assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
 
             tx.commit();
         }
 
-        assertEquals(
-            30,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
+        assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                20,
-                100,
-                tx
-            );
-            assertEquals(
-                50,
-                manager.getExtractedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 20, 100, tx);
+            assertEquals(50, manager.getExtractedByPort(PORT_NORTH, 100));
         }
 
-        assertEquals(
-            30,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
+        assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
 
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(0, manager.getExtractedByPort(PORT_NORTH, 101));
     }
 
     @Test
@@ -688,305 +402,88 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                root
-            );
-            assertEquals(
-                30,
-                manager.getExtractedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, root);
+            assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
 
-            manager.recordExtraction(
-                PORT_SOUTH,
-                20,
-                100,
-                root
-            );
-            assertEquals(
-                20,
-                manager.getExtractedByPort(
-                    PORT_SOUTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_SOUTH, 20, 100, root);
+            assertEquals(20, manager.getExtractedByPort(PORT_SOUTH, 100));
 
             try (Transaction nested = Transaction.open(root)) {
-                manager.recordExtraction(
-                    PORT_NORTH,
-                    10,
-                    100,
-                    nested
-                );
-                manager.recordExtraction(
-                    PORT_EAST,
-                    15,
-                    100,
-                    nested
-                );
+                manager.recordExtraction(PORT_NORTH, 10, 100, nested);
+                manager.recordExtraction(PORT_EAST, 15, 100, nested);
 
-                assertEquals(
-                    40,
-                    manager.getExtractedByPort(
-                        PORT_NORTH,
-                        100
-                    )
-                );
-                assertEquals(
-                    15,
-                    manager.getExtractedByPort(
-                        PORT_EAST,
-                        100
-                    )
-                );
+                assertEquals(40, manager.getExtractedByPort(PORT_NORTH, 100));
+                assertEquals(15, manager.getExtractedByPort(PORT_EAST, 100));
             }
 
-            assertEquals(
-                30,
-                manager.getExtractedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
-            assertEquals(
-                20,
-                manager.getExtractedByPort(
-                    PORT_SOUTH,
-                    100
-                )
-            );
-            assertEquals(
-                0,
-                manager.getExtractedByPort(
-                    PORT_EAST,
-                    100
-                )
-            );
+            assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
+            assertEquals(20, manager.getExtractedByPort(PORT_SOUTH, 100));
+            assertEquals(0, manager.getExtractedByPort(PORT_EAST, 100));
 
             root.commit();
         }
 
-        assertEquals(
-            30,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            20,
-            manager.getExtractedByPort(
-                PORT_SOUTH,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                PORT_EAST,
-                100
-            )
-        );
+        assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
+        assertEquals(20, manager.getExtractedByPort(PORT_SOUTH, 100));
+        assertEquals(0, manager.getExtractedByPort(PORT_EAST, 100));
     }
 
     @Test
     void shouldCalculateRemainingBaseQuota() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
 
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                PORT_SOUTH,
-                100
-            )
-        );
+        assertEquals(40, manager.getBaseQuota(PORT_NORTH, 100));
+        assertEquals(40, manager.getBaseQuota(PORT_SOUTH, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                25,
-                100,
-                tx
-            );
-            assertEquals(
-                15,
-                manager.getRemainingBaseQuota(
-                    PORT_NORTH,
-                    100
-                )
-            );
-            assertEquals(
-                40,
-                manager.getRemainingBaseQuota(
-                    PORT_SOUTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 25, 100, tx);
+            assertEquals(15, manager.getRemainingBaseQuota(PORT_NORTH, 100));
+            assertEquals(40, manager.getRemainingBaseQuota(PORT_SOUTH, 100));
 
-            manager.recordExtraction(
-                PORT_NORTH,
-                20,
-                100,
-                tx
-            );
-            assertEquals(
-                0,
-                manager.getRemainingBaseQuota(
-                    PORT_NORTH,
-                    100
-                )
-            );
-            assertEquals(
-                40,
-                manager.getRemainingBaseQuota(
-                    PORT_SOUTH,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 20, 100, tx);
+            assertEquals(0, manager.getRemainingBaseQuota(PORT_NORTH, 100));
+            assertEquals(40, manager.getRemainingBaseQuota(PORT_SOUTH, 100));
 
             tx.commit();
         }
 
-        assertEquals(
-            0,
-            manager.getRemainingBaseQuota(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            40,
-            manager.getRemainingBaseQuota(
-                PORT_SOUTH,
-                100
-            )
-        );
+        assertEquals(0, manager.getRemainingBaseQuota(PORT_NORTH, 100));
+        assertEquals(40, manager.getRemainingBaseQuota(PORT_SOUTH, 100));
 
-        assertEquals(
-            40,
-            manager.getRemainingBaseQuota(
-                PORT_NORTH,
-                101
-            )
-        );
-        assertEquals(
-            40,
-            manager.getRemainingBaseQuota(
-                PORT_SOUTH,
-                101
-            )
-        );
+        assertEquals(40, manager.getRemainingBaseQuota(PORT_NORTH, 101));
+        assertEquals(40, manager.getRemainingBaseQuota(PORT_SOUTH, 101));
     }
 
     @Test
     void shouldLimitRequestByRemainingBaseQuota() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
 
-        int allowed = manager.getAllowedBaseAmount(
-            PORT_NORTH,
-            60,
-            100
-        );
-        assertEquals(
-            40,
-            allowed
-        );
+        int allowed = manager.getAllowedBaseAmount(PORT_NORTH, 60, 100);
+        assertEquals(40, allowed);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                25,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 25, 100, tx);
 
             tx.commit();
         }
 
-        assertEquals(
-            15,
-            manager.getAllowedBaseAmount(
-                PORT_NORTH,
-                50,
-                100
-            )
-        );
+        assertEquals(15, manager.getAllowedBaseAmount(PORT_NORTH, 50, 100));
 
-        assertEquals(
-            10,
-            manager.getAllowedBaseAmount(
-                PORT_NORTH,
-                10,
-                100
-            )
-        );
+        assertEquals(10, manager.getAllowedBaseAmount(PORT_NORTH, 10, 100));
 
-        assertEquals(
-            40,
-            manager.getAllowedBaseAmount(
-                PORT_SOUTH,
-                80,
-                100
-            )
-        );
+        assertEquals(40, manager.getAllowedBaseAmount(PORT_SOUTH, 80, 100));
 
-        assertEquals(
-            0,
-            manager.getAllowedBaseAmount(
-                PORT_EAST,
-                80,
-                100
-            )
-        );
+        assertEquals(0, manager.getAllowedBaseAmount(PORT_EAST, 80, 100));
 
-        assertEquals(
-            0,
-            manager.getAllowedBaseAmount(
-                PORT_NORTH,
-                0,
-                100
-            )
-        );
+        assertEquals(0, manager.getAllowedBaseAmount(PORT_NORTH, 0, 100));
     }
 
     @Test
@@ -994,58 +491,24 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, tx);
 
             tx.commit();
         }
 
-        assertEquals(
-            30,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                20,
-                101,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 20, 101, tx);
 
             tx.commit();
         }
 
-        assertEquals(
-            30,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
 
-        assertEquals(
-            20,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                102
-            )
-        );
+        assertEquals(20, manager.getPreviousExtractedByPort(PORT_NORTH, 102));
 
-        assertEquals(
-            0,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                105
-            )
-        );
+        assertEquals(0, manager.getPreviousExtractedByPort(PORT_NORTH, 105));
     }
 
     @Test
@@ -1053,716 +516,227 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                tx
-            );
-            assertEquals(
-                30,
-                manager.getPreviousExtractedByPort(
-                    PORT_NORTH,
-                    101
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, tx);
+            assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
             tx.commit();
         }
-        assertEquals(
-            30,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                20,
-                101,
-                tx
-            );
-            assertEquals(
-                20,
-                manager.getExtractedByPort(
-                    PORT_NORTH,
-                    101
-                )
-            );
-            assertEquals(
-                30,
-                manager.getPreviousExtractedByPort(
-                    PORT_NORTH,
-                    101
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 20, 101, tx);
+            assertEquals(20, manager.getExtractedByPort(PORT_NORTH, 101));
+            assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
         }
 
-        assertEquals(
-            30,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
+        assertEquals(30, manager.getExtractedByPort(PORT_NORTH, 100));
 
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(0, manager.getExtractedByPort(PORT_NORTH, 101));
 
-        assertEquals(
-            30,
-            manager.getPreviousExtractedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(30, manager.getPreviousExtractedByPort(PORT_NORTH, 101));
     }
 
     @Test
     void shouldTrackMaximumDemandPerPort() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            20,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 20, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            60,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 60, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            30,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 30, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            40,
-            100
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 40, 100);
 
-        assertEquals(
-            60,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            40,
-            manager.getMaxRequestedByPort(
-                PORT_SOUTH,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_EAST,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertEquals(60, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+        assertEquals(40, manager.getMaxRequestedByPort(PORT_SOUTH, 100));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_EAST, 100));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_NORTH, 101));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            101
-        );
-        assertEquals(
-            10,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_SOUTH,
-                101
-            )
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 101);
+        assertEquals(10, manager.getMaxRequestedByPort(PORT_NORTH, 101));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_SOUTH, 101));
     }
 
     @Test
     void shouldReadPreviousTickDemand() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
-        assertEquals(
-            80,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
+        assertEquals(80, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 101));
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            40,
-            100
-        );
-        assertEquals(
-            40,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_SOUTH,
-                101
-            )
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 40, 100);
+        assertEquals(40, manager.getPreviousMaxRequestedByPort(PORT_SOUTH, 101));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            30,
-            101
-        );
-        assertEquals(
-            80,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
-        assertEquals(
-            40,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_SOUTH,
-                101
-            )
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 30, 101);
+        assertEquals(80, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 101));
+        assertEquals(40, manager.getPreviousMaxRequestedByPort(PORT_SOUTH, 101));
 
-        assertEquals(
-            30,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                102
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_SOUTH,
-                102
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                105
-            )
-        );
+        assertEquals(30, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 102));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(PORT_SOUTH, 102));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 105));
     }
 
     @Test
     void shouldCalculateProtectedRemainingQuota() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 99);
 
-        assertEquals(
-            10,
-            manager.getProtectedRemainingQuota(
-                PORT_NORTH,
-                80,
-                100
-            )
-        );
+        assertEquals(10, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                5,
-                100,
-                tx
-            );
-            assertEquals(
-                5,
-                manager.getProtectedRemainingQuota(
-                    PORT_NORTH,
-                    80,
-                    100
-                )
-            );
+            manager.recordExtraction(PORT_NORTH, 5, 100, tx);
+            assertEquals(5, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
 
-            manager.recordExtraction(
-                PORT_NORTH,
-                5,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 5, 100, tx);
 
             tx.commit();
         }
-        assertEquals(
-            0,
-            manager.getProtectedRemainingQuota(
-                PORT_NORTH,
-                80,
-                100
-            )
-        );
+        assertEquals(0, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
-        assertEquals(
-            30,
-            manager.getProtectedRemainingQuota(
-                PORT_NORTH,
-                80,
-                100
-            )
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
+        assertEquals(30, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
     }
 
     @Test
     void shouldReduceProtectedQuotaWithoutRecentDemand() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            40,
-            98
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            40,
-            98
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 40, 98);
+        recordCommittedRequest(manager, PORT_SOUTH, 40, 98);
 
-        assertEquals(
-            40,
-            manager.getProtectedRemainingQuota(
-                PORT_NORTH,
-                80,
-                100
-            )
-        );
+        assertEquals(40, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                15,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 15, 100, tx);
 
             tx.commit();
         }
 
-        assertEquals(
-            25,
-            manager.getProtectedRemainingQuota(
-                PORT_NORTH,
-                80,
-                100
-            )
-        );
+        assertEquals(25, manager.getProtectedRemainingQuota(PORT_NORTH, 80, 100));
     }
 
     @Test
     void shouldBorrowUnusedProtectedQuota() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 99);
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
 
-        assertEquals(
-            70,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_SOUTH,
-                80,
-                80,
-                80,
-                100
-            )
-        );
+        assertEquals(70, getCommittedAdaptiveAmount(manager, PORT_SOUTH, 80, 80, 80, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_SOUTH,
-                70,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_SOUTH, 70, 100, tx);
 
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            100
-        );
-        assertEquals(
-            10,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_NORTH,
-                10,
-                10,
-                10,
-                100
-            )
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 100);
+        assertEquals(10, getCommittedAdaptiveAmount(manager, PORT_NORTH, 10, 10, 10, 100));
     }
 
     @Test
     void shouldDistributeEnergyInReverseRequestOrder() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 99);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 100);
 
-        int allowed = getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            10,
-            80,
-            80,
-            100
-        );
+        int allowed = getCommittedAdaptiveAmount(manager, PORT_NORTH, 10, 80, 80, 100);
 
-        assertEquals(
-            10,
-            allowed
-        );
+        assertEquals(10, allowed);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                10,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 10, 100, tx);
 
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
 
-        int allowedSouth = getCommittedAdaptiveAmount(
-            manager,
-            PORT_SOUTH,
-            80,
-            70,
-            70,
-            100
-        );
+        int allowedSouth = getCommittedAdaptiveAmount(manager, PORT_SOUTH, 80, 70, 70, 100);
 
-        assertEquals(
-            70,
-            allowedSouth
-        );
+        assertEquals(70, allowedSouth);
     }
 
     @Test
     void shouldRecoverAfterSecondPortBecomesActive() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
 
-        assertEquals(
-            80,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_NORTH,
-                80,
-                80,
-                80,
-                100
-            )
-        );
+        assertEquals(80, getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 80, 100));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                80,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 80, 100, tx);
 
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
-        assertEquals(
-            0,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_SOUTH,
-                80,
-                0,
-                0,
-                100
-            )
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
+        assertEquals(0, getCommittedAdaptiveAmount(manager, PORT_SOUTH, 80, 0, 0, 100));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            101
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 101);
 
-        assertEquals(
-            40,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_NORTH,
-                80,
-                80,
-                80,
-                101
-            )
-        );
+        assertEquals(40, getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 80, 101));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                40,
-                101,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 40, 101, tx);
 
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            101
-        );
-        assertEquals(
-            40,
-            getCommittedAdaptiveAmount(
-                manager,
-                PORT_SOUTH,
-                80,
-                40,
-                40,
-                101
-            )
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 101);
+        assertEquals(40, getCommittedAdaptiveAmount(manager, PORT_SOUTH, 80, 40, 40, 101));
     }
 
     @Test
     void shouldDistributeEnergyWhenBufferIsLow() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 99);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            100
-        );
-        int allowedNorth = getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            80,
-            80,
-            40,
-            100
-        );
-        assertEquals(
-            20,
-            allowedNorth
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 100);
+        int allowedNorth = getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 40, 100);
+        assertEquals(20, allowedNorth);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                allowedNorth,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, allowedNorth, 100, tx);
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            80,
-            100
-        );
-        int allowedSouth = getCommittedAdaptiveAmount(
-            manager,
-            PORT_SOUTH,
-            80,
-            60,
-            20,
-            100
-        );
-        assertEquals(
-            20,
-            allowedSouth
-        );
+        recordCommittedRequest(manager, PORT_SOUTH, 80, 100);
+        int allowedSouth = getCommittedAdaptiveAmount(manager, PORT_SOUTH, 80, 60, 20, 100);
+        assertEquals(20, allowedSouth);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_SOUTH,
-                allowedSouth,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_SOUTH, allowedSouth, 100, tx);
             tx.commit();
         }
 
-        assertEquals(
-            20,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            20,
-            manager.getExtractedByPort(
-                PORT_SOUTH,
-                100
-            )
-        );
+        assertEquals(20, manager.getExtractedByPort(PORT_NORTH, 100));
+        assertEquals(20, manager.getExtractedByPort(PORT_SOUTH, 100));
     }
 
     @Test
     void shouldShareEnergyFairlyWhenProductionOccursBetweenPullRequests() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            128,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 128, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 99);
 
         int storedEnergy = 20;
         int totalNorth = 0;
         int totalSouth = 0;
 
         for (long tick = 100; tick < 121; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                128,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_SOUTH, 128, tick);
             int allowedSouth = getCommittedAdaptiveAmount(
                 manager,
                 PORT_SOUTH,
@@ -1771,18 +745,10 @@ class EnergyDistributionManagerTest {
                 storedEnergy,
                 tick
             );
-            int extractedSouth = Math.min(
-                allowedSouth,
-                storedEnergy
-            );
+            int extractedSouth = Math.min(allowedSouth, storedEnergy);
 
             try (Transaction tx = Transaction.openRoot()) {
-                manager.recordExtraction(
-                    PORT_SOUTH,
-                    extractedSouth,
-                    tick,
-                    tx
-                );
+                manager.recordExtraction(PORT_SOUTH, extractedSouth, tick, tx);
                 tx.commit();
             }
 
@@ -1794,12 +760,7 @@ class EnergyDistributionManagerTest {
 
             storedEnergy += 40;
 
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                128,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 128, tick);
             int allowedNorth = getCommittedAdaptiveAmount(
                 manager,
                 PORT_NORTH,
@@ -1808,29 +769,15 @@ class EnergyDistributionManagerTest {
                 storedEnergy,
                 tick
             );
-            int extractedNorth = Math.min(
-                allowedNorth,
-                storedEnergy
-            );
+            int extractedNorth = Math.min(allowedNorth, storedEnergy);
 
             if (tick > 100) {
-                assertEquals(
-                    20,
-                    extractedSouth
-                );
-                assertEquals(
-                    20,
-                    extractedNorth
-                );
+                assertEquals(20, extractedSouth);
+                assertEquals(20, extractedNorth);
             }
 
             try (Transaction tx = Transaction.openRoot()) {
-                manager.recordExtraction(
-                    PORT_NORTH,
-                    extractedNorth,
-                    tick,
-                    tx
-                );
+                manager.recordExtraction(PORT_NORTH, extractedNorth, tick, tx);
                 tx.commit();
             }
 
@@ -1841,117 +788,40 @@ class EnergyDistributionManagerTest {
             }
         }
 
-        assertEquals(
-            800,
-            totalNorth + totalSouth
-        );
-        assertEquals(
-            20,
-            storedEnergy
-        );
+        assertEquals(800, totalNorth + totalSouth);
+        assertEquals(20, storedEnergy);
 
-        assertEquals(
-            400,
-            totalSouth,
-            "SOUTH не должен голодать из-за порядка Pull-запросов"
-        );
-        assertEquals(
-            400,
-            totalNorth,
-            "NORTH не должен получать львиную долю энергии"
-        );
+        assertEquals(400, totalSouth, "SOUTH не должен голодать из-за порядка Pull-запросов");
+        assertEquals(400, totalNorth, "NORTH не должен получать львиную долю энергии");
     }
 
     @Test
     void shouldAllowFullExtractionAfterOtherPortDisconnects() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            128,
-            100
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 128, 100);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 100);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            128,
-            101
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            101
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 128, 101);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 101);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                101,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_SOUTH,
-                10,
-                101,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 101, tx);
+            manager.recordExtraction(PORT_SOUTH, 10, 101, tx);
             tx.commit();
         }
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            40,
-            102
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 40, 102);
 
-        getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            40,
-            80,
-            40,
-            102
-        );
+        getCommittedAdaptiveAmount(manager, PORT_NORTH, 40, 80, 40, 102);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            40,
-            121
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 40, 121);
 
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            121
-        ));
-        assertTrue(manager.isActive(
-            PORT_NORTH,
-            121
-        ));
-        assertEquals(
-            1,
-            manager.countActivePorts(121)
-        );
+        assertFalse(manager.isActive(PORT_SOUTH, 121));
+        assertTrue(manager.isActive(PORT_NORTH, 121));
+        assertEquals(1, manager.countActivePorts(121));
 
-        int allowed = getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            40,
-            80,
-            40,
-            121
-        );
+        int allowed = getCommittedAdaptiveAmount(manager, PORT_NORTH, 40, 80, 40, 121);
 
         assertEquals(
             40,
@@ -1964,170 +834,47 @@ class EnergyDistributionManagerTest {
     void shouldRedistributeEnergyAfterPortReconnects() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            128,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 128, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 99);
 
-        assertEquals(
-            10,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                100,
-                20,
-                80
-            )
-        );
-        assertEquals(
-            30,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                100,
-                50,
-                70
-            )
-        );
+        assertEquals(10, pullEnergy(manager, PORT_SOUTH, 100, 20, 80));
+        assertEquals(30, pullEnergy(manager, PORT_NORTH, 100, 50, 70));
 
-        assertEquals(
-            20,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                101,
-                20,
-                80
-            )
-        );
-        assertEquals(
-            20,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                101,
-                40,
-                60
-            )
-        );
+        assertEquals(20, pullEnergy(manager, PORT_SOUTH, 101, 20, 80));
+        assertEquals(20, pullEnergy(manager, PORT_NORTH, 101, 40, 60));
 
         for (long tick = 102; tick <= 121; tick++) {
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                tick,
-                40,
-                80
-            );
+            pullEnergy(manager, PORT_NORTH, tick, 40, 80);
         }
 
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            122
-        ));
-        assertEquals(
-            1,
-            manager.countActivePorts(122)
-        );
+        assertFalse(manager.isActive(PORT_SOUTH, 122));
+        assertEquals(1, manager.countActivePorts(122));
+
+        assertEquals(40, pullEnergy(manager, PORT_NORTH, 122, 40, 80));
+
+        assertEquals(40, pullEnergy(manager, PORT_NORTH, 123, 40, 80));
+        assertEquals(0, pullEnergy(manager, PORT_SOUTH, 123, 0, 40));
 
         assertEquals(
             40,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                122,
-                40,
-                80
-            )
-        );
-
-        assertEquals(
-            40,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                123,
-                40,
-                80
-            )
-        );
-        assertEquals(
-            0,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                123,
-                0,
-                40
-            )
-        );
-
-        assertEquals(
-            40,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                124,
-                40,
-                80
-            ),
+            pullEnergy(manager, PORT_NORTH, 124, 40, 80),
             "NORTH: первый тик возвращения SOUTH"
         );
 
         assertEquals(
             20,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                124,
-                20,
-                40
-            ),
+            pullEnergy(manager, PORT_SOUTH, 124, 20, 40),
             "SOUTH должен успешно зарегистрироваться при возвращении"
         );
-        assertTrue(manager.isActive(
-            PORT_SOUTH,
-            124
-        ));
-        assertEquals(
-            2,
-            manager.countActivePorts(124)
-        );
+        assertTrue(manager.isActive(PORT_SOUTH, 124));
+        assertEquals(2, manager.countActivePorts(124));
 
         for (long tick = 125; tick <= 128; tick++) {
-            int north = pullEnergy(
-                manager,
-                PORT_NORTH,
-                tick,
-                40,
-                80
-            );
-            int south = pullEnergy(
-                manager,
-                PORT_SOUTH,
-                tick,
-                20,
-                60
-            );
+            int north = pullEnergy(manager, PORT_NORTH, tick, 40, 80);
+            int south = pullEnergy(manager, PORT_SOUTH, tick, 20, 60);
 
-            assertEquals(
-                20,
-                north,
-                "NORTH: тик " + tick
-            );
-            assertEquals(
-                20,
-                south,
-                "SOUTH: тик " + tick
-            );
+            assertEquals(20, north, "NORTH: тик " + tick);
+            assertEquals(20, south, "SOUTH: тик " + tick);
         }
     }
 
@@ -2135,66 +882,16 @@ class EnergyDistributionManagerTest {
     void shouldNotWasteEnergyWhenConsumersHaveDifferentDemand() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 99);
 
-        assertEquals(
-            10,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                10,
-                100,
-                40,
-                80
-            )
-        );
+        assertEquals(10, pullEnergy(manager, PORT_NORTH, 10, 100, 40, 80));
 
-        assertEquals(
-            30,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                128,
-                100,
-                30,
-                70
-            )
-        );
+        assertEquals(30, pullEnergy(manager, PORT_SOUTH, 128, 100, 30, 70));
 
-        assertEquals(
-            10,
-            pullEnergy(
-                manager,
-                PORT_NORTH,
-                10,
-                101,
-                40,
-                80
-            )
-        );
+        assertEquals(10, pullEnergy(manager, PORT_NORTH, 10, 101, 40, 80));
 
-        assertEquals(
-            30,
-            pullEnergy(
-                manager,
-                PORT_SOUTH,
-                128,
-                101,
-                30,
-                70
-            )
-        );
+        assertEquals(30, pullEnergy(manager, PORT_SOUTH, 128, 101, 30, 70));
     }
 
     @Test
@@ -2202,52 +899,17 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                64,
-                100,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 64, 100, tx);
 
-            assertTrue(manager.isActive(
-                PORT_NORTH,
-                100
-            ));
-            assertEquals(
-                1,
-                manager.countActivePorts(100)
-            );
-            assertEquals(
-                64,
-                manager.getMaxRequestedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
+            assertTrue(manager.isActive(PORT_NORTH, 100));
+            assertEquals(1, manager.countActivePorts(100));
+            assertEquals(64, manager.getMaxRequestedByPort(PORT_NORTH, 100));
         }
 
-        assertFalse(manager.isActive(
-            PORT_NORTH,
-            100
-        ));
-        assertEquals(
-            0,
-            manager.countActivePorts(100)
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
+        assertFalse(manager.isActive(PORT_NORTH, 100));
+        assertEquals(0, manager.countActivePorts(100));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 101));
     }
 
     @Test
@@ -2255,72 +917,24 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction root = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                30,
-                100,
-                root
-            );
+            manager.recordRequest(PORT_NORTH, 30, 100, root);
 
             try (Transaction simulated = Transaction.open(root)) {
-                manager.recordRequest(
-                    PORT_NORTH,
-                    80,
-                    100,
-                    simulated
-                );
-                manager.recordRequest(
-                    PORT_SOUTH,
-                    128,
-                    100,
-                    simulated
-                );
+                manager.recordRequest(PORT_NORTH, 80, 100, simulated);
+                manager.recordRequest(PORT_SOUTH, 128, 100, simulated);
 
-                assertEquals(
-                    80,
-                    manager.getMaxRequestedByPort(
-                        PORT_NORTH,
-                        100
-                    )
-                );
-                assertTrue(manager.isActive(
-                    PORT_SOUTH,
-                    100
-                ));
+                assertEquals(80, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+                assertTrue(manager.isActive(PORT_SOUTH, 100));
             }
 
-            assertEquals(
-                30,
-                manager.getMaxRequestedByPort(
-                    PORT_NORTH,
-                    100
-                )
-            );
-            assertEquals(
-                0,
-                manager.getMaxRequestedByPort(
-                    PORT_SOUTH,
-                    100
-                )
-            );
-            assertFalse(manager.isActive(
-                PORT_SOUTH,
-                100
-            ));
+            assertEquals(30, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+            assertEquals(0, manager.getMaxRequestedByPort(PORT_SOUTH, 100));
+            assertFalse(manager.isActive(PORT_SOUTH, 100));
             root.commit();
         }
 
-        assertEquals(
-            30,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            100
-        ));
+        assertEquals(30, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+        assertFalse(manager.isActive(PORT_SOUTH, 100));
     }
 
     @Test
@@ -2329,127 +943,38 @@ class EnergyDistributionManagerTest {
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction child = Transaction.open(root)) {
-                manager.recordRequest(
-                    PORT_EAST,
-                    128,
-                    100,
-                    child
-                );
+                manager.recordRequest(PORT_EAST, 128, 100, child);
                 child.commit();
             }
 
-            assertTrue(manager.isActive(
-                PORT_EAST,
-                100
-            ));
-            assertEquals(
-                128,
-                manager.getMaxRequestedByPort(
-                    PORT_EAST,
-                    100
-                )
-            );
+            assertTrue(manager.isActive(PORT_EAST, 100));
+            assertEquals(128, manager.getMaxRequestedByPort(PORT_EAST, 100));
         }
 
-        assertFalse(manager.isActive(
-            PORT_EAST,
-            100
-        ));
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_EAST,
-                100
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_EAST,
-                101
-            )
-        );
+        assertFalse(manager.isActive(PORT_EAST, 100));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_EAST, 100));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(PORT_EAST, 101));
     }
 
     @Test
     void shouldRestorePreviousDemandHistoryAfterRollback() {
         EnergyDistributionManager manager = newManager(80);
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            60,
-            100
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 60, 100);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                10,
-                101,
-                tx
-            );
-            manager.recordRequest(
-                PORT_SOUTH,
-                40,
-                101,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 10, 101, tx);
+            manager.recordRequest(PORT_SOUTH, 40, 101, tx);
 
-            assertEquals(
-                60,
-                manager.getPreviousMaxRequestedByPort(
-                    PORT_NORTH,
-                    101
-                )
-            );
-            assertEquals(
-                10,
-                manager.getMaxRequestedByPort(
-                    PORT_NORTH,
-                    101
-                )
-            );
-            assertEquals(
-                40,
-                manager.getMaxRequestedByPort(
-                    PORT_SOUTH,
-                    101
-                )
-            );
+            assertEquals(60, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 101));
+            assertEquals(10, manager.getMaxRequestedByPort(PORT_NORTH, 101));
+            assertEquals(40, manager.getMaxRequestedByPort(PORT_SOUTH, 101));
         }
 
-        assertEquals(
-            60,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            60,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                101
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                PORT_SOUTH,
-                101
-            )
-        );
-        assertFalse(manager.isActive(
-            PORT_SOUTH,
-            101
-        ));
+        assertEquals(60, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+        assertEquals(60, manager.getPreviousMaxRequestedByPort(PORT_NORTH, 101));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_NORTH, 101));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(PORT_SOUTH, 101));
+        assertFalse(manager.isActive(PORT_SOUTH, 101));
     }
 
     private static int pullEnergy(
@@ -2460,14 +985,7 @@ class EnergyDistributionManagerTest {
         int remainingGlobalBudget
     )
     {
-        return pullEnergy(
-            manager,
-            portId,
-            128,
-            currentTick,
-            storedEnergy,
-            remainingGlobalBudget
-        );
+        return pullEnergy(manager, portId, 128, currentTick, storedEnergy, remainingGlobalBudget);
     }
 
     private static int pullEnergy(
@@ -2480,12 +998,7 @@ class EnergyDistributionManagerTest {
     )
     {
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                portId,
-                requested,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(portId, requested, currentTick, tx);
 
             int extracted = manager.getAllowedAdaptiveAmount(
                 portId,
@@ -2497,12 +1010,7 @@ class EnergyDistributionManagerTest {
             );
 
             if (extracted > 0) {
-                manager.recordExtraction(
-                    portId,
-                    extracted,
-                    currentTick,
-                    tx
-                );
+                manager.recordExtraction(portId, extracted, currentTick, tx);
                 tx.commit();
             }
             return extracted;
@@ -2513,73 +1021,29 @@ class EnergyDistributionManagerTest {
     void shouldDistributeEnergyFairlyAmongThreeConsumers() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            5,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            128,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_EAST,
-            128,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 5, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 128, 99);
+        recordCommittedRequest(manager, PORT_EAST, 128, 99);
 
         for (long tick = 100; tick < 110; tick++) {
             int storedEnergy = 40;
             int budget = 80;
 
-            int north = pullEnergy(
-                manager,
-                PORT_NORTH,
-                5,
-                tick,
-                storedEnergy,
-                budget
-            );
+            int north = pullEnergy(manager, PORT_NORTH, 5, tick, storedEnergy, budget);
             storedEnergy -= north;
             budget -= north;
 
-            int south = pullEnergy(
-                manager,
-                PORT_SOUTH,
-                128,
-                tick,
-                storedEnergy,
-                budget
-            );
+            int south = pullEnergy(manager, PORT_SOUTH, 128, tick, storedEnergy, budget);
             storedEnergy -= south;
             budget -= south;
 
-            int east = pullEnergy(
-                manager,
-                PORT_EAST,
-                128,
-                tick,
-                storedEnergy,
-                budget
-            );
+            int east = pullEnergy(manager, PORT_EAST, 128, tick, storedEnergy, budget);
             storedEnergy -= east;
             budget -= east;
 
-            assertEquals(
-                5,
-                north,
-                "NORTH: тик " + tick
-            );
+            assertEquals(5, north, "NORTH: тик " + tick);
 
-            assertEquals(
-                40,
-                north + south + east,
-                "Тик " + tick
-            );
+            assertEquals(40, north + south + east, "Тик " + tick);
 
             if (tick > 100) {
                 assertTrue(
@@ -2594,33 +1058,13 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         for (long tick = 99; tick <= 100; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
         }
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                30,
-                100,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_SOUTH,
-                10,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 30, 100, tx);
+            manager.recordExtraction(PORT_SOUTH, 10, 100, tx);
             tx.commit();
         }
         return manager;
@@ -2652,64 +1096,23 @@ class EnergyDistributionManagerTest {
         try (Transaction simulated = Transaction.openRoot()) {
             assertEquals(
                 30,
-                manager.getAllowedAdaptiveAmount(
-                    PORT_NORTH,
-                    80,
-                    80,
-                    80,
-                    101,
-                    simulated
-                )
+                manager.getAllowedAdaptiveAmount(PORT_NORTH, 80, 80, 80, 101, simulated)
             );
-            assertEquals(
-                101L,
-                fairnessUpdateTick(manager)
-            );
-            assertEquals(
-                -10L,
-                fairnessCredits(manager).get(PORT_NORTH)
-            );
-            assertEquals(
-                10L,
-                fairnessCredits(manager).get(PORT_SOUTH)
-            );
+            assertEquals(101L, fairnessUpdateTick(manager));
+            assertEquals(-10L, fairnessCredits(manager).get(PORT_NORTH));
+            assertEquals(10L, fairnessCredits(manager).get(PORT_SOUTH));
         }
 
-        assertEquals(
-            beforeTick,
-            fairnessUpdateTick(manager)
-        );
-        assertEquals(
-            beforeCredits,
-            fairnessCredits(manager)
-        );
+        assertEquals(beforeTick, fairnessUpdateTick(manager));
+        assertEquals(beforeCredits, fairnessCredits(manager));
 
         try (Transaction real = Transaction.openRoot()) {
-            assertEquals(
-                30,
-                manager.getAllowedAdaptiveAmount(
-                    PORT_NORTH,
-                    80,
-                    80,
-                    80,
-                    101,
-                    real
-                )
-            );
+            assertEquals(30, manager.getAllowedAdaptiveAmount(PORT_NORTH, 80, 80, 80, 101, real));
             real.commit();
         }
-        assertEquals(
-            101L,
-            fairnessUpdateTick(manager)
-        );
-        assertEquals(
-            -10L,
-            fairnessCredits(manager).get(PORT_NORTH)
-        );
-        assertEquals(
-            10L,
-            fairnessCredits(manager).get(PORT_SOUTH)
-        );
+        assertEquals(101L, fairnessUpdateTick(manager));
+        assertEquals(-10L, fairnessCredits(manager).get(PORT_NORTH));
+        assertEquals(10L, fairnessCredits(manager).get(PORT_SOUTH));
     }
 
     @Test
@@ -2724,171 +1127,65 @@ class EnergyDistributionManagerTest {
             try (Transaction child = Transaction.open(root)) {
                 assertEquals(
                     30,
-                    manager.getAllowedAdaptiveAmount(
-                        PORT_NORTH,
-                        80,
-                        80,
-                        80,
-                        101,
-                        child
-                    )
+                    manager.getAllowedAdaptiveAmount(PORT_NORTH, 80, 80, 80, 101, child)
                 );
                 child.commit();
             }
 
-            assertEquals(
-                101L,
-                fairnessUpdateTick(manager)
-            );
-            assertEquals(
-                -10L,
-                fairnessCredits(manager).get(PORT_NORTH)
-            );
-            assertEquals(
-                10L,
-                fairnessCredits(manager).get(PORT_SOUTH)
-            );
+            assertEquals(101L, fairnessUpdateTick(manager));
+            assertEquals(-10L, fairnessCredits(manager).get(PORT_NORTH));
+            assertEquals(10L, fairnessCredits(manager).get(PORT_SOUTH));
         }
 
-        assertEquals(
-            beforeTick,
-            fairnessUpdateTick(manager)
-        );
-        assertEquals(
-            beforeCredits,
-            fairnessCredits(manager)
-        );
+        assertEquals(beforeTick, fairnessUpdateTick(manager));
+        assertEquals(beforeCredits, fairnessCredits(manager));
     }
 
     @Test
     void shouldRestoreCreditsAfterRollbackOfSinglePortReset() throws ReflectiveOperationException {
         EnergyDistributionManager manager = managerWithPendingFairnessCorrection();
-        getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            80,
-            80,
-            80,
-            101
-        );
+        getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 80, 101);
 
-        assertEquals(
-            -10L,
-            fairnessCredits(manager).get(PORT_NORTH)
-        );
-        assertEquals(
-            10L,
-            fairnessCredits(manager).get(PORT_SOUTH)
-        );
-        assertEquals(
-            101L,
-            fairnessUpdateTick(manager)
-        );
+        assertEquals(-10L, fairnessCredits(manager).get(PORT_NORTH));
+        assertEquals(10L, fairnessCredits(manager).get(PORT_SOUTH));
+        assertEquals(101L, fairnessUpdateTick(manager));
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            110
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            121
-        );
-        assertEquals(
-            1,
-            manager.countActivePorts(121)
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 110);
+        recordCommittedRequest(manager, PORT_NORTH, 80, 121);
+        assertEquals(1, manager.countActivePorts(121));
 
         try (Transaction simulated = Transaction.openRoot()) {
             assertEquals(
                 80,
-                manager.getAllowedAdaptiveAmount(
-                    PORT_NORTH,
-                    80,
-                    80,
-                    80,
-                    121,
-                    simulated
-                )
+                manager.getAllowedAdaptiveAmount(PORT_NORTH, 80, 80, 80, 121, simulated)
             );
             assertTrue(fairnessCredits(manager).isEmpty());
-            assertEquals(
-                121L,
-                fairnessUpdateTick(manager)
-            );
+            assertEquals(121L, fairnessUpdateTick(manager));
         }
 
-        assertEquals(
-            101L,
-            fairnessUpdateTick(manager)
-        );
-        assertEquals(
-            -10L,
-            fairnessCredits(manager).get(PORT_NORTH)
-        );
-        assertEquals(
-            10L,
-            fairnessCredits(manager).get(PORT_SOUTH)
-        );
+        assertEquals(101L, fairnessUpdateTick(manager));
+        assertEquals(-10L, fairnessCredits(manager).get(PORT_NORTH));
+        assertEquals(10L, fairnessCredits(manager).get(PORT_SOUTH));
     }
 
     @Test
     void shouldNotTreatSimulatedRequestAsActiveAfterRollback() {
         EnergyDistributionManager manager = newManager(80);
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            80,
-            120
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 80, 120);
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction simulated = Transaction.open(root)) {
-                manager.recordRequest(
-                    PORT_SOUTH,
-                    128,
-                    121,
-                    simulated
-                );
-                assertEquals(
-                    2,
-                    manager.countActivePorts(121)
-                );
+                manager.recordRequest(PORT_SOUTH, 128, 121, simulated);
+                assertEquals(2, manager.countActivePorts(121));
                 assertEquals(
                     40,
-                    manager.getAllowedAdaptiveAmount(
-                        PORT_SOUTH,
-                        128,
-                        80,
-                        80,
-                        121,
-                        simulated
-                    )
+                    manager.getAllowedAdaptiveAmount(PORT_SOUTH, 128, 80, 80, 121, simulated)
                 );
             }
 
-            assertFalse(manager.isActive(
-                PORT_SOUTH,
-                121
-            ));
-            assertEquals(
-                1,
-                manager.countActivePorts(121)
-            );
-            assertEquals(
-                80,
-                manager.getAllowedAdaptiveAmount(
-                    PORT_NORTH,
-                    80,
-                    80,
-                    80,
-                    121,
-                    root
-                )
-            );
+            assertFalse(manager.isActive(PORT_SOUTH, 121));
+            assertEquals(1, manager.countActivePorts(121));
+            assertEquals(80, manager.getAllowedAdaptiveAmount(PORT_NORTH, 80, 80, 80, 121, root));
             root.commit();
         }
     }
@@ -2898,112 +1195,34 @@ class EnergyDistributionManagerTest {
     void shouldNotPenalizeRepeatedSmallTransfersAsExcessDemand() {
         EnergyDistributionManager manager = newManager(80);
 
-        recordCommittedRequest(
-            manager,
-            PORT_NORTH,
-            10,
-            99
-        );
-        recordCommittedRequest(
-            manager,
-            PORT_SOUTH,
-            10,
-            99
-        );
+        recordCommittedRequest(manager, PORT_NORTH, 10, 99);
+        recordCommittedRequest(manager, PORT_SOUTH, 10, 99);
 
         int storedEnergy = 80;
         int remainingBudget = 80;
 
         for (int packet = 0; packet < 4; packet++) {
-            int north = pullEnergy(
-                manager,
-                PORT_NORTH,
-                10,
-                100,
-                storedEnergy,
-                remainingBudget
-            );
-            assertEquals(
-                10,
-                north,
-                "NORTH packet " + packet
-            );
+            int north = pullEnergy(manager, PORT_NORTH, 10, 100, storedEnergy, remainingBudget);
+            assertEquals(10, north, "NORTH packet " + packet);
             storedEnergy -= north;
             remainingBudget -= north;
 
-            int south = pullEnergy(
-                manager,
-                PORT_SOUTH,
-                10,
-                100,
-                storedEnergy,
-                remainingBudget
-            );
-            assertEquals(
-                10,
-                south,
-                "SOUTH packet " + packet
-            );
+            int south = pullEnergy(manager, PORT_SOUTH, 10, 100, storedEnergy, remainingBudget);
+            assertEquals(10, south, "SOUTH packet " + packet);
             storedEnergy -= south;
             remainingBudget -= south;
         }
 
-        assertEquals(
-            40,
-            manager.getExtractedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            40,
-            manager.getExtractedByPort(
-                PORT_SOUTH,
-                100
-            )
-        );
-        assertEquals(
-            10,
-            manager.getMaxRequestedByPort(
-                PORT_NORTH,
-                100
-            )
-        );
-        assertEquals(
-            10,
-            manager.getMaxRequestedByPort(
-                PORT_SOUTH,
-                100
-            )
-        );
+        assertEquals(40, manager.getExtractedByPort(PORT_NORTH, 100));
+        assertEquals(40, manager.getExtractedByPort(PORT_SOUTH, 100));
+        assertEquals(10, manager.getMaxRequestedByPort(PORT_NORTH, 100));
+        assertEquals(10, manager.getMaxRequestedByPort(PORT_SOUTH, 100));
 
-        int north = pullEnergy(
-            manager,
-            PORT_NORTH,
-            10,
-            101,
-            40,
-            80
-        );
-        assertEquals(
-            10,
-            north,
-            "NORTH must still receive energy on tick 101"
-        );
+        int north = pullEnergy(manager, PORT_NORTH, 10, 101, 40, 80);
+        assertEquals(10, north, "NORTH must still receive energy on tick 101");
 
-        int south = pullEnergy(
-            manager,
-            PORT_SOUTH,
-            10,
-            101,
-            40 - north,
-            80 - north
-        );
-        assertEquals(
-            10,
-            south,
-            "SOUTH must still receive energy on tick 101"
-        );
+        int south = pullEnergy(manager, PORT_SOUTH, 10, 101, 40 - north, 80 - north);
+        assertEquals(10, south, "SOUTH must still receive energy on tick 101");
     }
 
 
@@ -3014,23 +1233,11 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = managerWithThreePortCredits();
         Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
 
-        assertTrue(before.getOrDefault(
-            PORT_EAST,
-            0L
-        ) > 0);
+        assertTrue(before.getOrDefault(PORT_EAST, 0L) > 0);
 
-        assertTrue(manager.isActive(
-            PORT_NORTH,
-            120
-        ));
-        assertTrue(manager.isActive(
-            PORT_SOUTH,
-            120
-        ));
-        assertFalse(manager.isActive(
-            PORT_EAST,
-            120
-        ));
+        assertTrue(manager.isActive(PORT_NORTH, 120));
+        assertTrue(manager.isActive(PORT_SOUTH, 120));
+        assertFalse(manager.isActive(PORT_EAST, 120));
 
         assertEquals(
             before,
@@ -3047,43 +1254,20 @@ class EnergyDistributionManagerTest {
         Map<EnergyPortId, Long> before = Map.copyOf(fairnessCredits(manager));
         long lastUpdate = fairnessUpdateTick(manager);
 
-        recordCommittedRequest(
-            manager,
-            PORT_EAST,
-            80,
-            120
-        );
+        recordCommittedRequest(manager, PORT_EAST, 80, 120);
 
-        assertTrue(manager.isActive(
-            PORT_EAST,
-            120
-        ));
-        assertEquals(
-            3,
-            manager.countActivePorts(120)
-        );
-        assertEquals(
-            80,
-            manager.getMaxRequestedByPort(
-                PORT_EAST,
-                120
-            )
-        );
+        assertTrue(manager.isActive(PORT_EAST, 120));
+        assertEquals(3, manager.countActivePorts(120));
+        assertEquals(80, manager.getMaxRequestedByPort(PORT_EAST, 120));
 
         assertFalse(
             fairnessCredits(manager).containsKey(PORT_EAST),
             "EAST не должен сохранять компенсацию после переподключения"
         );
 
-        assertEquals(
-            before.get(PORT_NORTH),
-            fairnessCredits(manager).get(PORT_NORTH)
-        );
+        assertEquals(before.get(PORT_NORTH), fairnessCredits(manager).get(PORT_NORTH));
 
-        assertEquals(
-            before.get(PORT_SOUTH),
-            fairnessCredits(manager).get(PORT_SOUTH)
-        );
+        assertEquals(before.get(PORT_SOUTH), fairnessCredits(manager).get(PORT_SOUTH));
 
         assertEquals(
             lastUpdate,
@@ -3102,44 +1286,21 @@ class EnergyDistributionManagerTest {
 
         try (Transaction root = Transaction.openRoot()) {
             try (Transaction child = Transaction.open(root)) {
-                manager.recordRequest(
-                    PORT_EAST,
-                    80,
-                    120,
-                    child
-                );
+                manager.recordRequest(PORT_EAST, 80, 120, child);
 
-                assertTrue(manager.isActive(
-                    PORT_EAST,
-                    120
-                ));
+                assertTrue(manager.isActive(PORT_EAST, 120));
                 assertFalse(fairnessCredits(manager).containsKey(PORT_EAST));
 
                 child.commit();
             }
 
-            assertEquals(
-                3,
-                manager.countActivePorts(120)
-            );
+            assertEquals(3, manager.countActivePorts(120));
 
         }
 
-        assertFalse(manager.isActive(
-            PORT_EAST,
-            120
-        ));
-        assertEquals(
-            2,
-            manager.countActivePorts(120)
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                PORT_EAST,
-                120
-            )
-        );
+        assertFalse(manager.isActive(PORT_EAST, 120));
+        assertEquals(2, manager.countActivePorts(120));
+        assertEquals(0, manager.getMaxRequestedByPort(PORT_EAST, 120));
 
         assertEquals(
             before,
@@ -3147,10 +1308,7 @@ class EnergyDistributionManagerTest {
             "После отката должны восстановиться прежние компенсации"
         );
 
-        assertEquals(
-            lastUpdate,
-            fairnessUpdateTick(manager)
-        );
+        assertEquals(lastUpdate, fairnessUpdateTick(manager));
     }
 
     @Test
@@ -3160,45 +1318,19 @@ class EnergyDistributionManagerTest {
         long tick = 100L;
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                tick,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, tick, tx);
 
-            assertTrue(manager.isActive(
-                PORT_NORTH,
-                tick
-            ));
+            assertTrue(manager.isActive(PORT_NORTH, tick));
         }
 
-        assertFalse(manager.isActive(
-            PORT_NORTH,
-            tick
-        ));
+        assertFalse(manager.isActive(PORT_NORTH, tick));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_SOUTH,
-                40,
-                tick,
-                tx
-            );
+            manager.recordRequest(PORT_SOUTH, 40, tick, tx);
 
-            int allowed = manager.getAllowedAdaptiveAmount(
-                PORT_SOUTH,
-                40,
-                80,
-                40,
-                tick,
-                tx
-            );
+            int allowed = manager.getAllowedAdaptiveAmount(PORT_SOUTH, 40, 80, 40, tick, tx);
 
-            assertEquals(
-                40,
-                allowed
-            );
+            assertEquals(40, allowed);
             tx.commit();
         }
     }
@@ -3211,64 +1343,21 @@ class EnergyDistributionManagerTest {
         long currentTick = 100L;
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                previousTick,
-                tx
-            );
-            manager.recordRequest(
-                PORT_SOUTH,
-                1,
-                previousTick,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, previousTick, tx);
+            manager.recordRequest(PORT_SOUTH, 1, previousTick, tx);
             tx.commit();
         }
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            currentTick
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), currentTick);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                2,
-                currentTick,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_NORTH,
-                2,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 2, currentTick, tx);
+            manager.recordExtraction(PORT_NORTH, 2, currentTick, tx);
 
-            manager.recordRequest(
-                PORT_SOUTH,
-                1,
-                currentTick,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_SOUTH,
-                1,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(PORT_SOUTH, 1, currentTick, tx);
+            manager.recordExtraction(PORT_SOUTH, 1, currentTick, tx);
 
-            manager.recordRequest(
-                PORT_NORTH,
-                128,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 128, currentTick, tx);
 
             int allowed = manager.getAllowedAdaptiveAmount(
                 PORT_NORTH,
@@ -3279,10 +1368,7 @@ class EnergyDistributionManagerTest {
                 tx
             );
 
-            assertEquals(
-                20,
-                allowed
-            );
+            assertEquals(20, allowed);
         }
     }
 
@@ -3292,26 +1378,11 @@ class EnergyDistributionManagerTest {
 
         for (long tick : new long[]{98L, 99L}) {
             try (Transaction tx = Transaction.openRoot()) {
-                manager.recordRequest(
-                    PORT_NORTH,
-                    40,
-                    tick,
-                    tx
-                );
-                manager.recordRequest(
-                    PORT_SOUTH,
-                    40,
-                    tick,
-                    tx
-                );
+                manager.recordRequest(PORT_NORTH, 40, tick, tx);
+                manager.recordRequest(PORT_SOUTH, 40, tick, tx);
 
                 if (tick == 99L) {
-                    manager.recordExtraction(
-                        PORT_SOUTH,
-                        40,
-                        tick,
-                        tx
-                    );
+                    manager.recordExtraction(PORT_SOUTH, 40, tick, tx);
                 }
 
                 tx.commit();
@@ -3320,37 +1391,14 @@ class EnergyDistributionManagerTest {
 
         long currentTick = 100L;
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            currentTick
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), currentTick);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                currentTick,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, currentTick, tx);
 
-            int allowed = manager.getAllowedAdaptiveAmount(
-                PORT_NORTH,
-                40,
-                80,
-                40,
-                currentTick,
-                tx
-            );
+            int allowed = manager.getAllowedAdaptiveAmount(PORT_NORTH, 40, 80, 40, currentTick, tx);
 
-            assertEquals(
-                40,
-                allowed
-            );
+            assertEquals(40, allowed);
         }
     }
 
@@ -3360,186 +1408,59 @@ class EnergyDistributionManagerTest {
 
         long currentTick = 100L;
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            currentTick
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), currentTick);
 
-        int protectedQuota = manager.getProtectedRemainingQuota(
-            PORT_SOUTH,
-            40,
-            currentTick
-        );
+        int protectedQuota = manager.getProtectedRemainingQuota(PORT_SOUTH, 40, currentTick);
 
-        assertEquals(
-            20,
-            protectedQuota
-        );
+        assertEquals(20, protectedQuota);
     }
 
     @Test
     void shouldPreservePreviousPushAvailabilityAcrossTicks() {
         EnergyDistributionManager manager = newManager(80);
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                60
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 60), 100L);
 
-        assertEquals(
-            80,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                101L
-            )
-        );
-        assertEquals(
-            60,
-            manager.getPreviousPushAvailability(
-                PORT_SOUTH,
-                101L
-            )
-        );
+        assertEquals(80, manager.getPreviousPushAvailability(PORT_NORTH, 101L));
+        assertEquals(60, manager.getPreviousPushAvailability(PORT_SOUTH, 101L));
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                40,
-                PORT_SOUTH,
-                20
-            ),
-            101L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 40, PORT_SOUTH, 20), 101L);
 
-        assertEquals(
-            40,
-            manager.getPushAvailability(
-                PORT_NORTH,
-                101L
-            )
-        );
-        assertEquals(
-            20,
-            manager.getPushAvailability(
-                PORT_SOUTH,
-                101L
-            )
-        );
+        assertEquals(40, manager.getPushAvailability(PORT_NORTH, 101L));
+        assertEquals(20, manager.getPushAvailability(PORT_SOUTH, 101L));
 
-        assertEquals(
-            80,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                101L
-            )
-        );
-        assertEquals(
-            60,
-            manager.getPreviousPushAvailability(
-                PORT_SOUTH,
-                101L
-            )
-        );
+        assertEquals(80, manager.getPreviousPushAvailability(PORT_NORTH, 101L));
+        assertEquals(60, manager.getPreviousPushAvailability(PORT_SOUTH, 101L));
     }
 
     @Test
     void shouldKeepPreviousPushAvailabilityOnSameTickUpdate() {
         EnergyDistributionManager manager = newManager(80);
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80), 100L);
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                40
-            ),
-            101L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 40), 101L);
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                20
-            ),
-            101L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 20), 101L);
 
-        assertEquals(
-            20,
-            manager.getPushAvailability(
-                PORT_NORTH,
-                101L
-            )
-        );
+        assertEquals(20, manager.getPushAvailability(PORT_NORTH, 101L));
 
-        assertEquals(
-            80,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                101L
-            )
-        );
+        assertEquals(80, manager.getPreviousPushAvailability(PORT_NORTH, 101L));
     }
 
     @Test
     void shouldNotReturnStalePushAvailabilityAfterSkippedTick() {
         EnergyDistributionManager manager = newManager(80);
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80), 100L);
 
-        assertEquals(
-            0,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                104L
-            )
-        );
+        assertEquals(0, manager.getPreviousPushAvailability(PORT_NORTH, 104L));
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                30
-            ),
-            104L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 30), 104L);
 
-        assertEquals(
-            0,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                104L
-            )
-        );
+        assertEquals(0, manager.getPreviousPushAvailability(PORT_NORTH, 104L));
 
-        assertEquals(
-            30,
-            manager.getPreviousPushAvailability(
-                PORT_NORTH,
-                105L
-            )
-        );
+        assertEquals(30, manager.getPreviousPushAvailability(PORT_NORTH, 105L));
     }
 
     @Test
@@ -3547,92 +1468,31 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                98L,
-                tx
-            );
-            manager.recordRequest(
-                PORT_SOUTH,
-                40,
-                98L,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, 98L, tx);
+            manager.recordRequest(PORT_SOUTH, 40, 98L, tx);
             tx.commit();
         }
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            99L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), 99L);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                99L,
-                tx
-            );
-            manager.recordRequest(
-                PORT_SOUTH,
-                1,
-                99L,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, 99L, tx);
+            manager.recordRequest(PORT_SOUTH, 1, 99L, tx);
 
-            manager.recordExtraction(
-                PORT_NORTH,
-                39,
-                99L,
-                tx
-            );
-            manager.recordExtraction(
-                PORT_SOUTH,
-                1,
-                99L,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 39, 99L, tx);
+            manager.recordExtraction(PORT_SOUTH, 1, 99L, tx);
 
             tx.commit();
         }
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), 100L);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_SOUTH,
-                40,
-                100L,
-                tx
-            );
+            manager.recordRequest(PORT_SOUTH, 40, 100L, tx);
 
-            int allowed = manager.getAllowedAdaptiveAmount(
-                PORT_SOUTH,
-                40,
-                80,
-                40,
-                100L,
-                tx
-            );
+            int allowed = manager.getAllowedAdaptiveAmount(PORT_SOUTH, 40, 80, 40, 100L, tx);
 
-            assertEquals(
-                39,
-                allowed
-            );
+            assertEquals(39, allowed);
         }
     }
 
@@ -3641,74 +1501,28 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = newManager(80);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                98L,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, 98L, tx);
             tx.commit();
         }
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            99L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), 99L);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_NORTH,
-                40,
-                99L,
-                tx
-            );
+            manager.recordRequest(PORT_NORTH, 40, 99L, tx);
 
-            manager.recordExtraction(
-                PORT_NORTH,
-                40,
-                99L,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 40, 99L, tx);
 
             tx.commit();
         }
 
-        manager.updatePushAvailability(
-            Map.of(
-                PORT_NORTH,
-                80,
-                PORT_SOUTH,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(PORT_NORTH, 80, PORT_SOUTH, 80), 100L);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordRequest(
-                PORT_SOUTH,
-                40,
-                100L,
-                tx
-            );
+            manager.recordRequest(PORT_SOUTH, 40, 100L, tx);
 
-            int allowed = manager.getAllowedAdaptiveAmount(
-                PORT_SOUTH,
-                40,
-                80,
-                40,
-                100L,
-                tx
-            );
+            int allowed = manager.getAllowedAdaptiveAmount(PORT_SOUTH, 40, 80, 40, 100L, tx);
 
-            assertEquals(
-                40,
-                allowed
-            );
+            assertEquals(40, allowed);
         }
     }
 
@@ -3721,10 +1535,7 @@ class EnergyDistributionManagerTest {
         Map<EnergyPortId, Integer> totalExtracted = new LinkedHashMap<>();
 
         for (EnergyPortId portId : ports) {
-            totalExtracted.put(
-                portId,
-                0
-            );
+            totalExtracted.put(portId, 0);
         }
 
         for (long tick = 100L; tick < 160L; tick++) {
@@ -3732,26 +1543,14 @@ class EnergyDistributionManagerTest {
             int remainingBudget = 80;
 
             manager.updatePushAvailability(
-                Map.of(
-                    PORT_NORTH,
-                    80,
-                    PORT_SOUTH,
-                    80,
-                    PORT_WEST,
-                    80
-                ),
+                Map.of(PORT_NORTH, 80, PORT_SOUTH, 80, PORT_WEST, 80),
                 tick
             );
 
             try (Transaction tx = Transaction.openRoot()) {
 
                 for (EnergyPortId portId : ports) {
-                    manager.recordRequest(
-                        portId,
-                        80,
-                        tick,
-                        tx
-                    );
+                    manager.recordRequest(portId, 80, tick, tx);
                 }
 
                 for (EnergyPortId portId : ports) {
@@ -3764,56 +1563,28 @@ class EnergyDistributionManagerTest {
                         tx
                     );
 
-                    int extracted = Math.min(
-                        allowed,
-                        storedEnergy
-                    );
+                    int extracted = Math.min(allowed, storedEnergy);
 
-                    manager.recordExtraction(
-                        portId,
-                        extracted,
-                        tick,
-                        tx
-                    );
+                    manager.recordExtraction(portId, extracted, tick, tx);
 
                     storedEnergy -= extracted;
                     remainingBudget -= extracted;
 
-                    totalExtracted.merge(
-                        portId,
-                        extracted,
-                        Integer::sum
-                    );
+                    totalExtracted.merge(portId, extracted, Integer::sum);
                 }
 
                 tx.commit();
             }
 
-            assertEquals(
-                0,
-                storedEnergy,
-                "Не вся энергия распределена в тике " + tick
-            );
+            assertEquals(0, storedEnergy, "Не вся энергия распределена в тике " + tick);
         }
 
         int north = totalExtracted.get(PORT_NORTH);
         int south = totalExtracted.get(PORT_SOUTH);
         int west = totalExtracted.get(PORT_WEST);
 
-        int max = Math.max(
-            north,
-            Math.max(
-                south,
-                west
-            )
-        );
-        int min = Math.min(
-            north,
-            Math.min(
-                south,
-                west
-            )
-        );
+        int max = Math.max(north, Math.max(south, west));
+        int min = Math.min(north, Math.min(south, west));
 
         assertTrue(
             max - min <= 2,
@@ -3829,81 +1600,24 @@ class EnergyDistributionManagerTest {
     void shouldCountDifferentLogicalPortsWithSamePhysicalSidePrefixSeparately() {
         EnergyPortId first = new EnergyPortId("north.output.first");
         EnergyPortId second = new EnergyPortId("north.output.second");
-        EnergyDistributionManager manager = managerWithPorts(
-            first,
-            second
-        );
+        EnergyDistributionManager manager = managerWithPorts(first, second);
 
-        recordCommittedRequest(
-            manager,
-            first,
-            80,
-            100L
-        );
-        recordCommittedRequest(
-            manager,
-            second,
-            80,
-            100L
-        );
+        recordCommittedRequest(manager, first, 80, 100L);
+        recordCommittedRequest(manager, second, 80, 100L);
 
-        assertEquals(
-            2,
-            manager.countActivePorts(100L)
-        );
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            40,
-            manager.getBaseQuota(
-                second,
-                100L
-            )
-        );
+        assertEquals(2, manager.countActivePorts(100L));
+        assertEquals(40, manager.getBaseQuota(first, 100L));
+        assertEquals(40, manager.getBaseQuota(second, 100L));
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                first,
-                15,
-                100L,
-                tx
-            );
+            manager.recordExtraction(first, 15, 100L, tx);
             tx.commit();
         }
 
-        assertEquals(
-            15,
-            manager.getExtractedByPort(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                second,
-                100L
-            )
-        );
-        assertEquals(
-            25,
-            manager.getRemainingBaseQuota(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            40,
-            manager.getRemainingBaseQuota(
-                second,
-                100L
-            )
-        );
+        assertEquals(15, manager.getExtractedByPort(first, 100L));
+        assertEquals(0, manager.getExtractedByPort(second, 100L));
+        assertEquals(25, manager.getRemainingBaseQuota(first, 100L));
+        assertEquals(40, manager.getRemainingBaseQuota(second, 100L));
     }
 
     @Test
@@ -3918,28 +1632,14 @@ class EnergyDistributionManagerTest {
 
         try (Transaction tx = Transaction.openRoot()) {
             for (EnergyPortId portId : ports) {
-                manager.recordRequest(
-                    portId,
-                    80,
-                    100L,
-                    tx
-                );
+                manager.recordRequest(portId, 80, 100L, tx);
             }
             tx.commit();
         }
 
-        assertEquals(
-            8,
-            manager.countActivePorts(100L)
-        );
+        assertEquals(8, manager.countActivePorts(100L));
         for (EnergyPortId portId : ports) {
-            assertEquals(
-                10,
-                manager.getBaseQuota(
-                    portId,
-                    100L
-                )
-            );
+            assertEquals(10, manager.getBaseQuota(portId, 100L));
         }
     }
 
@@ -3949,28 +1649,11 @@ class EnergyDistributionManagerTest {
         EnergyPortId unavailable = new EnergyPortId("unavailable");
         EnergyDistributionManager manager = managerWithPorts(allowed);
 
-        recordCommittedRequest(
-            manager,
-            unavailable,
-            80,
-            100L
-        );
+        recordCommittedRequest(manager, unavailable, 80, 100L);
 
-        assertFalse(manager.isActive(
-            unavailable,
-            100L
-        ));
-        assertEquals(
-            0,
-            manager.countActivePorts(100L)
-        );
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                unavailable,
-                100L
-            )
-        );
+        assertFalse(manager.isActive(unavailable, 100L));
+        assertEquals(0, manager.countActivePorts(100L));
+        assertEquals(0, manager.getMaxRequestedByPort(unavailable, 100L));
     }
 
     @Test
@@ -3980,44 +1663,21 @@ class EnergyDistributionManagerTest {
         EnergyDistributionManager manager = managerWithPorts(allowed);
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                allowed,
-                20,
-                100L,
-                tx
-            );
+            manager.recordExtraction(allowed, 20, 100L, tx);
             tx.commit();
         }
 
         assertThrows(
-            IllegalStateException.class,
-            () -> {
+            IllegalStateException.class, () -> {
                 try (Transaction tx = Transaction.openRoot()) {
-                    manager.recordExtraction(
-                        unavailable,
-                        15,
-                        100L,
-                        tx
-                    );
+                    manager.recordExtraction(unavailable, 15, 100L, tx);
                     tx.commit();
                 }
             }
         );
 
-        assertEquals(
-            20,
-            manager.getExtractedByPort(
-                allowed,
-                100L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                unavailable,
-                100L
-            )
-        );
+        assertEquals(20, manager.getExtractedByPort(allowed, 100L));
+        assertEquals(0, manager.getExtractedByPort(unavailable, 100L));
     }
 
     @Test
@@ -4026,323 +1686,103 @@ class EnergyDistributionManagerTest {
         EnergyPortId unavailable = new EnergyPortId("unavailable");
         EnergyDistributionManager manager = managerWithPorts(allowed);
 
-        recordCommittedRequest(
-            manager,
-            allowed,
-            80,
-            100L
-        );
-        assertEquals(
-            0,
-            getCommittedAdaptiveAmount(
-                manager,
-                unavailable,
-                80,
-                80,
-                80,
-                100L
-            )
-        );
-        assertEquals(
-            1,
-            manager.countActivePorts(100L)
-        );
+        recordCommittedRequest(manager, allowed, 80, 100L);
+        assertEquals(0, getCommittedAdaptiveAmount(manager, unavailable, 80, 80, 80, 100L));
+        assertEquals(1, manager.countActivePorts(100L));
     }
 
     @Test
     void shouldForgetPortActivityDemandUsageAndPushOnDisableAndReenable() {
         EnergyPortId first = new EnergyPortId("first");
         EnergyPortId second = new EnergyPortId("second");
-        EnergyDistributionManager manager = managerWithPorts(
-            first,
-            second
-        );
+        EnergyDistributionManager manager = managerWithPorts(first, second);
 
-        recordCommittedRequest(
-            manager,
-            first,
-            80,
-            100L
-        );
+        recordCommittedRequest(manager, first, 80, 100L);
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                first,
-                30,
-                100L,
-                tx
-            );
+            manager.recordExtraction(first, 30, 100L, tx);
             tx.commit();
         }
-        manager.updatePushAvailability(
-            Map.of(
-                first,
-                40,
-                second,
-                20
-            ),
-            100L
-        );
-        assertTrue(manager.isActive(
-            first,
-            100L
-        ));
+        manager.updatePushAvailability(Map.of(first, 40, second, 20), 100L);
+        assertTrue(manager.isActive(first, 100L));
 
         manager.updateAvailablePorts(List.of(second));
-        assertFalse(manager.isActive(
-            first,
-            100L
-        ));
-        assertEquals(
-            0,
-            manager.getExtractedByPort(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPushAvailability(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            20,
-            manager.getPushAvailability(
-                second,
-                100L
-            )
-        );
+        assertFalse(manager.isActive(first, 100L));
+        assertEquals(0, manager.getExtractedByPort(first, 100L));
+        assertEquals(0, manager.getPushAvailability(first, 100L));
+        assertEquals(20, manager.getPushAvailability(second, 100L));
 
-        manager.updateAvailablePorts(List.of(
-            first,
-            second
-        ));
-        assertFalse(manager.isActive(
-            first,
-            101L
-        ));
-        assertEquals(
-            0,
-            manager.getMaxRequestedByPort(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousMaxRequestedByPort(
-                first,
-                101L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousExtractedByPort(
-                first,
-                101L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPreviousPushAvailability(
-                first,
-                101L
-            )
-        );
+        manager.updateAvailablePorts(List.of(first, second));
+        assertFalse(manager.isActive(first, 101L));
+        assertEquals(0, manager.getMaxRequestedByPort(first, 100L));
+        assertEquals(0, manager.getPreviousMaxRequestedByPort(first, 101L));
+        assertEquals(0, manager.getPreviousExtractedByPort(first, 101L));
+        assertEquals(0, manager.getPreviousPushAvailability(first, 101L));
 
-        recordCommittedRequest(
-            manager,
-            first,
-            40,
-            101L
-        );
-        assertTrue(manager.isActive(
-            first,
-            101L
-        ));
-        assertEquals(
-            40,
-            manager.getMaxRequestedByPort(
-                first,
-                101L
-            )
-        );
+        recordCommittedRequest(manager, first, 40, 101L);
+        assertTrue(manager.isActive(first, 101L));
+        assertEquals(40, manager.getMaxRequestedByPort(first, 101L));
     }
 
     @Test
     void shouldKeepRemainingPortHistoryAfterAnotherPortIsRemoved() {
         EnergyPortId first = new EnergyPortId("first");
         EnergyPortId second = new EnergyPortId("second");
-        EnergyDistributionManager manager = managerWithPorts(
-            first,
-            second
-        );
+        EnergyDistributionManager manager = managerWithPorts(first, second);
 
-        recordCommittedRequest(
-            manager,
-            first,
-            80,
-            100L
-        );
-        recordCommittedRequest(
-            manager,
-            second,
-            40,
-            100L
-        );
+        recordCommittedRequest(manager, first, 80, 100L);
+        recordCommittedRequest(manager, second, 40, 100L);
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                first,
-                15,
-                100L,
-                tx
-            );
-            manager.recordExtraction(
-                second,
-                25,
-                100L,
-                tx
-            );
+            manager.recordExtraction(first, 15, 100L, tx);
+            manager.recordExtraction(second, 25, 100L, tx);
             tx.commit();
         }
 
         manager.updateAvailablePorts(List.of(second));
 
-        assertFalse(manager.isActive(
-            first,
-            100L
-        ));
-        assertTrue(manager.isActive(
-            second,
-            100L
-        ));
-        assertEquals(
-            40,
-            manager.getMaxRequestedByPort(
-                second,
-                100L
-            )
-        );
-        assertEquals(
-            25,
-            manager.getExtractedByPort(
-                second,
-                100L
-            )
-        );
-        assertEquals(
-            25,
-            manager.getPreviousExtractedByPort(
-                second,
-                101L
-            )
-        );
+        assertFalse(manager.isActive(first, 100L));
+        assertTrue(manager.isActive(second, 100L));
+        assertEquals(40, manager.getMaxRequestedByPort(second, 100L));
+        assertEquals(25, manager.getExtractedByPort(second, 100L));
+        assertEquals(25, manager.getPreviousExtractedByPort(second, 101L));
     }
 
     @Test
     void shouldPreserveStatisticsWhenPortsAreReordered() {
         EnergyPortId first = new EnergyPortId("first");
         EnergyPortId second = new EnergyPortId("second");
-        EnergyDistributionManager manager = managerWithPorts(
-            first,
-            second
-        );
+        EnergyDistributionManager manager = managerWithPorts(first, second);
 
-        recordCommittedRequest(
-            manager,
-            first,
-            60,
-            100L
-        );
-        recordCommittedRequest(
-            manager,
-            second,
-            40,
-            100L
-        );
+        recordCommittedRequest(manager, first, 60, 100L);
+        recordCommittedRequest(manager, second, 40, 100L);
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                first,
-                20,
-                100L,
-                tx
-            );
+            manager.recordExtraction(first, 20, 100L, tx);
             tx.commit();
         }
 
-        manager.updateAvailablePorts(List.of(
-            second,
-            first
-        ));
+        manager.updateAvailablePorts(List.of(second, first));
 
-        assertEquals(
-            2,
-            manager.countActivePorts(100L)
-        );
-        assertEquals(
-            60,
-            manager.getMaxRequestedByPort(
-                first,
-                100L
-            )
-        );
-        assertEquals(
-            40,
-            manager.getMaxRequestedByPort(
-                second,
-                100L
-            )
-        );
-        assertEquals(
-            20,
-            manager.getExtractedByPort(
-                first,
-                100L
-            )
-        );
+        assertEquals(2, manager.countActivePorts(100L));
+        assertEquals(60, manager.getMaxRequestedByPort(first, 100L));
+        assertEquals(40, manager.getMaxRequestedByPort(second, 100L));
+        assertEquals(20, manager.getExtractedByPort(first, 100L));
     }
 
     @Test
     void shouldRejectInvalidPushMapBeforeChangingObservedAvailability() {
         EnergyPortId portId = new EnergyPortId("output");
         EnergyDistributionManager manager = managerWithPorts(portId);
-        manager.updatePushAvailability(
-            Map.of(
-                portId,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(portId, 80), 100L);
 
         Map<EnergyPortId, Integer> invalid = new HashMap<>();
-        invalid.put(
-            portId,
-            null
-        );
+        invalid.put(portId, null);
 
         assertThrows(
             NullPointerException.class,
-            () -> manager.updatePushAvailability(
-                invalid,
-                101L
-            )
+            () -> manager.updatePushAvailability(invalid, 101L)
         );
 
-        assertEquals(
-            80,
-            manager.getPushAvailability(
-                portId,
-                100L
-            )
-        );
-        assertEquals(
-            80,
-            manager.getPreviousPushAvailability(
-                portId,
-                101L
-            )
-        );
+        assertEquals(80, manager.getPushAvailability(portId, 100L));
+        assertEquals(80, manager.getPreviousPushAvailability(portId, 101L));
     }
 
     @Test
@@ -4351,38 +1791,11 @@ class EnergyDistributionManagerTest {
         EnergyPortId unknown = new EnergyPortId("unknown");
         EnergyDistributionManager manager = managerWithPorts(known);
 
-        manager.updatePushAvailability(
-            Map.of(
-                known,
-                40,
-                unknown,
-                80
-            ),
-            100L
-        );
+        manager.updatePushAvailability(Map.of(known, 40, unknown, 80), 100L);
 
-        assertEquals(
-            40,
-            manager.getPushAvailability(
-                known,
-                100L
-            )
-        );
-        assertEquals(
-            0,
-            manager.getPushAvailability(
-                unknown,
-                100L
-            )
-        );
-        assertEquals(
-            40,
-            manager.getProtectedRemainingQuota(
-                known,
-                40,
-                100L
-            )
-        );
+        assertEquals(40, manager.getPushAvailability(known, 100L));
+        assertEquals(0, manager.getPushAvailability(unknown, 100L));
+        assertEquals(40, manager.getProtectedRemainingQuota(known, 40, 100L));
     }
 
 
@@ -4396,10 +1809,7 @@ class EnergyDistributionManagerTest {
 
         long previousDifference = before.get(PORT_NORTH) - before.get(PORT_SOUTH);
 
-        manager.updateAvailablePorts(List.of(
-            PORT_NORTH,
-            PORT_SOUTH
-        ));
+        manager.updateAvailablePorts(List.of(PORT_NORTH, PORT_SOUTH));
 
         Map<EnergyPortId, Long> after = fairnessCredits(manager);
 
@@ -4408,16 +1818,9 @@ class EnergyDistributionManagerTest {
         assertTrue(after.containsKey(PORT_NORTH));
         assertTrue(after.containsKey(PORT_SOUTH));
 
-        long sum = after.values()
-            .stream()
-            .mapToLong(Long::longValue)
-            .sum();
+        long sum = after.values().stream().mapToLong(Long::longValue).sum();
 
-        assertEquals(
-            0L,
-            sum,
-            "Сумма кредитов после удаления порта должна быть нулевой"
-        );
+        assertEquals(0L, sum, "Сумма кредитов после удаления порта должна быть нулевой");
 
         long currentDifference = after.get(PORT_NORTH) - after.get(PORT_SOUTH);
 
@@ -4431,64 +1834,27 @@ class EnergyDistributionManagerTest {
     @Test
     void shouldNotLoseBudgetOrFairnessAfterPortReconfiguration() throws ReflectiveOperationException
     {
-        EnergyDistributionManager manager = managerWithPorts(
-            PORT_NORTH,
-            PORT_SOUTH,
-            PORT_EAST
-        );
+        EnergyDistributionManager manager = managerWithPorts(PORT_NORTH, PORT_SOUTH, PORT_EAST);
 
         for (long tick = 99; tick <= 101; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_EAST,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
+            recordCommittedRequest(manager, PORT_EAST, 80, tick);
         }
 
         try (Transaction tx = Transaction.openRoot()) {
-            manager.recordExtraction(
-                PORT_NORTH,
-                40,
-                100,
-                tx
-            );
+            manager.recordExtraction(PORT_NORTH, 40, 100, tx);
             tx.commit();
         }
 
-        getCommittedAdaptiveAmount(
-            manager,
-            PORT_NORTH,
-            80,
-            80,
-            80,
-            101
-        );
+        getCommittedAdaptiveAmount(manager, PORT_NORTH, 80, 80, 80, 101);
 
         assertTrue(
-            fairnessCredits(manager).getOrDefault(
-                PORT_EAST,
-                0L
-            ) > 0,
+            fairnessCredits(manager).getOrDefault(PORT_EAST, 0L) > 0,
             "У EAST должен быть положительный кредит"
         );
 
-        manager.updateAvailablePorts(List.of(
-            PORT_NORTH,
-            PORT_SOUTH
-        ));
+        manager.updateAvailablePorts(List.of(PORT_NORTH, PORT_SOUTH));
 
         assertFalse(
             fairnessCredits(manager).containsKey(PORT_EAST),
@@ -4500,45 +1866,18 @@ class EnergyDistributionManagerTest {
         int underusedTwoTicks = 0;
 
         for (long tick = 102; tick < 302; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
 
-            int north = pullEnergy(
-                manager,
-                PORT_NORTH,
-                80,
-                tick,
-                80,
-                80
-            );
+            int north = pullEnergy(manager, PORT_NORTH, 80, tick, 80, 80);
 
             int remaining = 80 - north;
 
-            int south = pullEnergy(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick,
-                remaining,
-                remaining
-            );
+            int south = pullEnergy(manager, PORT_SOUTH, 80, tick, remaining, remaining);
 
             int total = north + south;
 
-            assertTrue(
-                total <= 80,
-                "Превышен бюджет: тик " + tick
-            );
+            assertTrue(total <= 80, "Превышен бюджет: тик " + tick);
 
             if (tick >= 122 && total < 80) {
                 underusedTwoTicks++;
@@ -4550,11 +1889,7 @@ class EnergyDistributionManagerTest {
 
         long twoPortDifference = Math.abs(northTwoTotal - southTwoTotal);
 
-        manager.updateAvailablePorts(List.of(
-            PORT_NORTH,
-            PORT_SOUTH,
-            PORT_EAST
-        ));
+        manager.updateAvailablePorts(List.of(PORT_NORTH, PORT_SOUTH, PORT_EAST));
 
         assertFalse(
             fairnessCredits(manager).containsKey(PORT_EAST),
@@ -4567,63 +1902,24 @@ class EnergyDistributionManagerTest {
         int underusedThreeTicks = 0;
 
         for (long tick = 302; tick < 602; tick++) {
-            recordCommittedRequest(
-                manager,
-                PORT_NORTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick
-            );
-            recordCommittedRequest(
-                manager,
-                PORT_EAST,
-                80,
-                tick
-            );
+            recordCommittedRequest(manager, PORT_NORTH, 80, tick);
+            recordCommittedRequest(manager, PORT_SOUTH, 80, tick);
+            recordCommittedRequest(manager, PORT_EAST, 80, tick);
 
             int remaining = 80;
 
-            int north = pullEnergy(
-                manager,
-                PORT_NORTH,
-                80,
-                tick,
-                remaining,
-                remaining
-            );
+            int north = pullEnergy(manager, PORT_NORTH, 80, tick, remaining, remaining);
             remaining -= north;
 
-            int south = pullEnergy(
-                manager,
-                PORT_SOUTH,
-                80,
-                tick,
-                remaining,
-                remaining
-            );
+            int south = pullEnergy(manager, PORT_SOUTH, 80, tick, remaining, remaining);
             remaining -= south;
 
-            int east = pullEnergy(
-                manager,
-                PORT_EAST,
-                80,
-                tick,
-                remaining,
-                remaining
-            );
+            int east = pullEnergy(manager, PORT_EAST, 80, tick, remaining, remaining);
             remaining -= east;
 
             int total = north + south + east;
 
-            assertTrue(
-                total <= 80,
-                "Превышен бюджет: тик " + tick
-            );
+            assertTrue(total <= 80, "Превышен бюджет: тик " + tick);
 
             if (tick >= 322 && total < 80) {
                 underusedThreeTicks++;
@@ -4634,20 +1930,8 @@ class EnergyDistributionManagerTest {
             eastThreeTotal += east;
         }
 
-        long maxThree = Math.max(
-            northThreeTotal,
-            Math.max(
-                southThreeTotal,
-                eastThreeTotal
-            )
-        );
-        long minThree = Math.min(
-            northThreeTotal,
-            Math.min(
-                southThreeTotal,
-                eastThreeTotal
-            )
-        );
+        long maxThree = Math.max(northThreeTotal, Math.max(southThreeTotal, eastThreeTotal));
+        long minThree = Math.min(northThreeTotal, Math.min(southThreeTotal, eastThreeTotal));
 
         final int missedTwo = underusedTwoTicks;
         final int missedThree = underusedThreeTicks;
@@ -4656,16 +1940,8 @@ class EnergyDistributionManagerTest {
 
         assertAll(
             "Регрессия конфигурации 3 -> 2 -> 3",
-            () -> assertEquals(
-                0,
-                missedTwo,
-                "После отключения порта теряется доступный бюджет"
-            ),
-            () -> assertEquals(
-                0,
-                missedThree,
-                "После возвращения порта теряется доступный бюджет"
-            ),
+            () -> assertEquals(0, missedTwo, "После отключения порта теряется доступный бюджет"),
+            () -> assertEquals(0, missedThree, "После возвращения порта теряется доступный бюджет"),
             () -> assertTrue(
                 differenceTwo <= 80,
                 "Два потребителя получают систематически разные доли"
@@ -4700,100 +1976,42 @@ class EnergyDistributionManagerTest {
             @SuppressWarnings("unchecked") Map<EnergyPortId, Long> credits =
                 (Map<EnergyPortId, Long>) field.get(manager);
 
-            credits.put(
-                PORT_NORTH,
-                scenario[0]
-            );
-            credits.put(
-                PORT_SOUTH,
-                scenario[1]
-            );
-            credits.put(
-                PORT_EAST,
-                scenario[2]
-            );
-            credits.put(
-                removedPort,
-                scenario[3]
-            );
+            credits.put(PORT_NORTH, scenario[0]);
+            credits.put(PORT_SOUTH, scenario[1]);
+            credits.put(PORT_EAST, scenario[2]);
+            credits.put(removedPort, scenario[3]);
 
-            assertEquals(
-                0L,
-                credits.values()
-                    .stream()
-                    .mapToLong(Long::longValue)
-                    .sum()
-            );
+            assertEquals(0L, credits.values().stream().mapToLong(Long::longValue).sum());
 
-            manager.updateAvailablePorts(List.of(
-                PORT_NORTH,
-                PORT_SOUTH,
-                PORT_EAST
-            ));
+            manager.updateAvailablePorts(List.of(PORT_NORTH, PORT_SOUTH, PORT_EAST));
 
             assertFalse(credits.containsKey(removedPort));
-            assertEquals(
-                3,
-                credits.size()
-            );
+            assertEquals(3, credits.size());
 
-            assertEquals(
-                0L,
-                credits.values()
-                    .stream()
-                    .mapToLong(Long::longValue)
-                    .sum()
-            );
+            assertEquals(0L, credits.values().stream().mapToLong(Long::longValue).sum());
 
             for (long credit : credits.values()) {
-                assertTrue(
-                    credit >= -80 && credit <= 80,
-                    "Кредит вышел за пределы ±80: " + credit
-                );
+                assertTrue(credit >= -80 && credit <= 80, "Кредит вышел за пределы ±80: " + credit);
             }
 
-            assertEquals(
-                Long.valueOf(scenario[4]),
-                credits.get(PORT_NORTH)
-            );
-            assertEquals(
-                Long.valueOf(scenario[5]),
-                credits.get(PORT_SOUTH)
-            );
-            assertEquals(
-                Long.valueOf(scenario[6]),
-                credits.get(PORT_EAST)
-            );
+            assertEquals(Long.valueOf(scenario[4]), credits.get(PORT_NORTH));
+            assertEquals(Long.valueOf(scenario[5]), credits.get(PORT_SOUTH));
+            assertEquals(Long.valueOf(scenario[6]), credits.get(PORT_EAST));
 
             Map<EnergyPortId, Long> snapshot = Map.copyOf(credits);
 
-            manager.updateAvailablePorts(List.of(
-                PORT_EAST,
-                PORT_SOUTH,
-                PORT_NORTH
-            ));
+            manager.updateAvailablePorts(List.of(PORT_EAST, PORT_SOUTH, PORT_NORTH));
 
-            assertEquals(
-                snapshot,
-                credits
-            );
+            assertEquals(snapshot, credits);
         }
     }
 
 
     @Test
     void shouldUseAllAvailableEnergyWithThreeConsumers() {
-        EnergyDistributionManager manager = managerWithPorts(
-            PORT_NORTH,
-            PORT_SOUTH,
-            PORT_EAST
-        );
+        EnergyDistributionManager manager = managerWithPorts(PORT_NORTH, PORT_SOUTH, PORT_EAST);
 
-        List<EnergyPortId> ports = List.of(
-            PORT_NORTH,
-            PORT_SOUTH,
-            PORT_EAST
-        );
+        List<EnergyPortId> ports = List.of(PORT_NORTH, PORT_SOUTH, PORT_EAST);
 
         Map<EnergyPortId, Integer> availability = Map.of(
             PORT_NORTH,
@@ -4810,15 +2028,9 @@ class EnergyDistributionManagerTest {
 
             int[] extractedByPort = new int[3];
 
-            manager.updatePushAvailability(
-                availability,
-                tick
-            );
+            manager.updatePushAvailability(availability, tick);
 
-            int shift = Math.floorMod(
-                tick,
-                ports.size()
-            );
+            int shift = Math.floorMod(tick, ports.size());
 
             for (int i = 0; i < ports.size(); i++) {
                 int index = (i + shift) % ports.size();
@@ -4842,15 +2054,9 @@ class EnergyDistributionManagerTest {
 
             int totalExtracted = 40 - storedEnergy;
 
-            assertTrue(
-                totalExtracted <= 40,
-                "Передано больше доступной энергии"
-            );
+            assertTrue(totalExtracted <= 40, "Передано больше доступной энергии");
 
-            assertTrue(
-                remainingBudget >= 0,
-                "Превышен глобальный бюджет 80 FE/t"
-            );
+            assertTrue(remainingBudget >= 0, "Превышен глобальный бюджет 80 FE/t");
 
             if (tick >= 120) {
                 assertEquals(
@@ -4869,6 +2075,40 @@ class EnergyDistributionManagerTest {
                         storedEnergy
                 );
             }
+        }
+    }
+
+    @Test
+    void shouldPreserveProtectedQuotaWhenEffectiveSupplyExceedsIntRange() {
+        EnergyDistributionManager manager = managerWithPorts(PORT_NORTH, PORT_SOUTH);
+
+        long currentTick = 100L;
+
+        recordCommittedRequest(manager, PORT_NORTH, 80, currentTick - 1);
+
+        recordCommittedRequest(manager, PORT_SOUTH, 80, currentTick - 1);
+
+        try (Transaction tx = Transaction.openRoot()) {
+            manager.recordRequest(PORT_NORTH, 60, currentTick, tx);
+
+            manager.recordExtraction(PORT_NORTH, 20, currentTick, tx);
+
+            int allowed = manager.getAllowedAdaptiveAmount(
+                PORT_NORTH,
+                60,
+                60,
+                Integer.MAX_VALUE,
+                currentTick,
+                tx
+            );
+
+            assertEquals(
+                20,
+                allowed,
+                "Effective supply overflow must not eliminate protected quotas"
+            );
+
+            tx.commit();
         }
     }
 }

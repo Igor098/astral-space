@@ -809,7 +809,13 @@ public final class EnergyDistributionManager {
 
         int alreadyExtracted = this.maxTransferPerTick - remainingGlobalBudget;
 
-        int effectiveSupply = Math.min(this.maxTransferPerTick, alreadyExtracted + storedEnergy);
+        // Выполняем сложение в диапазоне long, чтобы избежать переполнения,
+        // когда доступный запас энергии близок к Integer.MAX_VALUE,
+        // а часть бюджета передачи за текущий тик уже израсходована.
+        int effectiveSupply = Math.toIntExact(Math.min(
+            this.maxTransferPerTick,
+            alreadyExtracted + (long) storedEnergy
+        ));
 
         int maxLimit = Math.min(storedEnergy, remainingGlobalBudget);
 
