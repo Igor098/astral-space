@@ -93,7 +93,7 @@
 
 ### Конфигурация и доступность
 
-`GeneratorConfiguration` объединяет параметры `GeneratorEnergySpec`, правила `EnergyPortRules` и физическую `EnergyPortTopology`. Один механизм на первом этапе использует либо все FIXED-порты, либо все CONFIGURABLE; смешанные режимы отложены. У генераторов разрешены только `OUTPUT`/`DISABLED`. Наличие фиксированной позиции порта не означает фиксированного режима.
+`GeneratorConfiguration` объединяет `GeneratorEnergySpec` (`long energyCapacity`, `int maxOutputPerTick`, `int generationPerTick`), правила `EnergyPortRules` и физическую `EnergyPortTopology`. Все три числовые характеристики строго положительны, а `generationPerTick <= energyCapacity`; номинальная генерация и исходящий лимит независимы. Отдельная спецификация производства не вводится, параметры топлива остаются специфическими для процесса/конкретного генератора. См. [AS-MACHINE-024](decisions/AS-MACHINE-024.md). Один механизм на первом этапе использует либо все FIXED-порты, либо все CONFIGURABLE; смешанные режимы отложены. У генераторов разрешены только `OUTPUT`/`DISABLED`. Наличие фиксированной позиции порта не означает фиксированного режима.
 
 `EnergyOutputController.refreshAvailablePorts()` — **утверждённый публичный метод без параметров**, который фильтрует неизменяемый упорядоченный список известных `EnergyPortId` через актуальную `EnergyPortPolicy` и передаёт результат в `EnergyDistributionManager.updateAvailablePorts(...)`. Вызов только **вне открытых FE-транзакций**, на безопасных границах. Текущий handler проверяет живую политику при **каждой** операции; прежняя ссылка не обходит отключение порта.
 
