@@ -4,6 +4,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -85,6 +86,11 @@ public final class EnergyPortPolicyFactory {
      * независимо от типа правил, однако для фиксированной
      * конфигурации не используется.</p>
      *
+     * <p>При фактическом изменении режима настраиваемого
+     * порта callback получает идентификатор этого порта.
+     * Уведомление выполняется после сохранения нового
+     * режима в созданной конфигурации.</p>
+     *
      * <p>Каждый вызов создаёт новые независимые экземпляры
      * компонентов без кэширования и взаимодействия
      * с игровым миром.</p>
@@ -93,9 +99,11 @@ public final class EnergyPortPolicyFactory {
      *                               энергетических портов
      * @param availability           предикат динамической
      *                               доступности порта
-     * @param onConfigurationChanged callback фактического
+     * @param onConfigurationChanged обработчик фактического
      *                               изменения пользовательской
-     *                               конфигурации
+     *                               конфигурации, принимающий
+     *                               идентификатор изменённого
+     *                               энергетического порта
      * @return результат создания компонентов управления
      * энергетическими портами
      * @throws NullPointerException если хотя бы один
@@ -104,7 +112,7 @@ public final class EnergyPortPolicyFactory {
     public static @NonNull Result create(
         @NonNull EnergyPortRules rules,
         @NonNull Predicate<EnergyPortId> availability,
-        @NonNull Runnable onConfigurationChanged
+        @NonNull Consumer<EnergyPortId> onConfigurationChanged
     )
     {
         Objects.requireNonNull(rules, "rules cannot be null");

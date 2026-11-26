@@ -7,6 +7,7 @@ import org.jspecify.annotations.NonNull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Хранит текущие настройки режимов энергетических портов
@@ -21,7 +22,9 @@ import java.util.Objects;
  *
  * <p>Изменение режимов допускается только после проверки
  * через {@link EnergyPortPolicy}. При фактическом изменении
- * вызывается переданный обработчик уведомления.</p>
+ * режима вызывается переданный обработчик уведомления,
+ * получающий идентификатор изменённого порта.
+ * Уведомление выполняется после сохранения нового режима.</p>
  *
  * <p>Компонент не выполняет передачу энергии и не отвечает
  * непосредственно за сериализацию NBT или синхронизацию
@@ -29,7 +32,7 @@ import java.util.Objects;
  */
 public final class EnergyPortConfiguration {
     private final Map<EnergyPortId, EnergyPortMode> currentModes;
-    private final Runnable onConfigurationChanged;
+    private final Consumer<EnergyPortId> onConfigurationChanged;
 
     /**
      * Создаёт хранилище настроек энергетических портов.
@@ -38,10 +41,14 @@ public final class EnergyPortConfiguration {
      * карту, недоступную вызывающему коду.</p>
      *
      * <p>Обработчик изменений сохраняется, но не вызывается
-     * при создании конфигурации.</p>
+     * при создании конфигурации. При последующем фактическом
+     * изменении режима обработчику передаётся идентификатор
+     * изменённого энергетического порта.</p>
      *
      * @param initialModes           начальные режимы энергетических портов
-     * @param onConfigurationChanged обработчик изменения настроек
+     * @param onConfigurationChanged обработчик изменения настроек,
+     *                               принимающий идентификатор
+     *                               изменённого порта
      * @throws NullPointerException если любой аргумент равен
      *                              {@code null} либо начальная
      *                              конфигурация содержит
@@ -49,7 +56,7 @@ public final class EnergyPortConfiguration {
      */
     public EnergyPortConfiguration(
         Map<EnergyPortId, EnergyPortMode> initialModes,
-        Runnable onConfigurationChanged
+        Consumer<EnergyPortId> onConfigurationChanged
     )
     {
         this.currentModes = new HashMap<>(Map.copyOf(Objects.requireNonNull(
@@ -84,15 +91,9 @@ public final class EnergyPortConfiguration {
      *                              равен {@code null}
      */
     public EnergyPortMode getMode(EnergyPortId portId) {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
-        return this.currentModes.getOrDefault(
-            portId,
-            EnergyPortMode.DISABLED
-        );
+        return this.currentModes.getOrDefault(portId, EnergyPortMode.DISABLED);
     }
 
     /**
@@ -136,8 +137,14 @@ public final class EnergyPortConfiguration {
      * а обработчик изменений не вызывается.</p>
      *
      * <p>При успешном изменении новый режим сохраняется,
-     * после чего однократно вызывается обработчик
-     * изменения конфигурации.</p>
+     * после чего однократно вызывается обработчик изменения
+     * конфигурации с идентификатором изменённого порта.
+     * На момент вызова обработчика новый режим уже доступен
+     * для чтения.</p>
+     *
+     * <p>Если обработчик изменения конфигурации выбрасывает
+     * исключение, оно передаётся вызывающему коду.
+     * Сохранённый режим автоматически не восстанавливается.</p>
      *
      * <p>Метод не выполняет сериализацию настроек
      * и не управляет напрямую Minecraft capabilities.</p>
@@ -160,24 +167,11 @@ public final class EnergyPortConfiguration {
         @NonNull EnergyPortPolicy policy
     )
     {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
-        Objects.requireNonNull(
-            newMode,
-            "newMode cannot be null"
-        );
-        Objects.requireNonNull(
-            policy,
-            "policy cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
+        Objects.requireNonNull(newMode, "newMode cannot be null");
+        Objects.requireNonNull(policy, "policy cannot be null");
 
-        if (!policy.canChangeMode(
-            portId,
-            newMode
-        ))
-        {
+        if (!policy.canChangeMode(portId, newMode)) {
             return false;
         }
 
@@ -187,11 +181,8 @@ public final class EnergyPortConfiguration {
             return false;
         }
 
-        this.currentModes.put(
-            portId,
-            newMode
-        );
-        this.onConfigurationChanged.run();
+        this.currentModes.put(portId, newMode);
+        this.onConfigurationChanged.accept(portId);
 
         return true;
     }
@@ -223,29 +214,18 @@ public final class EnergyPortConfiguration {
         @NonNull EnergyPortPolicy policy
     )
     {
-        Objects.requireNonNull(
-            policy,
-            "policy cannot be null"
-        );
+        Objects.requireNonNull(policy, "policy cannot be null");
 
-        Map<EnergyPortId, EnergyPortMode> validatedModes = Map.copyOf(Objects.requireNonNull(
-            restoredModes,
+        Map<EnergyPortId, EnergyPortMode> validatedModes = Map.copyOf(Objects.requireNonNull(restoredModes,
             "restoredModes cannot be null"
         ));
 
         for (Map.Entry<EnergyPortId, EnergyPortMode> entry : validatedModes.entrySet()) {
-            if (!policy.canChangeMode(
-                entry.getKey(),
-                entry.getValue()
-            ))
-            {
+            if (!policy.canChangeMode(entry.getKey(), entry.getValue())) {
                 continue;
             }
 
-            this.currentModes.put(
-                entry.getKey(),
-                entry.getValue()
-            );
+            this.currentModes.put(entry.getKey(), entry.getValue());
         }
     }
 }

@@ -201,7 +201,11 @@ class GeneratorConfigurationTest {
     @Test
     void shouldAcceptMultiblockTopologyWithSameOutwardFace() {
         EnergyPortTopology topology = topology(
-            new EnergyPortPoint(BACK, new BlockPos(-1, 2, 3), Direction.SOUTH),
+            new EnergyPortPoint(
+                BACK,
+                new BlockPos(-1, 2, 3),
+                Direction.SOUTH
+            ),
             new EnergyPortPoint(LEFT, new BlockPos(1, 2, 3), Direction.SOUTH)
         );
 
@@ -397,17 +401,16 @@ class GeneratorConfigurationTest {
         GeneratorConfiguration first = fixedConfiguration();
         GeneratorConfiguration equal = new GeneratorConfiguration(
             new GeneratorEnergySpec(
-                10_000L,
-                80,
-                40
-            ), fixedRules(), twoPortTopology()
+            10_000L,
+            80,
+            40
+        ), fixedRules(), twoPortTopology()
         );
         GeneratorConfiguration differentEnergy = new GeneratorConfiguration(
-            new GeneratorEnergySpec(
-                120_000L,
-                120,
-                60
-            ), fixedRules(), twoPortTopology()
+            new GeneratorEnergySpec(120_000L,
+            120,
+            60
+        ), fixedRules(), twoPortTopology()
         );
         GeneratorConfiguration differentRules = new GeneratorConfiguration(
             ENERGY,
@@ -432,12 +435,11 @@ class GeneratorConfigurationTest {
     @Test
     void shouldCompareConfigurationsWithDifferentNominalGeneration() {
         GeneratorConfiguration first = fixedConfiguration();
-        GeneratorConfiguration differentGeneration =
-            new GeneratorConfiguration(
-                new GeneratorEnergySpec(10_000L, 80, 120),
-                fixedRules(),
-                twoPortTopology()
-            );
+        GeneratorConfiguration differentGeneration = new GeneratorConfiguration(
+            new GeneratorEnergySpec(10_000L, 80, 120),
+            fixedRules(),
+            twoPortTopology()
+        );
 
         assertAll(
             () -> assertEquals(120, differentGeneration.energy().generationPerTick()),
@@ -465,7 +467,7 @@ class GeneratorConfigurationTest {
         ), twoPortTopology()
         );
         EnergyPortConfiguration runtime = new EnergyPortConfiguration(
-            generator.portRules().defaultModes(), () -> {
+            generator.portRules().defaultModes(), ignored -> {
         }
         );
         ConfigurableEnergyPortPolicy policy = new ConfigurableEnergyPortPolicy(

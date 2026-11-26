@@ -2,6 +2,7 @@ package ru.greatdragonx.astralspace.common.energy.port;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,80 +22,54 @@ class EnergyPortPolicyFactoryTest {
     private static final EnergyPortId UNKNOWN = new EnergyPortId("test.unknown");
 
     private static EnergyPortRules fixedRules() {
-        return new EnergyPortRules(
-            FIXED, List.of(
+        return new EnergyPortRules(FIXED, List.of(
             new EnergyPortRule(BACK, OUTPUT, Set.of(OUTPUT)),
             new EnergyPortRule(LEFT, INPUT, Set.of(INPUT)),
             new EnergyPortRule(RIGHT, DISABLED, Set.of(DISABLED))
-        )
-        );
+        ));
     }
 
     private static EnergyPortRules configurableRules() {
-        return new EnergyPortRules(
-            CONFIGURABLE, List.of(
+        return new EnergyPortRules(CONFIGURABLE, List.of(
             new EnergyPortRule(BACK, OUTPUT, Set.of(OUTPUT, DISABLED)),
             new EnergyPortRule(LEFT, INPUT, Set.of(INPUT, DISABLED)),
             new EnergyPortRule(RIGHT, DISABLED, Set.of(INPUT, OUTPUT, DISABLED))
-        )
-        );
+        ));
     }
 
     private static EnergyPortPolicyFactory.Result create(EnergyPortRules rules) {
-        return EnergyPortPolicyFactory.create(
-            rules, ignored -> true, () -> {
-            }
-        );
+        return EnergyPortPolicyFactory.create(rules, ignored -> true, ignored -> {});
     }
 
     @Test
     void shouldRejectNullRules() {
-        assertThrows(
-            NullPointerException.class,
-            () -> EnergyPortPolicyFactory.create(
-                null, ignored -> true, () -> {
-                }
-            )
-        );
+        assertThrows(NullPointerException.class,
+            () -> EnergyPortPolicyFactory.create(null, ignored -> true, ignored -> {}));
     }
 
     @Test
     void shouldRejectNullAvailabilityForBothConfigurationTypes() {
         for (EnergyPortRules rules : List.of(fixedRules(), configurableRules())) {
-            assertThrows(
-                NullPointerException.class,
-                () -> EnergyPortPolicyFactory.create(
-                    rules, null, () -> {
-                    }
-                )
-            );
+            assertThrows(NullPointerException.class,
+                () -> EnergyPortPolicyFactory.create(rules, null, ignored -> {}));
         }
     }
 
     @Test
     void shouldRejectNullCallbackEvenForFixedRules() {
         for (EnergyPortRules rules : List.of(fixedRules(), configurableRules())) {
-            assertThrows(
-                NullPointerException.class,
-                () -> EnergyPortPolicyFactory.create(rules, ignored -> true, null)
-            );
+            assertThrows(NullPointerException.class,
+                () -> EnergyPortPolicyFactory.create(rules, ignored -> true, null));
         }
     }
 
     @Test
     void shouldRejectNullPolicyInResult() {
         EnergyPortConfiguration configuration = new EnergyPortConfiguration(
-            configurableRules().defaultModes(), () -> {
-        }
+            configurableRules().defaultModes(), ignored -> {}
         );
-        assertThrows(
-            NullPointerException.class,
-            () -> new EnergyPortPolicyFactory.Result(null, null)
-        );
-        assertThrows(
-            NullPointerException.class,
-            () -> new EnergyPortPolicyFactory.Result(null, configuration)
-        );
+        assertThrows(NullPointerException.class, () -> new EnergyPortPolicyFactory.Result(null, null));
+        assertThrows(NullPointerException.class, () -> new EnergyPortPolicyFactory.Result(null, configuration));
     }
 
     @Test
@@ -137,10 +112,7 @@ class EnergyPortPolicyFactoryTest {
         var configuration = result.configuration();
         assertNotNull(configuration);
         assertAll(
-            () -> assertEquals(
-                Map.of(BACK, OUTPUT, LEFT, INPUT, RIGHT, DISABLED),
-                configuration.snapshot()
-            ),
+            () -> assertEquals(Map.of(BACK, OUTPUT, LEFT, INPUT, RIGHT, DISABLED), configuration.snapshot()),
             () -> assertEquals(OUTPUT, result.policy().getMode(BACK)),
             () -> assertEquals(INPUT, result.policy().getMode(LEFT)),
             () -> assertEquals(DISABLED, result.policy().getMode(RIGHT)),
@@ -179,93 +151,66 @@ class EnergyPortPolicyFactoryTest {
 
     @Test
     void shouldObserveChangesToReturnedConfiguration() {
-        AtomicInteger notifications = new AtomicInteger();
-        var result = EnergyPortPolicyFactory.create(
-            configurableRules(),
-            ignored -> true,
-            notifications::incrementAndGet
-        );
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, notifications::add);
         var configuration = result.configuration();
         assertNotNull(configuration);
         var policy = result.policy();
-
         assertTrue(configuration.changeMode(BACK, DISABLED, policy));
         assertEquals(DISABLED, policy.getMode(BACK));
         assertFalse(policy.allowsExtract(BACK));
-        assertEquals(1, notifications.get());
-
+        assertEquals(List.of(BACK), notifications);
         assertTrue(configuration.changeMode(BACK, OUTPUT, policy));
         assertEquals(OUTPUT, policy.getMode(BACK));
         assertTrue(policy.allowsExtract(BACK));
-        assertEquals(2, notifications.get());
+        assertEquals(List.of(BACK, BACK), notifications);
     }
 
     @Test
     void shouldNotifyAfterNewModeBecomesVisibleToPolicy() {
-        AtomicInteger notifications = new AtomicInteger();
+        List<EnergyPortId> notifications = new ArrayList<>();
         AtomicReference<EnergyPortPolicy> policyRef = new AtomicReference<>();
-        var result = EnergyPortPolicyFactory.create(
-            configurableRules(), ignored -> true, () -> {
-                assertEquals(DISABLED, policyRef.get().getMode(BACK));
-                assertFalse(policyRef.get().allowsExtract(BACK));
-                notifications.incrementAndGet();
-            }
-        );
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, portId -> {
+            assertEquals(BACK, portId);
+            assertEquals(DISABLED, policyRef.get().getMode(portId));
+            assertFalse(policyRef.get().allowsExtract(portId));
+            notifications.add(portId);
+        });
         policyRef.set(result.policy());
         var configuration = result.configuration();
         assertNotNull(configuration);
         assertTrue(configuration.changeMode(BACK, DISABLED, result.policy()));
-        assertEquals(1, notifications.get());
+        assertEquals(List.of(BACK), notifications);
     }
 
     @Test
     void shouldNotNotifyForRejectedOrUnchangedModes() {
-        AtomicInteger notifications = new AtomicInteger();
-        var result = EnergyPortPolicyFactory.create(
-            configurableRules(),
-            ignored -> true,
-            notifications::incrementAndGet
-        );
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, notifications::add);
         var configuration = result.configuration();
         assertNotNull(configuration);
         var policy = result.policy();
-
         assertFalse(configuration.changeMode(BACK, INPUT, policy));
         assertFalse(configuration.changeMode(BACK, OUTPUT, policy));
         assertFalse(configuration.changeMode(UNKNOWN, OUTPUT, policy));
-        assertEquals(0, notifications.get());
+        assertTrue(notifications.isEmpty());
         assertEquals(configurableRules().defaultModes(), configuration.snapshot());
     }
 
     @Test
     void shouldObserveSilentRestorationThroughReturnedConfiguration() {
-        AtomicInteger notifications = new AtomicInteger();
-        var result = EnergyPortPolicyFactory.create(
-            configurableRules(),
-            ignored -> true,
-            notifications::incrementAndGet
-        );
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, notifications::add);
         var configuration = result.configuration();
         assertNotNull(configuration);
-        configuration.restoreModes(
-            Map.of(
-                BACK,
-                DISABLED,
-                LEFT,
-                OUTPUT,
-                RIGHT,
-                INPUT,
-                UNKNOWN,
-                OUTPUT
-            ), result.policy()
-        );
+        configuration.restoreModes(Map.of(BACK, DISABLED, LEFT, OUTPUT, RIGHT, INPUT, UNKNOWN, OUTPUT), result.policy());
         assertAll(
             () -> assertEquals(DISABLED, result.policy().getMode(BACK)),
             () -> assertFalse(result.policy().allowsExtract(BACK)),
             () -> assertEquals(INPUT, result.policy().getMode(LEFT)),
             () -> assertTrue(result.policy().allowsInsert(RIGHT)),
             () -> assertFalse(configuration.snapshot().containsKey(UNKNOWN)),
-            () -> assertEquals(0, notifications.get())
+            () -> assertTrue(notifications.isEmpty())
         );
     }
 
@@ -282,10 +227,7 @@ class EnergyPortPolicyFactoryTest {
     private static void assertLiveAvailability(EnergyPortRules rules) {
         AtomicBoolean available = new AtomicBoolean(false);
         var policy = EnergyPortPolicyFactory.create(
-            rules,
-            id -> available.get() && id.equals(BACK),
-            () -> {
-            }
+            rules, id -> available.get() && id.equals(BACK), ignored -> {}
         ).policy();
         assertEquals(OUTPUT, policy.getMode(BACK));
         assertFalse(policy.isAvailable(BACK));
@@ -302,28 +244,24 @@ class EnergyPortPolicyFactoryTest {
 
     @Test
     void shouldAllowConfiguredModeChangesWhilePortUnavailable() {
-        var result = EnergyPortPolicyFactory.create(
-            configurableRules(), ignored -> false, () -> {
-            }
-        );
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> false, notifications::add);
         var configuration = result.configuration();
         assertNotNull(configuration);
         assertTrue(configuration.changeMode(RIGHT, OUTPUT, result.policy()));
         assertEquals(OUTPUT, result.policy().getMode(RIGHT));
         assertFalse(result.policy().isAvailable(RIGHT));
         assertFalse(result.policy().allowsExtract(RIGHT));
+        assertEquals(List.of(RIGHT), notifications);
     }
 
     @Test
     void shouldRejectUnknownPortsWithoutConsultingAvailability() {
         for (EnergyPortRules rules : List.of(fixedRules(), configurableRules())) {
-            var policy = EnergyPortPolicyFactory.create(
-                rules, id -> {
-                    fail("Unknown port must not reach availability predicate");
-                    return true;
-                }, () -> {
-                }
-            ).policy();
+            var policy = EnergyPortPolicyFactory.create(rules, id -> {
+                fail("Unknown port must not reach availability predicate");
+                return true;
+            }, ignored -> {}).policy();
             assertAll(
                 () -> assertEquals(DISABLED, policy.getMode(UNKNOWN)),
                 () -> assertFalse(policy.isAvailable(UNKNOWN)),
@@ -346,16 +284,14 @@ class EnergyPortPolicyFactoryTest {
 
     private static void assertNoCallbacksDuringCreation(EnergyPortRules rules) {
         AtomicInteger availabilityCalls = new AtomicInteger();
-        AtomicInteger notifications = new AtomicInteger();
-        var result = EnergyPortPolicyFactory.create(
-            rules, id -> {
-                availabilityCalls.incrementAndGet();
-                return true;
-            }, notifications::incrementAndGet
-        );
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(rules, id -> {
+            availabilityCalls.incrementAndGet();
+            return true;
+        }, notifications::add);
         assertNotNull(result.policy());
         assertEquals(0, availabilityCalls.get());
-        assertEquals(0, notifications.get());
+        assertTrue(notifications.isEmpty());
     }
 
     @Test
@@ -370,7 +306,10 @@ class EnergyPortPolicyFactoryTest {
 
     @Test
     void shouldSupportEmptyConfigurableRules() {
-        var result = create(new EnergyPortRules(CONFIGURABLE, List.of()));
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(
+            new EnergyPortRules(CONFIGURABLE, List.of()), ignored -> true, notifications::add
+        );
         assertInstanceOf(ConfigurableEnergyPortPolicy.class, result.policy());
         var configuration = result.configuration();
         assertNotNull(configuration);
@@ -379,57 +318,83 @@ class EnergyPortPolicyFactoryTest {
         assertEquals(DISABLED, result.policy().getMode(BACK));
         assertFalse(result.policy().isAvailable(BACK));
         assertTrue(configuration.snapshot().isEmpty());
+        assertTrue(notifications.isEmpty());
     }
 
     @Test
     void shouldCreateIndependentConfigurableComponentsForEachCall() {
         EnergyPortRules rules = configurableRules();
-        AtomicInteger firstNotifications = new AtomicInteger();
-        AtomicInteger secondNotifications = new AtomicInteger();
+        List<EnergyPortId> firstNotifications = new ArrayList<>();
+        List<EnergyPortId> secondNotifications = new ArrayList<>();
         AtomicBoolean firstAvailable = new AtomicBoolean(true);
-        var first = EnergyPortPolicyFactory.create(
-            rules,
-            ignored -> firstAvailable.get(),
-            firstNotifications::incrementAndGet
-        );
-        var second = EnergyPortPolicyFactory.create(
-            rules,
-            ignored -> true,
-            secondNotifications::incrementAndGet
-        );
+        var first = EnergyPortPolicyFactory.create(rules, ignored -> firstAvailable.get(), firstNotifications::add);
+        var second = EnergyPortPolicyFactory.create(rules, ignored -> true, secondNotifications::add);
         var firstConfiguration = first.configuration();
         var secondConfiguration = second.configuration();
         assertNotNull(firstConfiguration);
         assertNotNull(secondConfiguration);
         assertNotSame(first.policy(), second.policy());
         assertNotSame(firstConfiguration, secondConfiguration);
-
         assertTrue(firstConfiguration.changeMode(BACK, DISABLED, first.policy()));
         assertEquals(DISABLED, first.policy().getMode(BACK));
         assertEquals(OUTPUT, second.policy().getMode(BACK));
-        assertEquals(1, firstNotifications.get());
-        assertEquals(0, secondNotifications.get());
+        assertEquals(List.of(BACK), firstNotifications);
+        assertTrue(secondNotifications.isEmpty());
         firstAvailable.set(false);
         assertFalse(first.policy().allowsInsert(LEFT));
         assertTrue(second.policy().allowsInsert(LEFT));
         assertEquals(OUTPUT, rules.defaultModes().get(BACK));
+        assertTrue(secondConfiguration.changeMode(LEFT, DISABLED, second.policy()));
+        assertEquals(List.of(BACK), firstNotifications);
+        assertEquals(List.of(LEFT), secondNotifications);
+        assertEquals(INPUT, first.policy().getMode(LEFT));
     }
 
     @Test
     void shouldCreateIndependentFixedPoliciesForEachCall() {
         EnergyPortRules rules = fixedRules();
-        var first = EnergyPortPolicyFactory.create(
-            rules, ignored -> false, () -> {
-            }
-        );
-        var second = EnergyPortPolicyFactory.create(
-            rules, ignored -> true, () -> {
-            }
-        );
+        var first = EnergyPortPolicyFactory.create(rules, ignored -> false, ignored -> {});
+        var second = EnergyPortPolicyFactory.create(rules, ignored -> true, ignored -> {});
         assertNotSame(first.policy(), second.policy());
         assertNull(first.configuration());
         assertNull(second.configuration());
         assertFalse(first.policy().allowsExtract(BACK));
         assertTrue(second.policy().allowsExtract(BACK));
+    }
+
+    @Test
+    void shouldForwardChangedPortIdsInOrderToProvidedConsumer() {
+        List<EnergyPortId> notifications = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, notifications::add);
+        var configuration = result.configuration();
+        assertNotNull(configuration);
+        var policy = result.policy();
+        assertTrue(configuration.changeMode(RIGHT, OUTPUT, policy));
+        assertTrue(configuration.changeMode(BACK, DISABLED, policy));
+        assertFalse(configuration.changeMode(LEFT, OUTPUT, policy));
+        assertFalse(configuration.changeMode(RIGHT, OUTPUT, policy));
+        assertTrue(configuration.changeMode(LEFT, DISABLED, policy));
+        assertTrue(configuration.changeMode(RIGHT, INPUT, policy));
+        assertEquals(List.of(RIGHT, BACK, LEFT, RIGHT), notifications);
+        assertEquals(Map.of(BACK, DISABLED, LEFT, DISABLED, RIGHT, INPUT), configuration.snapshot());
+    }
+
+    @Test
+    void shouldExposeUpdatedModesThroughPolicyForEachNotifiedPort() {
+        AtomicReference<EnergyPortPolicy> policyRef = new AtomicReference<>();
+        List<EnergyPortId> notifications = new ArrayList<>();
+        List<EnergyPortMode> observedModes = new ArrayList<>();
+        var result = EnergyPortPolicyFactory.create(configurableRules(), ignored -> true, portId -> {
+            notifications.add(portId);
+            observedModes.add(policyRef.get().getMode(portId));
+        });
+        policyRef.set(result.policy());
+        var configuration = result.configuration();
+        assertNotNull(configuration);
+        assertTrue(configuration.changeMode(LEFT, DISABLED, result.policy()));
+        assertTrue(configuration.changeMode(RIGHT, OUTPUT, result.policy()));
+        assertTrue(configuration.changeMode(LEFT, INPUT, result.policy()));
+        assertEquals(List.of(LEFT, RIGHT, LEFT), notifications);
+        assertEquals(List.of(DISABLED, OUTPUT, INPUT), observedModes);
     }
 }

@@ -376,7 +376,7 @@ class EnergyPortRulesTest {
         AtomicInteger changes = new AtomicInteger();
         EnergyPortConfiguration configuration = new EnergyPortConfiguration(
             rules.defaultModes(),
-            changes::incrementAndGet
+            ignored -> changes.incrementAndGet()
         );
         AtomicBoolean available = new AtomicBoolean(true);
         EnergyPortPolicy policy = new ConfigurableEnergyPortPolicy(

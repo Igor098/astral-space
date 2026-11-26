@@ -253,7 +253,7 @@ public class LavaGeneratorBlockEntity extends BlockEntity implements MenuProvide
 
         this.energyPortConfiguration = new EnergyPortConfiguration(
             initialEnergyModes,
-            this::onPortConfigurationChanged
+            energyPortId -> this.onPortConfigurationChanged()
         );
 
         this.energyPortPolicy = new ConfigurableEnergyPortPolicy(
