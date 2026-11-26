@@ -16,7 +16,7 @@ class GeneratorConfigurationTest {
     private static final EnergyPortId BACK = new EnergyPortId("test.back");
     private static final EnergyPortId LEFT = new EnergyPortId("test.left");
     private static final EnergyPortId RIGHT = new EnergyPortId("test.right");
-    private static final GeneratorEnergySpec ENERGY = new GeneratorEnergySpec(10_000L, 80);
+    private static final GeneratorEnergySpec ENERGY = new GeneratorEnergySpec(10_000L, 80, 40);
 
     private static EnergyPortRule fixed(EnergyPortId id, EnergyPortMode mode) {
         return new EnergyPortRule(id, mode, Set.of(mode));
@@ -68,6 +68,7 @@ class GeneratorConfigurationTest {
 
         assertAll(
             () -> assertEquals(ENERGY, configuration.energy()),
+            () -> assertEquals(40, configuration.energy().generationPerTick()),
             () -> assertEquals(rules, configuration.portRules()),
             () -> assertEquals(topology, configuration.topology())
         );
@@ -200,11 +201,7 @@ class GeneratorConfigurationTest {
     @Test
     void shouldAcceptMultiblockTopologyWithSameOutwardFace() {
         EnergyPortTopology topology = topology(
-            new EnergyPortPoint(
-                BACK,
-                new BlockPos(-1, 2, 3),
-                Direction.SOUTH
-            ),
+            new EnergyPortPoint(BACK, new BlockPos(-1, 2, 3), Direction.SOUTH),
             new EnergyPortPoint(LEFT, new BlockPos(1, 2, 3), Direction.SOUTH)
         );
 
@@ -219,7 +216,7 @@ class GeneratorConfigurationTest {
 
     @Test
     void shouldNotRestrictOutputLimitToBufferCapacity() {
-        GeneratorEnergySpec energy = new GeneratorEnergySpec(10L, 80);
+        GeneratorEnergySpec energy = new GeneratorEnergySpec(10L, 80, 10);
         GeneratorConfiguration configuration = new GeneratorConfiguration(
             energy,
             fixedRules(),
@@ -400,14 +397,17 @@ class GeneratorConfigurationTest {
         GeneratorConfiguration first = fixedConfiguration();
         GeneratorConfiguration equal = new GeneratorConfiguration(
             new GeneratorEnergySpec(
-            10_000L,
-            80
-        ), fixedRules(), twoPortTopology()
+                10_000L,
+                80,
+                40
+            ), fixedRules(), twoPortTopology()
         );
         GeneratorConfiguration differentEnergy = new GeneratorConfiguration(
-            new GeneratorEnergySpec(120_000L,
-            120
-        ), fixedRules(), twoPortTopology()
+            new GeneratorEnergySpec(
+                120_000L,
+                120,
+                60
+            ), fixedRules(), twoPortTopology()
         );
         GeneratorConfiguration differentRules = new GeneratorConfiguration(
             ENERGY,
@@ -426,6 +426,32 @@ class GeneratorConfigurationTest {
             () -> assertNotEquals(first, differentEnergy),
             () -> assertNotEquals(first, differentRules),
             () -> assertNotEquals(first, differentTopology)
+        );
+    }
+
+    @Test
+    void shouldCompareConfigurationsWithDifferentNominalGeneration() {
+        GeneratorConfiguration first = fixedConfiguration();
+        GeneratorConfiguration differentGeneration =
+            new GeneratorConfiguration(
+                new GeneratorEnergySpec(10_000L, 80, 120),
+                fixedRules(),
+                twoPortTopology()
+            );
+
+        assertAll(
+            () -> assertEquals(120, differentGeneration.energy().generationPerTick()),
+            () -> assertEquals(
+                first.energy().energyCapacity(),
+                differentGeneration.energy().energyCapacity()
+            ),
+            () -> assertEquals(
+                first.energy().maxOutputPerTick(),
+                differentGeneration.energy().maxOutputPerTick()
+            ),
+            () -> assertEquals(first.portRules(), differentGeneration.portRules()),
+            () -> assertEquals(first.topology(), differentGeneration.topology()),
+            () -> assertNotEquals(first, differentGeneration)
         );
     }
 
