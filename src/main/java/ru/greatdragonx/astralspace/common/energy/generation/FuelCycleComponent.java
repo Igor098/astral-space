@@ -1,16 +1,13 @@
 package ru.greatdragonx.astralspace.common.energy.generation;
 
-import net.minecraft.nbt.IntTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jspecify.annotations.NonNull;
+import ru.greatdragonx.astralspace.common.serialization.StrictNbtReader;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Управляет состоянием оплаченного топливного цикла генератора.
@@ -171,7 +168,7 @@ public final class FuelCycleComponent {
      *
      * <p>Наличие активного цикла не означает, что генератор
      * в данный момент производит энергию. Производство
-     * может быть временно приостановлено вызывающим
+     * может быть приостановлено вызывающим
      * механизмом.</p>
      *
      * @return {@code true}, если количество оставшихся
@@ -347,12 +344,16 @@ public final class FuelCycleComponent {
      * из предоставленного {@link ValueInput}.
      *
      * <p>Оба обязательных поля должны присутствовать,
-     * иметь исходный NBT-тип {@link IntTag} и удовлетворять
+     * иметь исходный NBT-тип {@code IntTag} и удовлетворять
      * следующему инварианту:</p>
      *
      * <pre>{@code
      * 0 <= remainingTicks <= totalTicks
      * }</pre>
+     *
+     * <p>Строгое чтение исходных NBT-значений выполняется
+     * посредством {@link StrictNbtReader#readStrictInt(ValueInput, String)}
+     * без автоматического преобразования числовых типов.</p>
      *
      * <p>При отсутствии хотя бы одного поля, несовместимом
      * NBT-типе или нарушении инварианта состояние
@@ -382,8 +383,8 @@ public final class FuelCycleComponent {
     public void deserialize(@NonNull ValueInput input) {
         Objects.requireNonNull(input, "input cannot be null");
 
-        int remaining = readStrictInt(input, REMAINING_TICKS_KEY).orElse(-1);
-        int total = readStrictInt(input, TOTAL_TICKS_KEY).orElse(-1);
+        int remaining = StrictNbtReader.readStrictInt(input, REMAINING_TICKS_KEY).orElse(-1);
+        int total = StrictNbtReader.readStrictInt(input, TOTAL_TICKS_KEY).orElse(-1);
 
         if (remaining < 0 || total < remaining) {
             this.remainingTicks = 0;
@@ -394,52 +395,5 @@ public final class FuelCycleComponent {
 
         this.remainingTicks = remaining;
         this.totalTicks = total;
-    }
-
-    /**
-     * Читает целочисленное значение без автоматического
-     * преобразования числовых NBT-типов.
-     *
-     * <p>Для получения исходного NBT-тега используется
-     * {@link ExtraCodecs#NBT}. Значение принимается только
-     * в том случае, если полученный тег является
-     * экземпляром {@link IntTag}.</p>
-     *
-     * <p>Обычное чтение через
-     * {@link ValueInput#getInt(String)} допускает
-     * преобразование других числовых NBT-типов
-     * в целочисленное значение, что не позволяет
-     * гарантировать соответствие сохранённых данных
-     * ожидаемой схеме.</p>
-     *
-     * <p>Метод проверяет исключительно наличие значения
-     * и его исходный тип. Проверка допустимости самого
-     * числа с точки зрения топливного цикла выполняется
-     * вызывающим методом.</p>
-     *
-     * @param input входной объект с сохранёнными данными
-     * @param key   название читаемого NBT-поля
-     * @return прочитанное целочисленное значение либо
-     * {@link Optional#empty()}, если поле отсутствует,
-     * не может быть прочитано или имеет
-     * неподходящий NBT-тип
-     */
-    private static @NonNull Optional<Integer> readStrictInt(
-        @NonNull ValueInput input,
-        @NonNull String key
-    )
-    {
-        Optional<Tag> value = input.read(key, ExtraCodecs.NBT);
-        if (value.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Tag tag = value.get();
-        if (tag instanceof IntTag intTag) {
-            int number = intTag.intValue();
-            return Optional.of(number);
-        }
-
-        return Optional.empty();
     }
 }
