@@ -2,7 +2,7 @@ package ru.greatdragonx.astralspace.common.energy;
 
 import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
-import org.jetbrains.annotations.UnmodifiableView;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortId;
 
@@ -86,7 +86,13 @@ public final class EnergyDistributionManager {
     ) {}
 
     private final SnapshotJournal<UsageSnapshot> journal = new SnapshotJournal<>() {
-
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Сохраняет историю фактической выдачи энергии
+         * по портам за текущий и предыдущий учтённые тики,
+         * включая номера этих тиков.</p>
+         */
         @Override
         protected @NonNull UsageSnapshot createSnapshot() {
             return new UsageSnapshot(
@@ -97,6 +103,16 @@ public final class EnergyDistributionManager {
             );
         }
 
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Восстанавливает номера учтённых тиков
+         * и историю фактической выдачи энергии
+         * за каждый из них.</p>
+         *
+         * <p>Текущее содержимое соответствующих коллекций
+         * полностью заменяется сохранённым состоянием.</p>
+         */
         @Override
         protected void revertToSnapshot(
             @NonNull UsageSnapshot snapshot
@@ -122,6 +138,14 @@ public final class EnergyDistributionManager {
     };
 
     private final SnapshotJournal<DemandSnapshot> demandJournal = new SnapshotJournal<>() {
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Сохраняет номера учтённых тиков спроса,
+         * историю максимальных Pull-запросов,
+         * время последних запросов и начала
+         * активности энергетических портов.</p>
+         */
         @Override
         protected @NonNull DemandSnapshot createSnapshot() {
             return new DemandSnapshot(
@@ -134,6 +158,17 @@ public final class EnergyDistributionManager {
             );
         }
 
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Восстанавливает историю Pull-запросов
+         * за текущий и предыдущий учтённые тики,
+         * а также сведения об активности портов.</p>
+         *
+         * <p>Изменения спроса и активности,
+         * выполненные после создания снимка,
+         * отменяются.</p>
+         */
         @Override
         protected void revertToSnapshot(
             @NonNull DemandSnapshot snapshot
@@ -171,6 +206,13 @@ public final class EnergyDistributionManager {
     };
 
     private final SnapshotJournal<FairnessSnapshot> fairnessJournal = new SnapshotJournal<>() {
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Сохраняет накопленные кредиты справедливости
+         * энергетических портов и номер игрового тика,
+         * в котором выполнялся их последний пересчёт.</p>
+         */
         @Override
         protected @NonNull FairnessSnapshot createSnapshot() {
             return new FairnessSnapshot(
@@ -179,6 +221,17 @@ public final class EnergyDistributionManager {
             );
         }
 
+        /**
+         * {@inheritDoc}
+         *
+         * <p>Восстанавливает накопленные кредиты
+         * справедливости и номер тика последнего
+         * пересчёта.</p>
+         *
+         * <p>Восстановление номера тика позволяет
+         * повторно выполнить пересчёт после отката
+         * транзакции, если это необходимо.</p>
+         */
         @Override
         protected void revertToSnapshot(
             @NonNull FairnessSnapshot snapshot
@@ -1123,7 +1176,40 @@ public final class EnergyDistributionManager {
         }
     }
 
-
+    /**
+     * Нормализует накопленные кредиты справедливости
+     * после изменения состава доступных портов.
+     *
+     * <p>Приводит сумму кредитов всех оставшихся
+     * портов к нулю, распределяя необходимую
+     * корректировку между подходящими портами.</p>
+     *
+     * <p>Значение каждого кредита ограничивается
+     * диапазоном от {@code -maxTransferPerTick}
+     * до {@code +maxTransferPerTick}.</p>
+     *
+     * <p>Порты, достигшие соответствующей границы
+     * допустимого диапазона, исключаются из дальнейшего
+     * распределения корректировки в этом направлении.</p>
+     *
+     * <p>Остаток от целочисленного деления
+     * распределяется в порядке объявления
+     * доступных портов.</p>
+     *
+     * <p>Если коллекция кредитов пуста или их сумма
+     * уже равна нулю, состояние не изменяется.</p>
+     *
+     * <p>Метод изменяет кредиты справедливости
+     * непосредственно и не создаёт транзакционных
+     * снимков. Вызывается при изменении состава
+     * доступных портов вне транзакций передачи
+     * энергии.</p>
+     *
+     * @throws IllegalStateException если ненулевую
+     *                               сумму кредитов
+     *                               невозможно
+     *                               скорректировать
+     */
     private void normalizeFairnessCredits() {
         if (this.fairnessCredits.isEmpty()) {
             return;
@@ -1326,6 +1412,29 @@ public final class EnergyDistributionManager {
 
     private static final Object[] EMPTY_SNAPSHOT = new Object[0];
 
+    /**
+     * Копирует содержимое коллекции в компактное
+     * представление транзакционного снимка.
+     *
+     * <p>Каждая запись сохраняется в виде двух
+     * последовательных элементов массива:
+     * идентификатора порта и соответствующего значения.</p>
+     *
+     * <p>Порядок записей соответствует порядку
+     * обхода исходной коллекции.</p>
+     *
+     * <p>Для пустой коллекции возвращается общий
+     * пустой массив {@code EMPTY_SNAPSHOT}.</p>
+     *
+     * <p>Выполняется поверхностное копирование:
+     * ключи и значения не клонируются.
+     * Метод предназначен для используемых менеджером
+     * неизменяемых ключей и значений.</p>
+     *
+     * @param map исходная коллекция
+     * @return массив пар ключей и значений,
+     * представляющий снимок коллекции
+     */
     private static Object[] copySnapshotMap(
         @NonNull Map<EnergyPortId, ?> map
     )
@@ -1345,6 +1454,31 @@ public final class EnergyDistributionManager {
         return values;
     }
 
+    /**
+     * Восстанавливает записи коллекции из компактного
+     * представления транзакционного снимка.
+     *
+     * <p>Массив должен содержать последовательные
+     * пары идентификаторов портов и соответствующих
+     * значений, созданные методом
+     * {@link #copySnapshotMap(Map)}.</p>
+     *
+     * <p>Записи добавляются в целевую коллекцию
+     * в порядке их хранения в массиве.</p>
+     *
+     * <p>Метод самостоятельно не очищает целевую
+     * коллекцию. Для полного восстановления снимка
+     * вызывающий код должен предварительно
+     * очистить её.</p>
+     *
+     * <p>Корректность структуры массива и соответствие
+     * типов значений целевой коллекции обеспечиваются
+     * вызывающим кодом.</p>
+     *
+     * @param target целевая коллекция
+     * @param values сохранённые пары ключей и значений
+     * @param <V>    тип значений целевой коллекции
+     */
     @SuppressWarnings("unchecked")
     private static <V> void restoreSnapshotMap(
         Map<EnergyPortId, V> target,
@@ -1356,7 +1490,27 @@ public final class EnergyDistributionManager {
         }
     }
 
-    public @NonNull @UnmodifiableView Map<EnergyPortId, Long> getFairnessCreditsSnapshot() {
+    /**
+     * Возвращает снимок текущих накопленных
+     * кредитов справедливости энергетических портов.
+     *
+     * <p>Возвращаемая коллекция является независимой
+     * неизменяемой копией внутреннего состояния
+     * с сохранением порядка записей.</p>
+     *
+     * <p>Последующие изменения кредитов справедливости
+     * не отражаются в ранее полученном снимке.</p>
+     *
+     * <p>Предназначен для диагностики и анализа
+     * работы алгоритма распределения энергии.</p>
+     *
+     * <p>При вызове внутри незавершённой транзакции
+     * снимок может содержать предварительное состояние.</p>
+     *
+     * @return неизменяемый снимок кредитов справедливости
+     * по идентификаторам энергетических портов
+     */
+    public @NonNull @Unmodifiable Map<EnergyPortId, Long> getFairnessCreditsSnapshot() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(this.fairnessCredits));
     }
 }
