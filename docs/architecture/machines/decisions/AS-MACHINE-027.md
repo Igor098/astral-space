@@ -116,6 +116,8 @@ extract(id,...,tx) ──► EnergyOutputController    (если подключ�
 
 **Закрыт архитектурный выбор:** общий FE-буфер; Consumer=input-only с расходом FE на внутреннюю работу; Energy Storage=input+output с активным Push без собственной генерации; независимые Input/Output-контуры; отдельные бюджеты INPUT/OUTPUT; один общий OUTPUT-бюджет Push/Pull; отсутствие фиктивного распределителя у Consumer; сохранение `EnergyPortHandler` и тонкий диспетчер.
 
-**Место `AbstractEnergyConsumerBlockEntity` в иерархии утверждено**, но **не фиксировались точные Java-сигнатуры** его конструктора, `EnergyInputController`, возможного `AbstractEnergyStorageBlockEntity`, фабрик Input/Output, схемы NPC/GUI для аккумулятора, конкретные игровые FE/t значения, рецепты и общая система процессинга. Эти вопросы нельзя оформлять как уже готовый production-контракт.
+**Место `AbstractEnergyConsumerBlockEntity` в иерархии утверждено**, но **не фиксировались точные Java-сигнатуры** его конструктора, `EnergyInputController`, возможного `AbstractEnergyStorageBlockEntity`, возможной фабрики Input, схемы NPC/GUI для аккумулятора, конкретные игровые FE/t значения, рецепты и общая система процессинга. Эти вопросы нельзя оформлять как уже готовый production-контракт.
+
+Уточнение 2026-11-26: контракт общей `EnergyOutputFactory` согласован в [AS-MACHINE-023](AS-MACHINE-023.md). Накопитель переиспользует её для OUTPUT-контура; INPUT-контур и общий диспетчер собираются отдельно, над тем же `EnergyComponent`. Input-only потребитель не создаёт выходную фабрику или её компоненты. Это не утверждает новый уровень наследования или готовность интеграции накопителя.
 
 **Реализация:** в `main` уже существуют общие FE-компоненты и действующие Coal Generator Mk I и Lava Generator Mk I; описанное разделение контроллеров, Consumer/Storage и их integration tests — целевая архитектура и план внедрения, а не утверждение готовых классов.
