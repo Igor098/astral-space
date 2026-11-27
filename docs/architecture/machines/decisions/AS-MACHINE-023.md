@@ -32,7 +32,7 @@ BlockEntity
 
 ## Минимальный контракт общей FE-базы
 
-Ёмкость задаётся при создании конкретной машины; базовый класс владеет экземпляром `EnergyComponent`, предоставляет доступ к запасу и вместимости и связывает фактические изменения сохраняемой энергии с `setChanged()`. Транзакционные изменения уведомляют владельца после корневого подтверждения; тихое восстановление не уведомляет. Общий путь сохранения/восстановления через `ValueOutput`/`ValueInput` вызывает `super`. Конкретные имена NBT-ключей и полные сигнатуры базового класса остаются открытыми. Подробнее — [сохранение и lifecycle](../persistence-and-networking.md).
+Ёмкость задаётся при создании конкретной машины; базовый класс владеет экземпляром `EnergyComponent`, предоставляет доступ к запасу и вместимости и связывает фактические изменения сохраняемой энергии с `setChanged()`. Транзакционные изменения уведомляют владельца после корневого подтверждения; тихое восстановление не уведомляет. Общий путь сохранения/восстановления через `ValueOutput`/`ValueInput` вызывает `super`. Общий формат energy/stored_energy реализован в FE-базе; контракт генератора уточнён ниже (9.16). Подробнее — [сохранение и lifecycle](../persistence-and-networking.md).
 
 ## Независимые направления передачи
 
@@ -62,11 +62,11 @@ BlockEntity
 
 Если FE-буфер заполнен или редстоун запрещает работу, **топливо не списывается, оставшееся время цикла не уменьшается**, но накопленная FE может продолжать выходить через разрешённые порты. Для специфики процесса использовать Strategy из [AS-MACHINE-025](AS-MACHINE-025.md), а не топливные хуки в базовом генераторе.
 
-Уточнение 9.12.A: управление редстоуном — необязательная функциональность механизма через композицию `RedstoneControlComponent` ([AS-MACHINE-028](AS-MACHINE-028.md)). Генератор владеет компонентом и проверяет его только в производственной части тика; FE-база, портовая политика, Push/Pull и GenerationProcess не получают редстоун-зависимость. Точные методы интеграции согласуются отдельно.
+Уточнение 9.12.A: управление редстоуном — необязательная функциональность механизма через композицию `RedstoneControlComponent` ([AS-MACHINE-028](AS-MACHINE-028.md)). Генератор владеет компонентом и проверяет его только в производственной части тика; FE-база, портовая политика, Push/Pull и GenerationProcess не получают редстоун-зависимость. Методы интеграции согласованы в AS-MACHINE-028 (9.12.A.8).
 
 **Граница гарантии:** атомарный старт топлива и цикла не делает нетранзакционную `EnergyComponent.storeProducedEnergy()` атомарной с этим стартом. Исключительный случай неполной записи FE после подготовки — отдельная задача реализации и тестирования; не объявлять гарантию отката всего производственного тика.
 
-**Техническая граница реализации:** после предварительной проверки может возникнуть исключительное изменение состояния/неполная запись FE. В таком случае **не подтверждать успешный производственный тик через `onProductionTickCompleted()`**, не считать номинальную порцию произведённой и отдельно обработать возникшую несогласованность; восстановление уже подтверждённого топлива и ранее записанной части FE **не гарантируется** согласованной транзакцией старта. Точное восстановительное действие ещё не утверждено.
+**Техническая граница реализации:** после предварительной проверки может возникнуть исключительное изменение состояния/неполная запись FE. В таком случае **не подтверждать успешный производственный тик через `onProductionTickCompleted()`**, не считать номинальную порцию произведённой и отдельно обработать возникшую несогласованность; восстановление уже подтверждённого топлива и ранее записанной части FE **не гарантируется** согласованной транзакцией старта. В 9.13 согласован fail-fast: IllegalStateException без автоматического восстановления топлива/FE и без второго Push.
 
 ## Выходной контроллер и его ответственность
 
@@ -201,7 +201,7 @@ public static @NonNull Result create(
 ## Уточнения по итогам аудита (2026-11-24)
 
 - Готовность серверного `Level` и отсутствие удаления BE — необходимые, но сами по себе недостаточные условия. Целевой контракт 9.7: transient `energyRuntimeReady` (изначально false), `hasServerContext()` проверяет `ServerLevel` и отсутствие удаления, `isEnergyRuntimeReady()` дополнительно проверяет флаг. `getCurrentGameTime()` возвращает реальное игровое время только в готовом runtime, иначе `IllegalStateException`; фиктивный 0 запрещён. `onLoad()` после обязательной проверки привязанного процесса и серверного контекста согласует выходы; при первоначальном согласовании флаг открывается непосредственно перед фильтрацией живой политики и закрывается при исключении. Это допустимо только при синхронном выполнении на серверном потоке без повторного входа во внешние FE-операции, уведомлений или вызовов соседних capabilities; подтвердить интеграционными тестами, при невозможности обеспечить предусловие пересмотреть разделение внутреннего согласования и внешнего допуска. При `setRemoved()`/`onChunkUnloaded()` закрыть готовность до штатного завершения lifecycle и отозвать физические привязки; не сбрасывать FE, топливо или компоненты. Точные хуки lifecycle проверить при интеграции. До готовности нет обращения к поставщику времени, изменения FE/бюджета/истории; общий lifecycle-менеджер не вводится.
-- Стабильность логического `EnergyPortId` и кэширование handler не тождественны непрерывности физической привязки capability. Целевой контракт 9.9: один стабильный логический handler на ID и отдельная физическая обёртка `EnergyEndpointHandler` (см. [AS-MACHINE-024](AS-MACHINE-024.md)). Старая физическая ссылка не должна передавать FE через перемещённый порт или заменённого владельца. Точные структуры кэша, способы доставки событий поворота/разрушения и отзыва остаются задачей 9.16 и интеграции.
+- Стабильность логического `EnergyPortId` и кэширование handler не тождественны непрерывности физической привязки capability. Целевой контракт 9.9: один стабильный логический handler на ID и отдельная физическая обёртка `EnergyEndpointHandler` (см. [AS-MACHINE-024](AS-MACHINE-024.md)). Старая физическая ссылка не должна передавать FE через перемещённый порт или заменённого владельца. Структуры кэша и точки обнаружения/отзыва согласованы в 9.16 (AS-MACHINE-024); фактическая доставка и безопасный момент инвалидации требуют интеграционной проверки.
 - Запрет новых операций при потере доступности применяется немедленно. Судьба уже начатой передачи до root commit при изменении доступности внутри транзакции требует отдельного решения; не обещать автоматического rollback только из-за смены режима. Пересчёт списка остаётся вне FE-транзакции.
 - При переносе `EnergyPushTransfer` с координатора сохранить чтение запаса/вместимости внутренним source handler из единственного `EnergyComponent` и общий OUTPUT-бюджет. Точный способ предоставления этих данных открыт; не расширять согласованный API контроллера без необходимости.
 
@@ -210,7 +210,69 @@ public static @NonNull Result create(
 Сохраняется двухфазный алгоритм существующих Coal/Lava; базовый генератор координирует обход и транзакции, `EnergyPushTransfer` выполняет передачу, `EnergyOutputController` ограничивает её и учитывает подтверждённые операции. Новый компонент обхода пока не вводится; переиспользование с накопителем рассматривается при его реализации.
 
 - Приватный `pushEnergyToNeighbors()` работает только при готовом серверном runtime. `getRotatedOutputPorts(long currentTick)` фильтрует канонический порядок `EnergyPortRules.portIds()` по живой `policy.allowsExtract`, вращает локальный список на `-Math.floorMod(currentTick, size)` при непустом списке. Порядок распределителя не изменяется; разные логические порты с одинаковым Direction сохраняются.
-- `getNeighborEnergyHandler(EnergyPortId portId)` разрешает физическую точку через топологию, проверяет живую доступность и вычисляет соседнюю позицию `worldPos.relative(outwardFace)` и сторону запроса `outwardFace.getOpposite()`. Не запрашивать capability незагруженного чанка и не кэшировать получателей между тиками. Получение ориентации согласуется в 9.16.
+- `getNeighborEnergyHandler(EnergyPortId portId)` разрешает физическую точку через топологию, проверяет живую доступность и вычисляет соседнюю позицию `worldPos.relative(outwardFace)` и сторону запроса `outwardFace.getOpposite()`. Не запрашивать capability незагруженного чанка и не кэшировать получателей между тиками. Получение ориентации согласовано в 9.16: getFacing(), при отсутствии HORIZONTAL_FACING — NORTH.
 - Discovery: для каждого доступного порта пробная вставка `probeEnergyAcceptance(EnergyHandler target)` до `maxOutputPerTick` в отдельной корневой транзакции без commit. Это наблюдение потенциального приёма, а не расход FE или бюджета; корректный получатель откатывает пробу. Discovery выполняется и при пустом буфере; только положительные результаты входят в карту. После закрытия проб передаётся полный снимок (включая пустой) в `distribution.updatePushAvailability(map, currentTick)` вне транзакции.
 - Transfer: повторный обход того же списка, остановка при пустом буфере или исчерпанном бюджете; заново проверить политику и получить соседний handler. Отдельная корневая транзакция на получателя, вызов `pushTransfer.push(portId, target, maxOutputPerTick, tx)`, commit только при положительном результате. Не считать пробу гарантией успешной передачи. Квоты, бюджет, FE и статистика принадлежат существующим компонентам, Push не создаёт Pull-спрос.
 - Первый Push перед производством, второй после полной успешной генерации при оставшемся бюджете. Оба используют одно игровое время и один OUTPUT-бюджет, включая внешний Pull; повторный Discovery в том же тике заменяет текущие наблюдения без повторного сдвига предыдущего тика. Алгоритм не блокируется редстоуном. Интеграция и игровые регрессии ещё впереди.
+
+## Итоговый контракт базового генератора (9.13–9.16, 2026-11-27)
+
+**Проектирование завершено (16/20 подэтапов этапа 9); реализация начинается в 9.17.** Ниже целевой API, не описание уже существующего класса.
+
+```java
+public abstract class AbstractGeneratorBlockEntity extends AbstractEnergyMachineBlockEntity {
+    protected AbstractGeneratorBlockEntity(
+        @NonNull BlockEntityType<?> type, @NonNull BlockPos pos,
+        @NonNull BlockState blockState, @NonNull GeneratorConfiguration configuration);
+
+    // Public
+    public final int getCurrentProductionRate();
+    public final int getCurrentTransferRate();
+    public final boolean isProducingEnergy();
+    public final @NonNull EnergyPortMode getEnergyPortMode(@NonNull EnergyPortId portId);
+    public final boolean changeEnergyPortMode(@NonNull EnergyPortId portId, @NonNull EnergyPortMode newMode);
+    public final @Nullable EnergyHandler getEnergyHandlerForSide(@Nullable Direction side);
+    public final @Nullable EnergyHandler getEnergyHandlerAt(@NonNull BlockPos worldPos, @Nullable Direction side);
+    public final @NonNull RedstoneControlMode getRedstoneControlMode();
+    public final void setRedstoneControlMode(@NonNull RedstoneControlMode mode);
+    public final boolean hasRedstoneSignal();
+    public final boolean isRedstoneBlockingProduction();
+
+    // Protected API
+    protected final void bindGenerationProcess(@NonNull GenerationProcess generationProcess);
+    protected final void serverTick();
+    protected final @NonNull Direction getFacing();
+    protected final void onEnergyPortAvailabilityChanged();
+    protected final void onEnergyPortEndpointChanged(@NonNull EnergyPortId portId);
+
+    // Extension points
+    protected boolean isEnergyPortPhysicallyAvailable(@NonNull EnergyPortPoint point);
+    protected boolean readRedstoneSignal();
+    protected void onEnergyPortConfigurationChanged(@NonNull EnergyPortId portId);
+    protected void onProductionStateUpdated(boolean producing);
+
+    // Lifecycle
+    @Override public final void onLoad();
+    @Override public void setRemoved();
+    @Override public void onChunkUnloaded();
+    @Override public void setBlockState(@NonNull BlockState blockState);
+    @Override protected void saveAdditional(@NonNull ValueOutput output);
+    @Override protected void loadAdditional(@NonNull ValueInput input);
+}
+```
+
+Сигнатуры выше — эскиз контракта, не компилируемый исходник. Унаследованы final getters запаса/ёмкости и защищённые getEnergyComponent()/onEnergyChanged(). Не открывать наследникам mutable-конфигурацию, редстоун-компонент, бюджет, распределитель и трекер; не предоставлять возможность вручную открывать runtime. Lifecycle-методы, допускающие переопределение, должны сохранять обязательные действия родительского класса. Полный порядок вызовов NeoForge ещё проверяется.
+
+### Производство и статистика (9.13–9.14)
+
+- protected final serverTick() проверяет runtime и наличие связанного процесса, сбрасывает currentProductionRate в 0, выполняет первый Push, вызывает private boolean tryProduceEnergy(), затем onProductionStateUpdated(producing) и, только при успешном производстве и оставшемся общем бюджете, второй Push. При штатном отказе производства визуальное состояние всё равно обновляется. Тик вызывается штатным серверным ticker конкретной машины, не клиентом.
+- tryProduceEnergy(): проверить полную свободную ёмкость, разрешение редстоуна и подготовку процесса, затем вызвать storeProducedEnergy(generationPerTick). Только при полной записи установить номинальную фактическую выработку, вызвать onProductionTickCompleted() ровно один раз и вернуть true. Штатный отказ до записи возвращает false. Неполная запись — нарушение инварианта: IllegalStateException, без Completion, ненулевой статистики успеха или второго Push. Автоматический откат уже записанной FE/оплаченного цикла не обещается; исключения callbacks не маскируются. Выходной бюджет не ограничивает внутреннее производство.
+- currentProductionRate — временный показатель последней выполненной производственной части; isProducingEnergy() вычисляется из готовности runtime и положительной выработки, без отдельного boolean. getCurrentTransferRate() читает существующий EnergyTransferTracker за предыдущий игровой тик; учитывается лишь подтверждённая передача. Публичные показатели при закрытом runtime возвращают 0/false. Статистика не сохраняется.
+- onProductionStateUpdated(boolean producing) — пустой по умолчанию protected hook, вызываемый один раз за штатный тик после подготовки/записи/Completion либо штатной паузы и до второго Push, вне открытых энергетических транзакций. Это **Updated**, не Changed: изменение запаса топлива может сменить визуальный вариант при неизменном producing. Hook сообщает результат, а не требует перерисовки. Наследник сравнивает визуальное состояние и синхронизирует только фактические изменения. Не выполнять рекурсивную генерацию, передачу FE или изменения буфера из визуальных hooks. Не вводить обязательные dirty-флаги, отдельный визуальный контроллер или enum причин остановки.
+- onEnergyChanged(), onEnergyPortConfigurationChanged(portId) и onProductionStateUpdated(producing) имеют разные причины и не объединяются в общий callback. ModelData, ModelProperty, VisualPort, FRONT_STATE, визуальные enum и renderer не входят в базовый генератор. Цель миграции Coal — подход Lava / [AS-MACHINE-021](AS-MACHINE-021.md), не старые BlockState-флаги. Производительность больших массивов машин ещё не профилировалась.
+
+### Внутренние точки координации и lifecycle
+
+private hasServerContext(), isEnergyRuntimeReady(), getCurrentGameTime(), requireGenerationProcess(), isEnergyPortAvailable(portId), synchronizeAvailableEnergyPorts(), resolveEnergyPort(portId), методы активного Push и сохранения портов остаются внутренними. Готовность сервера — не физическая доступность. Согласование при открытии runtime должно учитывать зависимость живого предиката от готовности; временное открытие перед синхронным refresh допустимо лишь без повторного входа, с закрытием при исключении (проверить интеграцией).
+
+Физические привязки и поворот уточнены в [AS-MACHINE-024](AS-MACHINE-024.md); сохранение — в [persistence-and-networking.md](../persistence-and-networking.md); редстоун — в [AS-MACHINE-028](AS-MACHINE-028.md). В 9.17 предстоит пошаговая реализация; затем ревью, тестирование, Javadoc и коммит. Не считать будущие регрессии выполненными.

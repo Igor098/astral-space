@@ -144,3 +144,11 @@
 `EnergyPortDispatcher` остаётся общим четырёхметодным `EnergyPortOperations`-фасадом: читает количество/ёмкость из `EnergyComponent`, направляет insert во входной контур, extract (Pull) — в выходной; если направление физически не подключено, возвращает `0`. Установленная или ранее выданная capability **не обходит** живую `EnergyPortPolicy`.
 
 **Статус реализации:** эти правила согласованы на уровне архитектуры, но новые Input/Output-контроллеры, Consumer/Storage BlockEntity и их полная интеграция в `main` ещё не готовы.
+
+## Итог проектирования AbstractGeneratorBlockEntity (9.12.A.8–9.16, 2026-11-27)
+
+- Общий серверный тик: первый Push, попытка полной порции через GenerationProcess, статистика и onProductionStateUpdated(producing), второй Push только после успеха при оставшемся общем бюджете. Неполная запись после подготовки — IllegalStateException без Completion, без обещания общего rollback.
+- RedstoneControlComponent принадлежит генератору, ограничивает производство, не Push/Pull. Статистика производства и подтверждённой выдачи различается; визуальный hook не является командой перерисовки.
+- Горизонтальная ориентация всего блока через protected final getFacing(), при отсутствии свойства NORTH. setBlockState обнаруживает поворот; отдельные уведомления изменения доступности и физической замены endpoint. Стабильный логический handler и отзываемая физическая обёртка имеют разный срок жизни.
+- Формат energy/stored_energy, energy_ports, redstone_control_mode, generation_process утверждён; повреждённые CONFIGURABLE-порты отключаются, отсутствующие восстанавливаются по умолчанию. FIXED не сохраняет режимы. Редстоун fallback IGNORE.
+- Полный API — [023](decisions/AS-MACHINE-023.md), физические привязки — [024](decisions/AS-MACHINE-024.md), NBT — [сохранение](persistence-and-networking.md), редстоун — [028](decisions/AS-MACHINE-028.md). Проектирование 9.1–9.16 завершено; 9.17–9.20 — реализация, ревью, тестирование, Javadoc и коммит. Не считать интеграцию Coal/Lava завершённой.
