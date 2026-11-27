@@ -22,6 +22,7 @@
 | [decisions/AS-MACHINE-025.md](decisions/AS-MACHINE-025.md) | `GenerationProcess`, `FuelCycleComponent`, транзакционный расход топлива и NBT |
 | [decisions/AS-MACHINE-026.md](decisions/AS-MACHINE-026.md) | Мультиблокные хэтчи, `assemblyId`, lifecycle и fail-closed |
 | [decisions/AS-MACHINE-027.md](decisions/AS-MACHINE-027.md) | Consumer, Energy Storage, INPUT/OUTPUT бюджеты и внутреннее потребление FE |
+| [decisions/AS-MACHINE-028.md](decisions/AS-MACHINE-028.md) | Необязательное управление редстоуном через композицию |
 | [decisions/AS-MACHINE-021.md](decisions/AS-MACHINE-021.md) | Независимая визуализация портов и необязательная 3D-анимация механизмов |
 | [decisions/AS-MACHINE-022.md](decisions/AS-MACHINE-022.md) | Несколько наших коммуникаций в одной клетке, автоматическая обёртка и совместимость |
 | [visual-model-prototype.md](visual-model-prototype.md) | Локально проверенный VisualTestBlock, ModelData и DynamicBlockStateModel |
@@ -78,6 +79,7 @@
 | [AS-MACHINE-025](decisions/AS-MACHINE-025.md) | `GenerationProcess`, `FuelCycleComponent`, транзакционный топливный цикл, NBT | **Утверждены Java-контракты; реализация впереди** |
 | [AS-MACHINE-026](decisions/AS-MACHINE-026.md) | Мультиблочные хэтчи, `assemblyId`, lifecycle и инвалидация | **Утверждены принципы; реализация впереди** |
 | [AS-MACHINE-027](decisions/AS-MACHINE-027.md) | FE Consumer и Energy Storage: входящий/исходящий контуры и один буфер | **Утверждены архитектурные роли; точные Java API открыты** |
+| [AS-MACHINE-028](decisions/AS-MACHINE-028.md) | RedstoneControlComponent: независимый необязательный компонент | **Утверждено; компонент локально проверен, интеграция впереди** |
 
 ### Статусы
 - **Утверждено** — правило явно согласовано и подлежит соблюдению при реализации.
@@ -92,7 +94,7 @@
 4. Результаты **одной операции** атомарны; разные операции могут быть независимы.
 5. Не навязывать одну модель рецептов/инвентаря/камер всем типам машин.
 6. Композиция предпочтительнее преждевременно разрастающейся иерархии `BlockEntity`.
-7. Согласованные 27 ADR не означают 27 классов: существующие FE-классы учитываем, остальные модели Java вводим по мере подтверждения потребностей.
+7. Согласованные 28 ADR не означают 28 классов: существующие FE-классы учитываем, остальные модели Java вводим по мере подтверждения потребностей.
 8. Совместимость со старыми сохранениями **не требуется**: мод пока не выпущен; допускается создание нового мира без миграций.
 
 ## Устройство каталога в репозитории
@@ -121,7 +123,8 @@ docs/architecture/machines/
 └── decisions/
     ├── AS-MACHINE-001.md
     ├── ...
-    └── AS-MACHINE-027.md
+    ├── AS-MACHINE-027.md
+    └── AS-MACHINE-028.md
 ```
 
 **Новые целевые Java-контракты явно отделены от реально существующих классов.** `EnergyPortHandler` и `EnergyTransferCoordinator` уже реализованы. Динамический рендерер проверен локально и используется в Lava Generator в `main`; перенос BE-owned конфигурации и динамической отрисовки в Coal Generator Mk I остаётся задачей реализации.
