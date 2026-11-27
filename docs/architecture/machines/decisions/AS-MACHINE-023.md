@@ -4,6 +4,8 @@
 **Область:** энергетические BlockEntity, генераторы, FE-порты и производственный тик.  
 **Связанные решения:** [003](AS-MACHINE-003.md), [011](AS-MACHINE-011.md), [024](AS-MACHINE-024.md), [025](AS-MACHINE-025.md); [энергетическая подсистема](../energy-system.md).
 
+> **Уточнение:** актуальные имена и интеграция редстоун-API определены в последнем разделе аудита редстоун-контроля и AS-MACHINE-028; предыдущие сигнатуры в этом документе исторические.
+
 ## Контекст
 
 Работающие `CoalGeneratorBlockEntity` и `LavaGeneratorBlockEntity` самостоятельно координируют FE-буфер, выходные порты, Push/Pull и топливный тик. Потребителям и накопителям не нужны одинаковые наборы входящих и исходящих зависимостей. Архитектура должна переиспользовать уже существующие FE-компоненты, не превращая базовую BlockEntity в монолит.
@@ -293,3 +295,9 @@ private hasServerContext(), isEnergyRuntimeReady(), getCurrentGameTime(), requir
 - Настройки FE и редстоуна доступны независимо от готовности конструкции при готовом runtime. readRedstoneSignal() сохраняет точку расширения; isRedstoneBlockingProduction() не трактует неготовую структуру как запрет редстоуна. NBT-контракт не меняется.
 
 Существующие поля, конструктор, фабрики и API (кроме указанного нового метода и двух проверок) сохраняются. Общие логические/физические привязки остаются у генератора; специализированную проверку хэтчей проектировать при первом мультиблоке, не ослабляя уже утверждённые гарантии [024](AS-MACHINE-024.md) и [026](AS-MACHINE-026.md).
+
+## Уточнение API после аудита редстоун-контроля (2026-11-27)
+
+[AS-MACHINE-028](AS-MACHINE-028.md) уточняет интеграцию 9.12.A.8–9.16: AbstractGeneratorBlockEntity implements RedstoneControllable, владеет private final RedstoneController redstoneController (вместо прямого компонента), создаёт его с this::isEnergyRuntimeReady, this::readRedstoneSignal, this::setChanged. Публичные final методы: getRedstoneControlMode(), boolean changeRedstoneControlMode(@NonNull RedstoneControlMode mode), hasRedstoneSignal(), isRedstoneBlockingOperation(). Старые setRedstoneControlMode и isRedstoneBlockingProduction заменены; getMode и hasSignal сохраняют семантику. protected readRedstoneSignal() остаётся точкой расширения; NBT делегируется RedstoneControlSerializer и controller.restoreMode в 9.17.12. Общая FE-база и GenerationProcess не получают редстоун-зависимости.
+
+tryProduceEnergy() использует isRedstoneBlockingOperation() после проверки структуры и свободного места, до подготовки производства. Первый Push и Pull накопленной FE, второй Push при успешной генерации и остальные правила тика не меняются. Редстоун-политика независима от готовности конструкции. Архитектурное решение утверждено, интеграция предстоит в 9.17.9.

@@ -1,8 +1,10 @@
 # AS-MACHINE-028 — Необязательное управление редстоуном через композицию
 
-**Статус:** утверждено 2026-11-27 (9.12.A); компонент реализован и проверен локально разработчиком, интеграция в машины предстоит.  
+**Статус:** утверждено 2026-11-27 (9.12.A и последующий аудит редстоун-контроля); исходный компонент реализован и проверен локально разработчиком, перенос и новая интеграция предстоят.  
 **Область:** любые механизмы Astral Space, независимо от типа ресурса и наличия FE.  
 **Связанные решения:** [023](AS-MACHINE-023.md), [025](AS-MACHINE-025.md), [026](AS-MACHINE-026.md), [027](AS-MACHINE-027.md).
+
+> **Актуализация:** исторические контракты ниже сохраняются для контекста; действующая интеграция и пакет определены в последнем разделе аудита от 2026-11-27.
 
 ## Контекст и решение
 
@@ -72,3 +74,64 @@ NBT: корневой redstone_control_mode (строковое имя enum); о
 ## Уточнение 9.17.A (2026-11-27)
 
 Готовность физической конструкции — отдельное условие производства isStructureReady(), не свойство редстоун-компонента. isRedstoneBlockingProduction() и hasRedstoneSignal() сохраняют семантику, включая false при закрытом runtime. При готовом runtime редстоун-режим можно менять независимо от готовности структуры; readRedstoneSignal() остаётся существующей точкой расширения источника сигнала. Неготовая структура блокирует и производство, и FE-передачу через энергетическую политику, тогда как редстоун ограничивает только производство. Формат NBT и RedstoneControlComponent не меняются.
+
+## Итог архитектурного аудита редстоун-контроля (2026-11-27)
+
+**Утверждено:** все восемь шагов аудита согласованы. Настоящий раздел заменяет прежнюю схему прямого владения компонентом, прежний отказ от интерфейса и старые имена публичных методов генератора. Правила enum и компонента, fallback IGNORE и ограничение только производства генератора сохраняются.
+
+### Структура и контракты
+
+Целевой пакет `ru.greatdragonx.astralspace.common.machine.redstone`: RedstoneControlMode и RedstoneControlComponent переносятся без изменения логики; соответствующие тесты и импорты обновляются. Добавляются RedstoneControllable, RedstoneController и RedstoneControlSerializer. Поддержка опциональна; общий предок машин и общая FE-база не получают обязательного редстоун-контроля.
+
+```java
+public interface RedstoneControllable {
+    @NonNull RedstoneControlMode getRedstoneControlMode();
+    boolean changeRedstoneControlMode(@NonNull RedstoneControlMode mode);
+    boolean hasRedstoneSignal();
+    boolean isRedstoneBlockingOperation();
+}
+
+public final class RedstoneController {
+    public RedstoneController(
+        @NonNull BooleanSupplier runtimeReady,
+        @NonNull BooleanSupplier signalSupplier,
+        @NonNull Runnable onModeChanged
+    );
+    public @NonNull RedstoneControlMode getRedstoneControlMode();
+    public boolean changeRedstoneControlMode(@NonNull RedstoneControlMode mode);
+    public boolean hasRedstoneSignal();
+    public boolean isRedstoneBlockingOperation();
+    public void restoreMode(@NonNull RedstoneControlMode mode);
+}
+
+public final class RedstoneControlSerializer {
+    public static void save(@NonNull ValueOutput output, @NonNull RedstoneControlMode mode);
+    public static @NonNull RedstoneControlMode load(@NonNull ValueInput input);
+}
+```
+
+Сигнатуры описывают API, не компилируемый исходник. Контроллер владеет единственным RedstoneControlComponent, создаваемым с переданным callback. Конструктор проверяет обязательные зависимости на null; не вызывает suppliers и callback. Нет собственного runtime-флага, initialize/close, кэша сигнала, зависимости от Minecraft/FE, фабрики или универсального менеджера. Машина владеет контроллером приватно и реализует интерфейс делегированием; ни компонент, ни контроллер, ни restoreMode не раскрываются через интерфейс.
+
+- getRedstoneControlMode: всегда возвращает режим, включая клиент и закрытый runtime; не читает сигнал или готовность.
+- changeRedstoneControlMode: сначала null-проверка, затем актуальная готовность; при false возвращает false без изменений; иначе делегирует changeMode. true при фактической смене и нормальном завершении callback, false при совпадении. Исключения компонента распространяются; режим при исключении callback не откатывается.
+- hasRedstoneSignal: false без вызова signalSupplier при закрытом runtime; иначе актуальный сигнал.
+- isRedstoneBlockingOperation: самостоятельно проверяет готовность; false при неготовности без чтения сигнала; при готовности — отрицание allowsOperation по актуальному сигналу. Отсутствие runtime не эквивалентно отсутствию сигнала. false не означает, что машина фактически готова работать.
+- restoreMode: тихое восстановление, null недопустим, независимо от runtime; без callback и обращения к сигналу. Предназначен для восстановления, а не для пользовательской смены.
+
+### Интеграция и мультиблоки
+
+AbstractGeneratorBlockEntity implements RedstoneControllable, владеет private final RedstoneController redstoneController, создаёт его с this::isEnergyRuntimeReady, this::readRedstoneSignal, this::setChanged. Четыре публичных final метода делегируют контроллеру. Вместо setRedstoneControlMode и isRedstoneBlockingProduction используются changeRedstoneControlMode (boolean) и isRedstoneBlockingOperation. protected boolean readRedstoneSignal() сохраняется; по умолчанию сигнал возле собственной позиции (level.hasNeighborSignal(getBlockPos())), наследник может определить другой источник. Контроллер не читает мир сам. Сигнал читается по запросу, не кэшируется.
+
+Редстоун ограничивает только новую генерацию, не накопленную FE, Push/Pull, портовую политику, бюджеты или capabilities. При запрете не вызываются prepareProductionTick/Completion и не расходуется цикл. Для иных машин место проверки определяется их операциями; не утверждается конкретная политика Storage.
+
+Для мультиблока допускается источник у контроллера структуры или у выделенного управляющего порта. Сигнал от произвольной части структуры пока не реализуется. Режим и контроллер принадлежат основной BE, а порт — источник сигнала, не владелец настройки. Смена/разрушение порта не сбрасывает режим. Структурная готовность независима от runtime и редстоун-политики; при готовом runtime настройка изменяема даже при неготовой структуре. Не форсировать загрузку удалённого источника и не читать отсутствующий блок. Обязательный недоступный управляющий порт препятствует готовности конструкции; boolean не различает недоступность и отсутствие сигнала, поэтому владелец обязан обеспечить доступность обязательного источника перед работой. Топология/протокол специальных портов, выбор источника конкретной машины и возможное третье состояние отложены до реального мультиблока.
+
+### Хранение и сеть
+
+RedstoneControlSerializer — инфраструктурный статический сериализатор режима, не машины. Корневой redstone_control_mode: string (имя enum, не ordinal). Отсутствие, неизвестное/пустое имя или неправильный NBT-тип -> IGNORE; валидный StringTag -> соответствующий режим. Это согласованный не fail-closed fallback. Обязательные аргументы не null. Никакие сигналы, вычисленные блокировки, готовность, поддержка или источник не сохраняются этой подсистемой. Машины без поддержки ключ не записывают. Владелец в saveAdditional вызывает serializer.save(output, controller.getRedstoneControlMode()), в loadAdditional — controller.restoreMode(serializer.load(input)); каждый уровень вызывает super. Тихое восстановление не вызывает setChanged, world read или синхронизацию. Интеграция NBT — 9.17.12.
+
+Сервер авторитетен: будущий GUI отправляет запрос, сервер проверяет право взаимодействия, актуальную BE и поддержку RedstoneControllable, применяет changeRedstoneControlMode; клиент отображает подтверждённый режим. setChanged сам не синхронизирует GUI. hasRedstoneSignal/isRedstoneBlockingOperation на закрытом клиентском runtime возвращают false, не представляют достоверного серверного состояния; если нужен индикатор, передаём серверный снимок отдельно. Конкретные пакеты, transport и GUI отложены.
+
+### Статус
+
+Утверждена архитектура, не реализация новых классов. Старые enum/component опубликованы, 17/17 тестов ранее подтверждены разработчиком. Перенос, новые классы и тесты, интеграция и миграция Coal/Lava впереди. См. [план](../implementation-plan.md) и [матрицу](../test-matrix.md).
