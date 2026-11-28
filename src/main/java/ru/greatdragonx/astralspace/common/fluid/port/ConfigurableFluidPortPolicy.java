@@ -88,19 +88,10 @@ public final class ConfigurableFluidPortPolicy implements FluidPortPolicy {
         Predicate<FluidPortId> availability
     )
     {
-        Objects.requireNonNull(
-            modeProvider,
-            "modeProvider cannot be null"
-        );
+        Objects.requireNonNull(modeProvider, "modeProvider cannot be null");
 
-        Objects.requireNonNull(
-            availability,
-            "availability cannot be null"
-        );
-        this.allowedModes = Objects.requireNonNull(
-                allowedModes,
-                "allowedModes cannot be null"
-            )
+        Objects.requireNonNull(availability, "availability cannot be null");
+        this.allowedModes = Objects.requireNonNull(allowedModes, "allowedModes cannot be null")
             .entrySet()
             .stream()
             .collect(Collectors.toUnmodifiableMap(
@@ -123,10 +114,7 @@ public final class ConfigurableFluidPortPolicy implements FluidPortPolicy {
      */
     @Override
     public FluidPortMode getMode(@NonNull FluidPortId portId) {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
         Set<FluidPortMode> permittedModes = this.allowedModes.get(portId);
         if (permittedModes == null) {
@@ -159,10 +147,7 @@ public final class ConfigurableFluidPortPolicy implements FluidPortPolicy {
      */
     @Override
     public boolean isAvailable(@NonNull FluidPortId portId) {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
         if (!this.allowedModes.containsKey(portId)) {
             return false;
@@ -185,20 +170,11 @@ public final class ConfigurableFluidPortPolicy implements FluidPortPolicy {
      *                              равен {@code null}
      */
     @Override
-    public boolean canChangeMode(
-        @NonNull FluidPortId portId,
-        @NonNull FluidPortMode newMode
-    )
+    public boolean canChangeMode(@NonNull FluidPortId portId, @NonNull FluidPortMode newMode)
     {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
-        Objects.requireNonNull(
-            newMode,
-            "newMode cannot be null"
-        );
+        Objects.requireNonNull(newMode, "newMode cannot be null");
 
         Set<FluidPortMode> permittedModes = this.allowedModes.get(portId);
         if (permittedModes == null) {
@@ -208,14 +184,31 @@ public final class ConfigurableFluidPortPolicy implements FluidPortPolicy {
         return permittedModes.contains(newMode);
     }
 
+    /**
+     * Проверяет и создаёт неизменяемую копию
+     * набора допустимых режимов жидкостного порта.
+     *
+     * <p>Набор должен содержать хотя бы один режим
+     * и не должен содержать {@code null}.</p>
+     *
+     * <p>Последующие изменения исходного набора
+     * не влияют на возвращаемую коллекцию.</p>
+     *
+     * <p>Порядок элементов возвращаемого набора
+     * не гарантируется.</p>
+     *
+     * @param modes исходный набор допустимых режимов
+     * @return неизменяемый набор допустимых режимов
+     * @throws NullPointerException     если modes равен
+     *                                  {@code null} или
+     *                                  содержит {@code null}
+     * @throws IllegalArgumentException если набор пуст
+     */
     private static @NonNull @Unmodifiable Set<FluidPortMode> copyAllowedModes(
         Set<FluidPortMode> modes
     )
     {
-        Objects.requireNonNull(
-            modes,
-            "modes cannot be null"
-        );
+        Objects.requireNonNull(modes, "modes cannot be null");
 
         if (modes.isEmpty()) {
             throw new IllegalArgumentException("Allowed modes cannot be empty");

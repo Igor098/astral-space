@@ -18,9 +18,9 @@ import java.util.Objects;
  * с объёмом более {@link Integer#MAX_VALUE} FE.</p>
  *
  * <p>Компонент поддерживает следующий инвариант:</p>
- * <pre>
+ * <pre>{@code
  * 0 <= storedEnergy <= capacity
- * </pre>
+ * }</pre>
  *
  * <p>Компонент не управляет энергетическими портами, направлениями
  * передачи, лимитами ввода и вывода или распределением энергии
@@ -110,18 +110,12 @@ public final class EnergyComponent {
      * @throws IllegalArgumentException если {@code capacity <= 0}
      * @throws NullPointerException     если {@code onEnergyChanged == null}
      */
-    public EnergyComponent(
-        long capacity,
-        Runnable onEnergyChanged
-    )
+    public EnergyComponent(long capacity, Runnable onEnergyChanged)
     {
         if (capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be positive");
         }
-        Objects.requireNonNull(
-            onEnergyChanged,
-            "onEnergyChanged cannot be null"
-        );
+        Objects.requireNonNull(onEnergyChanged, "onEnergyChanged cannot be null");
         this.capacity = capacity;
         this.onEnergyChanged = onEnergyChanged;
     }
@@ -189,10 +183,7 @@ public final class EnergyComponent {
             return 0;
         }
 
-        int accepted = (int) Math.min(
-            amount,
-            freeSpace
-        );
+        int accepted = (int) Math.min(amount, freeSpace);
         this.storedEnergy += accepted;
         this.onEnergyChanged.run();
 
@@ -220,10 +211,7 @@ public final class EnergyComponent {
      * @return фактически принятое количество энергии в FE
      * @throws IllegalArgumentException если amount отрицателен
      */
-    public int insertEnergy(
-        int amount,
-        TransactionContext transaction
-    )
+    public int insertEnergy(int amount, TransactionContext transaction)
     {
         TransferPreconditions.checkNonNegative(amount);
         if (amount == 0) {
@@ -235,10 +223,7 @@ public final class EnergyComponent {
             return 0;
         }
 
-        int accepted = (int) Math.min(
-            amount,
-            freeSpace
-        );
+        int accepted = (int) Math.min(amount, freeSpace);
 
         this.energyJournal.updateSnapshots(transaction);
         this.storedEnergy += accepted;
@@ -273,10 +258,7 @@ public final class EnergyComponent {
      * @return фактически извлечённое количество энергии в FE
      * @throws IllegalArgumentException если {@code amount < 0}
      */
-    public int extractEnergy(
-        int amount,
-        TransactionContext transaction
-    )
+    public int extractEnergy(int amount, TransactionContext transaction)
     {
         TransferPreconditions.checkNonNegative(amount);
         if (amount == 0) {
@@ -287,10 +269,7 @@ public final class EnergyComponent {
             return 0;
         }
 
-        int extracted = (int) Math.min(
-            amount,
-            this.storedEnergy
-        );
+        int extracted = (int) Math.min(amount, this.storedEnergy);
 
         this.energyJournal.updateSnapshots(transaction);
         this.storedEnergy -= extracted;
@@ -332,10 +311,7 @@ public final class EnergyComponent {
      * {@code false}, если энергии недостаточно
      * @throws IllegalArgumentException если {@code amount < 0}
      */
-    public boolean tryConsumeForWork(
-        int amount,
-        TransactionContext transaction
-    )
+    public boolean tryConsumeForWork(int amount, TransactionContext transaction)
     {
         TransferPreconditions.checkNonNegative(amount);
 
@@ -376,10 +352,6 @@ public final class EnergyComponent {
      *               диапазона автоматически ограничиваются
      */
     public void restoreStoredEnergy(long amount) {
-        this.storedEnergy = Math.clamp(
-            amount,
-            0,
-            this.capacity
-        );
+        this.storedEnergy = Math.clamp(amount, 0, this.capacity);
     }
 }

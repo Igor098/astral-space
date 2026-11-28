@@ -29,7 +29,7 @@ import ru.greatdragonx.astralspace.common.energy.component.EnergyComponent;
 import ru.greatdragonx.astralspace.common.energy.port.*;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
@@ -77,7 +77,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
     private final EnergyDistributionManager distributionManager;
     private final EnergyComponent energyComponent;
     private final EnergyPortPolicy energyPortPolicy;
-    private final EnergyPushTransfer energyPushTransfer;
+    private final EnergyPushTransferOld energyPushTransfer;
     private final ItemStacksResourceHandler fuelInventory;
     private final Map<EnergyPortId, EnergyPortHandler> outputHandlers = new HashMap<>();
 
@@ -170,7 +170,7 @@ public class CoalGeneratorBlockEntity extends BlockEntity implements MenuProvide
             this::isEnergyOutputPortEnabled
         );
 
-        this.energyPushTransfer = new EnergyPushTransfer(
+        this.energyPushTransfer = new EnergyPushTransferOld(
             this.transferCoordinator,
             this.energyPortPolicy
         );

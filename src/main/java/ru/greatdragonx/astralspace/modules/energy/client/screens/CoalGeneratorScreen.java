@@ -17,7 +17,7 @@ import ru.greatdragonx.astralspace.client.gui.components.GuiStatisticsData;
 import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.PortMode;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.network.SetMachineRedstoneModePayload;
 import ru.greatdragonx.astralspace.modules.energy.blockentities.CoalGeneratorBlockEntity;
 import ru.greatdragonx.astralspace.modules.energy.menus.CoalGeneratorMenu;

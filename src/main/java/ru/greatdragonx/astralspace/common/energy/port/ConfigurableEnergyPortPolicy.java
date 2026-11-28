@@ -72,26 +72,17 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
         Predicate<EnergyPortId> availability
     )
     {
-        Objects.requireNonNull(
-            modeProvider,
-            "Energy modeProvider cannot be null"
-        );
+        Objects.requireNonNull(modeProvider, "Energy modeProvider cannot be null");
 
-        Objects.requireNonNull(
-            availability,
-            "Energy availability cannot be null"
-        );
+        Objects.requireNonNull(availability, "Energy availability cannot be null");
 
         this.allowedModes = Objects.requireNonNull(
-                allowedModes,
-                "Energy allowedModes cannot be null"
-            )
-            .entrySet()
-            .stream()
-            .collect(Collectors.toUnmodifiableMap(
-                Map.Entry::getKey,
-                entry -> copyAllowedModes(entry.getValue())
-            ));
+            allowedModes,
+            "Energy allowedModes cannot be null"
+        ).entrySet().stream().collect(Collectors.toUnmodifiableMap(
+            Map.Entry::getKey,
+            entry -> copyAllowedModes(entry.getValue())
+        ));
         this.modeProvider = modeProvider;
         this.availability = availability;
     }
@@ -108,10 +99,7 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
      */
     @Override
     public EnergyPortMode getMode(@NonNull EnergyPortId portId) {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
         Set<EnergyPortMode> permittedModes = this.allowedModes.get(portId);
 
@@ -145,10 +133,7 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
      */
     @Override
     public boolean isAvailable(@NonNull EnergyPortId portId) {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
         if (!this.allowedModes.containsKey(portId)) {
             return false;
@@ -171,20 +156,11 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
      *                              равен {@code null}
      */
     @Override
-    public boolean canChangeMode(
-        @NonNull EnergyPortId portId,
-        @NonNull EnergyPortMode newMode
-    )
+    public boolean canChangeMode(@NonNull EnergyPortId portId, @NonNull EnergyPortMode newMode)
     {
-        Objects.requireNonNull(
-            portId,
-            "portId cannot be null"
-        );
+        Objects.requireNonNull(portId, "portId cannot be null");
 
-        Objects.requireNonNull(
-            newMode,
-            "newMode cannot be null"
-        );
+        Objects.requireNonNull(newMode, "newMode cannot be null");
 
         Set<EnergyPortMode> permittedModes = this.allowedModes.get(portId);
         if (permittedModes == null) {
@@ -194,14 +170,31 @@ public final class ConfigurableEnergyPortPolicy implements EnergyPortPolicy {
         return permittedModes.contains(newMode);
     }
 
+    /**
+     * Проверяет и создаёт неизменяемую копию
+     * набора допустимых режимов энергетического порта.
+     *
+     * <p>Набор должен содержать хотя бы один режим
+     * и не должен содержать {@code null}.</p>
+     *
+     * <p>Последующие изменения исходного набора
+     * не влияют на возвращаемую коллекцию.</p>
+     *
+     * <p>Порядок элементов возвращаемого набора
+     * не гарантируется.</p>
+     *
+     * @param modes исходный набор допустимых режимов
+     * @return неизменяемый набор допустимых режимов
+     * @throws NullPointerException     если modes равен
+     *                                  {@code null} или
+     *                                  содержит {@code null}
+     * @throws IllegalArgumentException если набор пуст
+     */
     private static @NonNull @Unmodifiable Set<EnergyPortMode> copyAllowedModes(
         Set<EnergyPortMode> modes
     )
     {
-        Objects.requireNonNull(
-            modes,
-            "modes cannot be null"
-        );
+        Objects.requireNonNull(modes, "modes cannot be null");
 
         if (modes.isEmpty()) {
             throw new IllegalArgumentException("Allowed modes cannot be empty");

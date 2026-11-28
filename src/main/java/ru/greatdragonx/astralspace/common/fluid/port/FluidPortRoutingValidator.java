@@ -86,26 +86,17 @@ public final class FluidPortRoutingValidator {
         @NonNull List<FluidTankDefinition> tankDefinitions
     )
     {
-        Objects.requireNonNull(
-            routes,
-            "routes cannot be null"
-        );
-        Objects.requireNonNull(
-            tankDefinitions,
-            "definitions cannot be null"
-        );
+        Objects.requireNonNull(routes, "routes cannot be null");
+        Objects.requireNonNull(tankDefinitions, "definitions cannot be null");
 
         Map<FluidTankId, FluidTankDefinition> definitions = new HashMap<>();
 
         for (FluidTankDefinition definition : tankDefinitions) {
-            FluidTankDefinition previous = definitions.putIfAbsent(
-                definition.id(),
-                definition
-            );
+            FluidTankDefinition previous = definitions.putIfAbsent(definition.id(), definition);
 
             if (previous != null) {
-                throw new IllegalArgumentException("Duplicate fluid tank id '%s'".formatted(definition.id()
-                    .value()));
+                throw new IllegalArgumentException("Duplicate fluid tank id '%s'".formatted(
+                    definition.id().value()));
             }
         }
 
@@ -117,19 +108,13 @@ public final class FluidPortRoutingValidator {
                 portId,
                 route.inputTanks(),
                 definitions,
-                EnumSet.of(
-                    FluidTankRole.INPUT,
-                    FluidTankRole.BIDIRECTIONAL
-                )
+                EnumSet.of(FluidTankRole.INPUT, FluidTankRole.BIDIRECTIONAL)
             );
             validateTankIds(
                 portId,
                 route.outputTanks(),
                 definitions,
-                EnumSet.of(
-                    FluidTankRole.OUTPUT,
-                    FluidTankRole.BIDIRECTIONAL
-                )
+                EnumSet.of(FluidTankRole.OUTPUT, FluidTankRole.BIDIRECTIONAL)
             );
             validateTankIds(
                 portId,
@@ -140,6 +125,38 @@ public final class FluidPortRoutingValidator {
         }
     }
 
+    /**
+     * Проверяет существование и совместимость ролей
+     * резервуаров, указанных в маршруте жидкостного
+     * порта.
+     *
+     * <p>Для каждого идентификатора резервуара
+     * выполняется поиск соответствующего определения
+     * и проверяется принадлежность его роли
+     * множеству допустимых ролей.</p>
+     *
+     * <p>Проверка прекращается при обнаружении
+     * первого неизвестного резервуара или резервуара
+     * с несовместимой ролью.</p>
+     *
+     * <p>Идентификатор порта используется для
+     * формирования диагностических сообщений
+     * при обнаружении некорректной конфигурации.</p>
+     *
+     * <p>Пустой список идентификаторов допускается.
+     * Метод не изменяет переданные коллекции
+     * и определения резервуаров.</p>
+     *
+     * @param portId          идентификатор проверяемого порта
+     * @param tankIds         идентификаторы резервуаров маршрута
+     * @param tankDefinitions определения резервуаров,
+     *                        индексированные по идентификаторам
+     * @param allowedRoles    допустимые роли резервуаров
+     *                        для проверяемого маршрута
+     * @throws IllegalArgumentException если резервуар
+     *                                  отсутствует или
+     *                                  имеет недопустимую роль
+     */
     private static void validateTankIds(
         @NonNull FluidPortId portId,
         @NonNull List<FluidTankId> tankIds,
@@ -150,19 +167,19 @@ public final class FluidPortRoutingValidator {
         for (FluidTankId tankId : tankIds) {
             FluidTankDefinition definition = tankDefinitions.get(tankId);
             if (definition == null) {
-                throw new IllegalArgumentException("Unknown fluid tank '%s' in port '%s'".formatted(
-                    tankId.value(),
+                throw new IllegalArgumentException("Unknown fluid tank '%s' in port '%s'".formatted(tankId.value(),
                     portId.value()
                 ));
             }
 
             FluidTankRole role = definition.role();
             if (!allowedRoles.contains(role)) {
-                throw new IllegalArgumentException("Fluid tank '%s' with role '%s' is not allowed in port '%s'".formatted(
-                    tankId.value(),
-                    role.name(),
-                    portId.value()
-                ));
+                throw new IllegalArgumentException(
+                    "Fluid tank '%s' with role '%s' is not allowed in port '%s'".formatted(
+                        tankId.value(),
+                        role.name(),
+                        portId.value()
+                    ));
             }
         }
     }

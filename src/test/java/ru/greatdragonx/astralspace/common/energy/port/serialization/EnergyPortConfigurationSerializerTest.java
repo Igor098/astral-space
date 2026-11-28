@@ -44,52 +44,28 @@ class EnergyPortConfigurationSerializerTest {
         );
     }
 
-    private @NonNull CompoundTag createPort(
-        String id,
-        String mode
-    )
+    private @NonNull CompoundTag createPort(String id, String mode)
     {
         CompoundTag port = new CompoundTag();
-        port.putString(
-            "id",
-            id
-        );
-        port.putString(
-            "mode",
-            mode
-        );
+        port.putString("id", id);
+        port.putString("mode", mode);
         return port;
     }
 
-    private @NonNull CompoundTag createRoot(
-        Integer version,
-        CompoundTag... portEntries
-    )
+    private @NonNull CompoundTag createRoot(Integer version, CompoundTag... portEntries)
     {
         CompoundTag root = new CompoundTag();
         CompoundTag energy = new CompoundTag();
         ListTag ports = new ListTag();
 
         if (version != null) {
-            energy.putInt(
-                "version",
-                version
-            );
+            energy.putInt("version", version);
         }
 
-        Collections.addAll(
-            ports,
-            portEntries
-        );
+        Collections.addAll(ports, portEntries);
 
-        energy.put(
-            "ports",
-            ports
-        );
-        root.put(
-            "astralspace_energy_ports",
-            energy
-        );
+        energy.put("ports", ports);
+        root.put("astralspace_energy_ports", energy);
 
         return root;
     }
@@ -98,13 +74,7 @@ class EnergyPortConfigurationSerializerTest {
     void shouldWriteVersionAndSinglePort() {
         TagValueOutput output = createOutput();
 
-        EnergyPortConfigurationSerializer.write(
-            output,
-            Map.of(
-                NORTH,
-                EnergyPortMode.OUTPUT
-            )
-        );
+        EnergyPortConfigurationSerializer.write(output, Map.of(NORTH, EnergyPortMode.OUTPUT));
 
         CompoundTag root = output.buildResult();
 
@@ -115,31 +85,10 @@ class EnergyPortConfigurationSerializerTest {
 
         assertAll(
             () -> assertTrue(root.contains("astralspace_energy_ports")),
-            () -> assertEquals(
-                1,
-                energy.getIntOr(
-                    "version",
-                    -1
-                )
-            ),
-            () -> assertEquals(
-                1,
-                ports.size()
-            ),
-            () -> assertEquals(
-                "north",
-                port.getStringOr(
-                    "id",
-                    ""
-                )
-            ),
-            () -> assertEquals(
-                "OUTPUT",
-                port.getStringOr(
-                    "mode",
-                    ""
-                )
-            )
+            () -> assertEquals(1, energy.getIntOr("version", -1)),
+            () -> assertEquals(1, ports.size()),
+            () -> assertEquals("north", port.getStringOr("id", "")),
+            () -> assertEquals("OUTPUT", port.getStringOr("mode", ""))
         );
     }
 
@@ -148,8 +97,7 @@ class EnergyPortConfigurationSerializerTest {
         TagValueOutput output = createOutput();
 
         EnergyPortConfigurationSerializer.write(
-            output,
-            Map.of(
+            output, Map.of(
                 NORTH,
                 EnergyPortMode.INPUT,
                 SOUTH,
@@ -159,8 +107,7 @@ class EnergyPortConfigurationSerializerTest {
             )
         );
 
-        CompoundTag energy = output.buildResult()
-            .getCompoundOrEmpty("astralspace_energy_ports");
+        CompoundTag energy = output.buildResult().getCompoundOrEmpty("astralspace_energy_ports");
 
         ListTag ports = energy.getListOrEmpty("ports");
 
@@ -169,32 +116,13 @@ class EnergyPortConfigurationSerializerTest {
         for (int i = 0; i < ports.size(); i++) {
             CompoundTag port = ports.getCompoundOrEmpty(i);
 
-            actual.put(
-                port.getStringOr(
-                    "id",
-                    ""
-                ),
-                port.getStringOr(
-                    "mode",
-                    ""
-                )
-            );
+            actual.put(port.getStringOr("id", ""), port.getStringOr("mode", ""));
         }
 
         assertAll(
+            () -> assertEquals(3, ports.size()),
             () -> assertEquals(
-                3,
-                ports.size()
-            ),
-            () -> assertEquals(
-                Map.of(
-                    "north",
-                    "INPUT",
-                    "south",
-                    "OUTPUT",
-                    "top",
-                    "DISABLED"
-                ),
+                Map.of("north", "INPUT", "south", "OUTPUT", "top", "DISABLED"),
                 actual
             )
         );
@@ -204,24 +132,13 @@ class EnergyPortConfigurationSerializerTest {
     void shouldHandleEmptyConfiguration() {
         TagValueOutput output = createOutput();
 
-        EnergyPortConfigurationSerializer.write(
-            output,
-            Map.of()
-        );
+        EnergyPortConfigurationSerializer.write(output, Map.of());
 
-        CompoundTag energy = output.buildResult()
-            .getCompoundOrEmpty("astralspace_energy_ports");
+        CompoundTag energy = output.buildResult().getCompoundOrEmpty("astralspace_energy_ports");
 
         assertAll(
-            () -> assertEquals(
-                1,
-                energy.getIntOr(
-                    "version",
-                    -1
-                )
-            ),
-            () -> assertTrue(energy.getListOrEmpty("ports")
-                .isEmpty())
+            () -> assertEquals(1, energy.getIntOr("version", -1)),
+            () -> assertTrue(energy.getListOrEmpty("ports").isEmpty())
         );
     }
 
@@ -232,17 +149,10 @@ class EnergyPortConfigurationSerializerTest {
         assertAll(
             () -> assertThrows(
                 NullPointerException.class,
-                () -> EnergyPortConfigurationSerializer.write(
-                    null,
-                    Map.of()
-                )
-            ),
-            () -> assertThrows(
+                () -> EnergyPortConfigurationSerializer.write(null, Map.of())
+            ), () -> assertThrows(
                 NullPointerException.class,
-                () -> EnergyPortConfigurationSerializer.write(
-                    output,
-                    null
-                )
+                () -> EnergyPortConfigurationSerializer.write(output, null)
             )
         );
     }
@@ -253,39 +163,23 @@ class EnergyPortConfigurationSerializerTest {
 
         Map<EnergyPortId, EnergyPortMode> invalid = new HashMap<>();
 
-        invalid.put(
-            NORTH,
-            EnergyPortMode.OUTPUT
-        );
-        invalid.put(
-            SOUTH,
-            null
-        );
+        invalid.put(NORTH, EnergyPortMode.OUTPUT);
+        invalid.put(SOUTH, null);
 
         assertThrows(
             NullPointerException.class,
-            () -> EnergyPortConfigurationSerializer.write(
-                output,
-                invalid
-            )
+            () -> EnergyPortConfigurationSerializer.write(output, invalid)
         );
 
-        assertFalse(output.buildResult()
-            .contains("astralspace_energy_ports"));
+        assertFalse(output.buildResult().contains("astralspace_energy_ports"));
 
         Map<EnergyPortId, EnergyPortMode> nullKey = new HashMap<>();
 
-        nullKey.put(
-            null,
-            EnergyPortMode.INPUT
-        );
+        nullKey.put(null, EnergyPortMode.INPUT);
 
         assertThrows(
             NullPointerException.class,
-            () -> EnergyPortConfigurationSerializer.write(
-                createOutput(),
-                nullKey
-            )
+            () -> EnergyPortConfigurationSerializer.write(createOutput(), nullKey)
         );
     }
 
@@ -293,40 +187,19 @@ class EnergyPortConfigurationSerializerTest {
     void shouldPreserveUnrelatedDataAndInputMap() {
         TagValueOutput output = createOutput();
 
-        output.putString(
-            "other_data",
-            "preserved"
-        );
+        output.putString("other_data", "preserved");
 
         Map<EnergyPortId, EnergyPortMode> modes = new HashMap<>();
 
-        modes.put(
-            NORTH,
-            EnergyPortMode.INPUT
-        );
+        modes.put(NORTH, EnergyPortMode.INPUT);
 
-        EnergyPortConfigurationSerializer.write(
-            output,
-            modes
-        );
+        EnergyPortConfigurationSerializer.write(output, modes);
 
         CompoundTag root = output.buildResult();
 
         assertAll(
-            () -> assertEquals(
-                "preserved",
-                root.getStringOr(
-                    "other_data",
-                    ""
-                )
-            ),
-            () -> assertEquals(
-                Map.of(
-                    NORTH,
-                    EnergyPortMode.INPUT
-                ),
-                modes
-            )
+            () -> assertEquals("preserved", root.getStringOr("other_data", "")),
+            () -> assertEquals(Map.of(NORTH, EnergyPortMode.INPUT), modes)
         );
     }
 
@@ -344,45 +217,27 @@ class EnergyPortConfigurationSerializerTest {
             EnergyPortMode.DISABLED
         );
 
-        EnergyPortConfigurationSerializer.write(
-            output,
-            expected
-        );
+        EnergyPortConfigurationSerializer.write(output, expected);
 
-        Map<EnergyPortId, EnergyPortMode> actual =
-            EnergyPortConfigurationSerializer.read(createInput(output.buildResult()));
+        Map<EnergyPortId, EnergyPortMode> actual = EnergyPortConfigurationSerializer.read(
+            createInput(output.buildResult()));
 
-        assertEquals(
-            expected,
-            actual
-        );
+        assertEquals(expected, actual);
     }
 
     @Test
     void shouldReturnEmptyWhenSectionIsMissing() {
-        Map<EnergyPortId, EnergyPortMode> actual =
-            EnergyPortConfigurationSerializer.read(createInput(new CompoundTag()));
+        Map<EnergyPortId, EnergyPortMode> actual = EnergyPortConfigurationSerializer.read(
+            createInput(new CompoundTag()));
 
         assertTrue(actual.isEmpty());
     }
 
     @Test
     void shouldRejectUnsupportedOrMissingVersion() {
-        CompoundTag unsupported = createRoot(
-            2,
-            createPort(
-                "north",
-                "INPUT"
-            )
-        );
+        CompoundTag unsupported = createRoot(2, createPort("north", "INPUT"));
 
-        CompoundTag missingVersion = createRoot(
-            null,
-            createPort(
-                "north",
-                "OUTPUT"
-            )
-        );
+        CompoundTag missingVersion = createRoot(null, createPort("north", "OUTPUT"));
 
         assertAll(
             () -> assertTrue(EnergyPortConfigurationSerializer.read(createInput(unsupported))
@@ -396,34 +251,16 @@ class EnergyPortConfigurationSerializerTest {
     void shouldSkipInvalidModesAndPortIds() {
         CompoundTag root = createRoot(
             1,
-            createPort(
-                "north",
-                "INPUT"
-            ),
-            createPort(
-                "south",
-                "BOTH"
-            ),
-            createPort(
-                "top",
-                "output"
-            ),
-            createPort(
-                "",
-                "OUTPUT"
-            ),
-            createPort(
-                " left ",
-                "INPUT"
-            ),
-            createPort(
-                "bottom",
-                "DISABLED"
-            )
+            createPort("north", "INPUT"),
+            createPort("south", "BOTH"),
+            createPort("top", "output"),
+            createPort("", "OUTPUT"),
+            createPort(" left ", "INPUT"),
+            createPort("bottom", "DISABLED")
         );
 
-        Map<EnergyPortId, EnergyPortMode> actual =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> actual = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
         assertEquals(
             Map.of(
@@ -440,109 +277,56 @@ class EnergyPortConfigurationSerializerTest {
     void shouldPreserveFirstValidDuplicate() {
         CompoundTag root = createRoot(
             1,
-            createPort(
-                "north",
-                "OUTPUT"
-            ),
-            createPort(
-                "north",
-                "INPUT"
-            ),
-            createPort(
-                "south",
-                "INPUT"
-            )
+            createPort("north", "OUTPUT"),
+            createPort("north", "INPUT"),
+            createPort("south", "INPUT")
         );
 
-        Map<EnergyPortId, EnergyPortMode> actual =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> actual = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
-        assertEquals(
-            Map.of(
-                NORTH,
-                EnergyPortMode.OUTPUT,
-                SOUTH,
-                EnergyPortMode.INPUT
-            ),
-            actual
-        );
+        assertEquals(Map.of(NORTH, EnergyPortMode.OUTPUT, SOUTH, EnergyPortMode.INPUT), actual);
     }
 
     @Test
     void shouldSkipMissingAndWrongTypedFields() {
         CompoundTag missingMode = new CompoundTag();
-        missingMode.putString(
-            "id",
-            "north"
-        );
+        missingMode.putString("id", "north");
 
         CompoundTag wrongIdType = new CompoundTag();
-        wrongIdType.putInt(
-            "id",
-            123
-        );
-        wrongIdType.putString(
-            "mode",
-            "OUTPUT"
-        );
+        wrongIdType.putInt("id", 123);
+        wrongIdType.putString("mode", "OUTPUT");
 
         CompoundTag wrongModeType = new CompoundTag();
-        wrongModeType.putString(
-            "id",
-            "south"
-        );
-        wrongModeType.putInt(
-            "mode",
-            42
-        );
+        wrongModeType.putString("id", "south");
+        wrongModeType.putInt("mode", 42);
 
         CompoundTag root = createRoot(
             1,
             missingMode,
             wrongIdType,
             wrongModeType,
-            createPort(
-                "top",
-                "OUTPUT"
-            )
+            createPort("top", "OUTPUT")
         );
 
-        Map<EnergyPortId, EnergyPortMode> actual =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> actual = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
-        assertEquals(
-            Map.of(
-                TOP,
-                EnergyPortMode.OUTPUT
-            ),
-            actual
-        );
+        assertEquals(Map.of(TOP, EnergyPortMode.OUTPUT), actual);
     }
 
     @Test
     void shouldReturnImmutableResult() {
-        CompoundTag root = createRoot(
-            1,
-            createPort(
-                "north",
-                "INPUT"
-            )
-        );
+        CompoundTag root = createRoot(1, createPort("north", "INPUT"));
 
-        Map<EnergyPortId, EnergyPortMode> result =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> result = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
         assertAll(
-            () -> assertEquals(
-                EnergyPortMode.INPUT,
-                result.get(NORTH)
-            ),
+            () -> assertEquals(EnergyPortMode.INPUT, result.get(NORTH)),
             () -> assertThrows(
                 UnsupportedOperationException.class,
-                () -> result.put(
-                    SOUTH,
-                    EnergyPortMode.OUTPUT
-                )
+                () -> result.put(SOUTH, EnergyPortMode.OUTPUT)
             )
         );
     }
@@ -566,73 +350,43 @@ class EnergyPortConfigurationSerializerTest {
                 EnergyPortMode.INPUT,
                 TOP,
                 EnergyPortMode.DISABLED
-            ),
-            () -> {
-            }
+            ), ignored -> {
+        }
         );
 
         TagValueOutput output = createOutput();
 
-        EnergyPortConfigurationSerializer.write(
-            output,
-            original.snapshot()
-        );
+        EnergyPortConfigurationSerializer.write(output, original.snapshot());
 
-        Map<EnergyPortId, EnergyPortMode> restored =
-            EnergyPortConfigurationSerializer.read(createInput(output.buildResult()));
+        Map<EnergyPortId, EnergyPortMode> restored = EnergyPortConfigurationSerializer.read(
+            createInput(output.buildResult()));
 
         AtomicInteger notifications = new AtomicInteger();
 
         var loaded = new EnergyPortConfiguration(
-            Map.of(
-                NORTH,
-                EnergyPortMode.INPUT,
-                SOUTH,
-                EnergyPortMode.DISABLED
-            ),
-            notifications::incrementAndGet
+            Map.of(NORTH, EnergyPortMode.INPUT, SOUTH, EnergyPortMode.DISABLED),
+            ignored -> notifications.incrementAndGet()
         );
 
         var policy = new ConfigurableEnergyPortPolicy(
             Map.of(
                 NORTH,
-                Set.of(
-                    EnergyPortMode.INPUT,
-                    EnergyPortMode.OUTPUT
-                ),
+                Set.of(EnergyPortMode.INPUT, EnergyPortMode.OUTPUT),
                 SOUTH,
-                Set.of(
-                    EnergyPortMode.OUTPUT,
-                    EnergyPortMode.DISABLED
-                )
-            ),
-            loaded::getMode,
-            id -> true
+                Set.of(EnergyPortMode.OUTPUT, EnergyPortMode.DISABLED)
+            ), loaded::getMode, id -> true
         );
 
-        loaded.restoreModes(
-            restored,
-            policy
-        );
+        loaded.restoreModes(restored, policy);
 
         assertAll(
-            () -> assertEquals(
-                EnergyPortMode.OUTPUT,
-                loaded.getMode(NORTH)
-            ),
+            () -> assertEquals(EnergyPortMode.OUTPUT, loaded.getMode(NORTH)),
 
-            () -> assertEquals(
-                EnergyPortMode.DISABLED,
-                loaded.getMode(SOUTH)
-            ),
+            () -> assertEquals(EnergyPortMode.DISABLED, loaded.getMode(SOUTH)),
 
-            () -> assertFalse(loaded.snapshot()
-                .containsKey(TOP)),
+            () -> assertFalse(loaded.snapshot().containsKey(TOP)),
 
-            () -> assertEquals(
-                0,
-                notifications.get()
-            )
+            () -> assertEquals(0, notifications.get())
         );
     }
 
@@ -641,17 +395,11 @@ class EnergyPortConfigurationSerializerTest {
         CompoundTag root = new CompoundTag();
         CompoundTag energy = new CompoundTag();
 
-        energy.putInt(
-            "version",
-            1
-        );
-        root.put(
-            "astralspace_energy_ports",
-            energy
-        );
+        energy.putInt("version", 1);
+        root.put("astralspace_energy_ports", energy);
 
-        Map<EnergyPortId, EnergyPortMode> result =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> result = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
         assertTrue(result.isEmpty());
     }
@@ -660,30 +408,14 @@ class EnergyPortConfigurationSerializerTest {
     void shouldAcceptFirstValidEntryAfterInvalidDuplicate() {
         CompoundTag root = createRoot(
             1,
-            createPort(
-                "north",
-                "BOTH"
-            ),
-            createPort(
-                "north",
-                "OUTPUT"
-            ),
-            createPort(
-                "north",
-                "INPUT"
-            )
+            createPort("north", "BOTH"),
+            createPort("north", "OUTPUT"),
+            createPort("north", "INPUT")
         );
 
-        Map<EnergyPortId, EnergyPortMode> result =
-            EnergyPortConfigurationSerializer.read(createInput(root));
+        Map<EnergyPortId, EnergyPortMode> result = EnergyPortConfigurationSerializer.read(
+            createInput(root));
 
-        assertEquals(
-            Map.of(
-                NORTH,
-                EnergyPortMode.OUTPUT
-            ),
-            result
-        );
+        assertEquals(Map.of(NORTH, EnergyPortMode.OUTPUT), result);
     }
 }
-

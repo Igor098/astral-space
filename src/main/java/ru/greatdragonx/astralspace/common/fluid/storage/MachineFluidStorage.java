@@ -106,11 +106,7 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
         @NonNull Runnable changeListener
     )
     {
-        super(
-            validated.values()
-                .size(),
-            1
-        );
+        super(validated.values().size(), 1);
 
         this.definitions = validated.values();
         this.changeListener = Objects.requireNonNull(
@@ -150,15 +146,9 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
      *                                  повторяющиеся
      *                                  идентификаторы
      */
-    public MachineFluidStorage(
-        List<FluidTankDefinition> definitions,
-        Runnable changeListener
-    )
+    public MachineFluidStorage(List<FluidTankDefinition> definitions, Runnable changeListener)
     {
-        this(
-            new ValidatedDefinitions(validateDefinitions(definitions)),
-            changeListener
-        );
+        this(new ValidatedDefinitions(validateDefinitions(definitions)), changeListener);
     }
 
     /**
@@ -183,13 +173,9 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
      *                                   списка определений
      */
     @Override
-    protected int getCapacity(
-        int index,
-        @NonNull FluidResource resource
-    )
+    protected int getCapacity(int index, @NonNull FluidResource resource)
     {
-        return this.definitions.get(index)
-            .capacity();
+        return this.definitions.get(index).capacity();
     }
 
     /**
@@ -218,10 +204,7 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
      *                         до изменения
      */
     @Override
-    protected void onContentsChanged(
-        int index,
-        FluidStack previousContents
-    )
+    protected void onContentsChanged(int index, FluidStack previousContents)
     {
         this.changeListener.run();
     }
@@ -250,34 +233,54 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
      * иначе {@code false}
      */
     @Override
-    public boolean isValid(
-        int index,
-        @NonNull FluidResource resource
-    )
+    public boolean isValid(int index, @NonNull FluidResource resource)
     {
         if (index < 0 || index >= this.definitions.size()) {
             return false;
         }
 
         FluidTankDefinition definition = this.definitions.get(index);
-        return definition.acceptedFluid()
-            .test(resource);
+        return definition.acceptedFluid().test(resource);
     }
 
+    /**
+     * Определяет индекс жидкостного резервуара
+     * по его логическому идентификатору.
+     *
+     * <p>Поиск выполняется последовательно
+     * среди зарегистрированных определений
+     * резервуаров.</p>
+     *
+     * <p>Возвращаемый индекс соответствует позиции
+     * определения резервуара в исходном упорядоченном
+     * списке определений и может использоваться
+     * для обращения к резервуару через API хранилища.</p>
+     *
+     * <p>Индексация начинается с нуля.</p>
+     *
+     * <p>Если резервуар с указанным идентификатором
+     * отсутствует, возвращается пустой
+     * {@link OptionalInt}.</p>
+     *
+     * <p>Метод не изменяет состояние хранилища,
+     * не проверяет содержимое резервуара
+     * и не выполняет передачу жидкости.</p>
+     *
+     * @param tankId логический идентификатор резервуара
+     * @return индекс найденного резервуара или пустой
+     * {@link OptionalInt}, если резервуар отсутствует
+     * @throws NullPointerException если tankId
+     *                              равен {@code null}
+     */
     public OptionalInt findTankIndex(
         @NonNull FluidTankId tankId
     )
     {
-        Objects.requireNonNull(
-            tankId,
-            "tankId cannot be null"
-        );
+        Objects.requireNonNull(tankId, "tankId cannot be null");
 
         for (int index = 0; index < this.definitions.size(); index++) {
             FluidTankDefinition definition = this.definitions.get(index);
-            if (definition.id()
-                .equals(tankId))
-            {
+            if (definition.id().equals(tankId)) {
                 return OptionalInt.of(index);
             }
         }
@@ -319,10 +322,7 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
         @NonNull List<FluidTankDefinition> definitions
     )
     {
-        Objects.requireNonNull(
-            definitions,
-            "definitions cannot be null"
-        );
+        Objects.requireNonNull(definitions, "definitions cannot be null");
 
         if (definitions.isEmpty()) {
             throw new IllegalArgumentException("definitions cannot be empty");
@@ -333,8 +333,7 @@ public class MachineFluidStorage extends FluidStacksResourceHandler {
         for (FluidTankDefinition definition : validatedDefinitions) {
             if (!uniqueTankIds.add(definition.id())) {
                 throw new IllegalArgumentException("Duplicate fluid tank id: " +
-                    definition.id()
-                        .value());
+                    definition.id().value());
             }
         }
 
