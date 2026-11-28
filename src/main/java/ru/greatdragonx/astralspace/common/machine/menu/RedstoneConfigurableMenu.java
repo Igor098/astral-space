@@ -1,7 +1,7 @@
 package ru.greatdragonx.astralspace.common.machine.menu;
 
 import net.minecraft.server.level.ServerPlayer;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 
 /**
  * Контракт меню механизма, поддерживающего

@@ -1,4 +1,4 @@
-package ru.greatdragonx.astralspace.common.machine;
+package ru.greatdragonx.astralspace.common.machine.redstone;
 
 /**
  * Режим управления работой механизма

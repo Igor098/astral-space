@@ -1,4 +1,4 @@
-package ru.greatdragonx.astralspace.common.machine;
+package ru.greatdragonx.astralspace.common.machine.redstone;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static ru.greatdragonx.astralspace.common.machine.RedstoneControlMode.*;
+import static ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode.*;
 
 class RedstoneControlComponentTest {
     @Test

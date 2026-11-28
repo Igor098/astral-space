@@ -41,7 +41,7 @@ import ru.greatdragonx.astralspace.common.fluid.storage.FluidTankRole;
 import ru.greatdragonx.astralspace.common.fluid.storage.MachineFluidStorage;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.serialization.MachinePortDataCodec;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPort;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortId;

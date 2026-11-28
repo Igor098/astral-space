@@ -7,7 +7,7 @@ import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
 import org.jspecify.annotations.NonNull;
 import ru.greatdragonx.astralspace.AstralSpace;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 
 /**
  * Сетевой пакет запроса на изменение режима

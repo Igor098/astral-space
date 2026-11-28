@@ -23,7 +23,7 @@ import ru.greatdragonx.astralspace.client.gui.tabs.*;
 import ru.greatdragonx.astralspace.common.energy.port.EnergyPortMode;
 import ru.greatdragonx.astralspace.common.fluid.port.FluidPortMode;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 import ru.greatdragonx.astralspace.common.machine.visual.VisualPortType;
 import ru.greatdragonx.astralspace.common.network.SetMachineRedstoneModePayload;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlocks;

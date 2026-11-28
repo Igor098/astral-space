@@ -9,7 +9,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import ru.greatdragonx.astralspace.AstralSpace;
 import ru.greatdragonx.astralspace.client.gui.render.GuiTextRenderer;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 
 import java.util.List;
 

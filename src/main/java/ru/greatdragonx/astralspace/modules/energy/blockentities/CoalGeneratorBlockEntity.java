@@ -29,7 +29,7 @@ import ru.greatdragonx.astralspace.common.energy.component.EnergyComponent;
 import ru.greatdragonx.astralspace.common.energy.port.*;
 import ru.greatdragonx.astralspace.common.machine.MachineSide;
 import ru.greatdragonx.astralspace.common.machine.MachineSideDirections;
-import ru.greatdragonx.astralspace.common.machine.RedstoneControlMode;
+import ru.greatdragonx.astralspace.common.machine.redstone.RedstoneControlMode;
 import ru.greatdragonx.astralspace.modules.energy.EnergyBlockEntities;
 import ru.greatdragonx.astralspace.modules.energy.blocks.CoalGeneratorBlock;
 import ru.greatdragonx.astralspace.modules.energy.blocks.state.CoalGeneratorFrontState;
