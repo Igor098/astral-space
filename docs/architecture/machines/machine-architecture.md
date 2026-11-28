@@ -1,7 +1,7 @@
 # Концептуальная архитектура машин
 
 **Статус:** утверждённые принципы, целевая FE-архитектура генераторов и отдельно помеченные будущие возможности.  
-**Актуализировано:** 2026-11-24.  
+**Актуализировано:** 2026-11-28.  
 **Источник:** [реестр ADR](README.md#реестр-решений), [AS-MACHINE-023](decisions/AS-MACHINE-023.md), [AS-MACHINE-024](decisions/AS-MACHINE-024.md), [AS-MACHINE-025](decisions/AS-MACHINE-025.md), [AS-MACHINE-026](decisions/AS-MACHINE-026.md), [AS-MACHINE-027](decisions/AS-MACHINE-027.md), [AS-MACHINE-028](decisions/AS-MACHINE-028.md).
 
 ## Для чего нужна архитектура
@@ -144,3 +144,7 @@ AbstractEnergyMachineBlockEntity
 ## Уточнение композиции редстоун-контроля (2026-11-27)
 
 [AS-MACHINE-028](decisions/AS-MACHINE-028.md) утверждает опциональную независимую подсистему common.machine.redstone: RedstoneControllable — публичный контракт; RedstoneController — координация через runtimeReady/signalSupplier/onModeChanged; RedstoneControlComponent — внутренний режим; RedstoneControlMode — правила; RedstoneControlSerializer — NBT. Поддерживающая машина владеет приватным контроллером и определяет источник и ограничиваемую операцию. Не добавлять обязательный компонент в общую BE/FE-базу, не раскрывать mutable компонент или restore через интерфейс. Не меняет согласованную функциональную и мультиблочную иерархию.
+
+## Граница реализованного после 9.17 (2026-11-28)
+
+Завершён и проверен общий генераторный уровень `AbstractEnergyMachineBlockEntity → AbstractGeneratorBlockEntity`. Целевое дерево Consumer/Storage и мультиблочных специализаций выше не означает наличия этих классов. Базовый генератор предоставляет protected isStructureReady(), isEnergyPortPhysicallyAvailable(point), readRedstoneSignal() и final уведомления onEnergyPortAvailabilityChanged()/onEnergyPortEndpointChanged(id). Он не владеет состоянием сборки или идентичностью хэтчей; временная недоступность не отзывает привязку автоматически, физическая замена требует адресного уведомления. Проверки моделируемой структуры прошли, реальные хэтчи и протокол активации остаются открытыми. Не вводить дополнительные уровни наследования или универсальные компоненты без конкретной потребности. См. [результаты](test-matrix.md), [план](implementation-plan.md).

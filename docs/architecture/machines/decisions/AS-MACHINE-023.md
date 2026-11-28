@@ -1,6 +1,6 @@
 # AS-MACHINE-023 — Общая энергетическая база и генераторный FE-контур
 
-**Статус:** утверждено как целевая архитектура 2026-11-24; реализация базовых классов и разделённых контроллеров ещё впереди.  
+**Статус:** утверждено 2026-11-24; базовый генератор реализован, проверен и опубликован в рабочей ветке 2026-11-28; входящий контур и миграция конкретных машин впереди.  
 **Область:** энергетические BlockEntity, генераторы, FE-порты и производственный тик.  
 **Связанные решения:** [003](AS-MACHINE-003.md), [011](AS-MACHINE-011.md), [024](AS-MACHINE-024.md), [025](AS-MACHINE-025.md); [энергетическая подсистема](../energy-system.md).
 
@@ -301,3 +301,14 @@ private hasServerContext(), isEnergyRuntimeReady(), getCurrentGameTime(), requir
 [AS-MACHINE-028](AS-MACHINE-028.md) уточняет интеграцию 9.12.A.8–9.16: AbstractGeneratorBlockEntity implements RedstoneControllable, владеет private final RedstoneController redstoneController (вместо прямого компонента), создаёт его с this::isEnergyRuntimeReady, this::readRedstoneSignal, this::setChanged. Публичные final методы: getRedstoneControlMode(), boolean changeRedstoneControlMode(@NonNull RedstoneControlMode mode), hasRedstoneSignal(), isRedstoneBlockingOperation(). Старые setRedstoneControlMode и isRedstoneBlockingProduction заменены; getMode и hasSignal сохраняют семантику. protected readRedstoneSignal() остаётся точкой расширения; NBT делегируется RedstoneControlSerializer и controller.restoreMode в 9.17.12. Общая FE-база и GenerationProcess не получают редстоун-зависимости.
 
 tryProduceEnergy() использует isRedstoneBlockingOperation() после проверки структуры и свободного места, до подготовки производства. Первый Push и Pull накопленной FE, второй Push при успешной генерации и остальные правила тика не меняются. Редстоун-политика независима от готовности конструкции. Архитектурное решение утверждено, интеграция предстоит в 9.17.9.
+
+## Итог реализации 9.17–9.20 (2026-11-28)
+
+Актуальный реализованный контракт — финальный `AbstractGeneratorBlockEntity` с Javadoc в рабочей ветке; предыдущие проектные сигнатуры и формулировки статуса являются историческими. Реализация сохраняет разделение FE-базы, процесса и исходящего контура, не включает INPUT и не требует новой универсальной базы.
+
+- onLoad final: проверка обязательного процесса, ServerLevel и !isRemoved(), открытие runtime и согласование доступности/предоставления; при ошибке первоначального согласования закрытие и проброс. setRemoved/onChunkUnloaded закрывают runtime перед super; старые физические привязки отзываются. Временная структура не закрывает runtime.
+- serverTick final вызывается серверным ticker один раз за тик: сброс показателя производства, первый Push, попытка полной порции, hook результата, второй Push только после успеха при остатке бюджета. Порядок проверок tryProduceEnergy: структура, свободное место, редстоун, prepare; полная запись FE, показатель выработки, Completion. При неполной записи IllegalStateException; общей транзакции и автоматического отката всей подготовки нет.
+- onProductionStateUpdated(boolean) вызывается после штатного результата, не исключительно при смене состояния. onEnergyPortConfigurationChanged(id) после сохранения режима, согласования, setChanged и инвалидации. Не вызываются при тихом NBT restore.
+- Снимок exposedEnergyPorts и избирательный отзыв — [024](AS-MACHINE-024.md); актуальный RedstoneControllable — [028](AS-MACHINE-028.md); NBT и границы восстановления — [сохранение](../persistence-and-networking.md). Горячая внешняя модификация NBT не поддерживается; независимый многопоточный доступ и разрушение генератора из энергетических операций в нарушение контракта не поддерживаются.
+
+80/80 unit, 88/88 GameTest; полная регрессия 126/126 по подтверждению разработчика. JavaDoc и тесты опубликованы; точный объём и ограничения — [матрица](../test-matrix.md). Этот результат не означает реализацию миграции Coal/Lava, InputController, настоящих мультиблоков или клиентской интеграции.
